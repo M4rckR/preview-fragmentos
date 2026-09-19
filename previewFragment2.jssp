@@ -436,6 +436,33 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     "FECFINVIGENCIACAMPANIAL": "01/01/1940",
     "MTOOFERTASOL": "3,000"
   };
+
+  // Diccionario traduccion UI
+  var DICCIONARIO_UI = {
+      "CODSUBSEGMENTO": "SEGMENTO",
+      "CODPRODUCTO": "PRODUCTO",
+      "M1N": "CONSUMO",
+      "X1N": "BEX",
+      "TCRCLL": "LATAM Clasica",
+      "TCRORL": "LATAM Oro",
+      "TCRPLL": "LATAM Platinum",
+      "TCRPL1": "LATAM Signature",
+      "TCRBA7": "LATAM Sapphire",
+      "AMXCLL": "Amex Clasica",
+      "AMXGLL": "Amex Oro",
+      "AMXPLL": "Amex Platinum",
+      "AMXGRE": "Amex Black",
+      "TCRLY5": "Qore Clasica",
+      "TCRLY4": "Qore Platinum",
+      "TCRLY3": "Qore Oro",
+      "TCRLY2": "Qore Signature",
+      "TCRLY1": "Qore Infinite"
+  };
+
+  // Función auxiliar para obtener la etiqueta visible
+  function traducirUI(clave) {
+      return DICCIONARIO_UI[clave] || clave;
+  }
   function valorMuestra(k) {
     var v = diccionario[k];
     return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
@@ -797,7 +824,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     c.className = "vars__cab";
     var n = document.createElement("span");
     n.className = "vars__nom";
-    n.textContent = nombre;
+    n.textContent = traducirUI(nombre);
     n.title = nombre;
     var t = document.createElement("span");
     t.className = "vars__tipo";
@@ -815,7 +842,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     seg.setAttribute("role", "group");
     seg.setAttribute("aria-label", nombre);
     var ops = [], i;
-    for (i = 0; i < v.reales.length; i++) ops.push([v.reales[i], v.reales[i]]);
+    for (i = 0; i < v.reales.length; i++) ops.push([v.reales[i], traducirUI(v.reales[i])]);
     ops.push([VAL_OTRO, ETIQ_OTRO]);
     ops.push(["", ETIQ_VACIO]);
     for (i = 0; i < ops.length; i++) {
@@ -823,7 +850,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         var b = document.createElement("button");
         b.type = "button";
         b.textContent = txt;
-        b.title = txt;
+        b.title = val;
         b.setAttribute("aria-pressed", perfil[nombre] === val ? "true" : "false");
         b.onclick = function () { perfil[nombre] = val; pintarEscenario(); pintar(); };
         seg.appendChild(b);
