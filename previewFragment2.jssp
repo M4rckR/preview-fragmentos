@@ -209,8 +209,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
 /* ---------- lienzo ---------- */
 .lienzo { flex:1; min-width:0; overflow:auto; padding:16px; display:flex; justify-content:center; align-items:flex-start; }
-.marco { background:#fff; border:1px solid var(--frame-border); border-radius:4px; overflow:hidden;
-         transform-origin:top center; display:flex; flex-direction:column; }
+.marco { background:#fff; border:1px solid var(--frame-border); border-radius:4px;
+         transform-origin:top center; display:flex; flex-direction:column; flex:none; }
 .marco--muestra { border-top:3px solid var(--muestra-borde); }
 .lienzo__cinta { display:flex; align-items:center; gap:8px; padding:4px 8px; font-size:10px;
                  background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
@@ -626,6 +626,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var TEMPLATES = [], actual = elCombo.getAttribute("data-sel") || "";
   var perfil = {}, det = null, ultimo = null;
   var vista = { w: 700, z: 100, muestra: true, panel: true };
+  var ALTO_VISTA = 3000;   // px; alto del iframe del preview (ver aplicarVista)
   var original = elVista ? decodeURIComponent(elVista.getAttribute("data-html") || "") : "";
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
@@ -1018,7 +1019,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("zval").textContent = vista.z + "%";
     elCintaTxt.textContent = vista.muestra ? "muestra" : "[CAMPOS]";
     elCinta.firstChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
-    elVista.style.height = Math.max(200, window.innerHeight - 190) + "px";
+    // El iframe no se puede medir (sandbox="" lo deja en otro origen), asi que va con un alto
+    // fijo holgado y el scroll lo hace .lienzo, no el iframe.
+    elVista.style.height = ALTO_VISTA + "px";
+    // scale() no achica la caja en el layout: sin esto, con zoom < 100 queda un hueco debajo.
+    elMarco.style.marginBottom = vista.z === 100 ? "" : -Math.round(elMarco.offsetHeight * (1 - vista.z / 100)) + "px";
   }
   function pintar() {
     if (!elVista) return;
