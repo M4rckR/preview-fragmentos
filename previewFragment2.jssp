@@ -28,6 +28,64 @@ var selAttr = selectedFrgId ? String(selectedFrgId) : "";
 // DIAGNOSTICO TEMPORAL: revertir despues de la prueba.
 var diag = selectedFrgId && String(request.parameters.diag) === "1";
 var diagTxt = "";
+// Texto inerte: solo ASCII imprimible y sin < > & " ' (nada de HTML).
+function diagLimpia(v) {
+  return String(v).replace(/[^\x20-\x7e]/g, "?").replace(/[<>&"']/g, "_");
+}
+// Filas de nms:includeView (id | name | label | type) que cumplen cond, sin filtro de @type.
+function diagSeccion(titulo, cond, max) {
+  var out = "\n\n== " + titulo;
+  try {
+    var res = xtk.queryDef.create(
+      <queryDef schema="nms:includeView" operation="select" lineCount={String(max)}>
+        <select>
+          <node expr="@id"/>
+          <node expr="@name"/>
+          <node expr="@label"/>
+          <node expr="@type"/>
+        </select>
+        <where>
+          <condition expr={cond}/>
+        </where>
+      </queryDef>
+    ).ExecuteQuery();
+    var n = 0, ls = [];
+    for each (var r in res.*) {
+      n++;
+      ls.push(diagLimpia(r.@id) + " | " + diagLimpia(r.@name) + " | " + diagLimpia(r.@label) + " | " + diagLimpia(r.@type));
+    }
+    out += " -> " + n + " fila(s)" + (n >= max ? " (tope " + max + ")" : "") + (n ? "\n" + ls.join("\n") : "");
+  } catch (e) {
+    out += " -> ERROR: " + diagLimpia(e).slice(0, 300);
+  }
+  return out;
+}
+// Valores distintos de @type con su cantidad de filas, y 5 filas de ejemplo por cada uno.
+function diagTipos() {
+  var out = "\n\n== TIPOS: @type y cantidad de filas", tipos = [];
+  try {
+    var res = xtk.queryDef.create(
+      <queryDef schema="nms:includeView" operation="select">
+        <select>
+          <node expr="@type"/>
+          <node expr="Count(@id)" alias="@cnt"/>
+        </select>
+        <groupBy>
+          <node expr="@type"/>
+        </groupBy>
+      </queryDef>
+    ).ExecuteQuery();
+    for each (var r in res.*) {
+      var t = String(r.@type), c = String(r.@cnt);
+      out += "\ntype " + diagLimpia(t) + " -> " + (c !== "" ? diagLimpia(c) : "(sin cnt) " + diagLimpia(r.toXMLString()).slice(0, 200));
+      if (/^\d+$/.test(t)) tipos.push(t);
+    }
+  } catch (e) {
+    out += " -> ERROR: " + diagLimpia(e).slice(0, 300);
+  }
+  for (var i = 0; i < tipos.length; i++) out += diagSeccion("Ejemplos de @type=" + tipos[i], "@type=" + tipos[i], 5);
+  return out;
+}
 
 var fragments = null;
 var fragmentHtml = "";
@@ -61,6 +119,15 @@ try {
       }
       diagTxt = "raiz: " + String(dx.name().localName).replace(/[^A-Za-z0-9_:-]/g, "") + "\n" + lineas.join("\n");
     } catch (eDiag) { diagTxt = "diag: no se pudo leer la entidad con toXML()"; }
+    if (diag) {
+      diagTxt += diagSeccion("A) @name LIKE 'VIEW%'", "@name LIKE 'VIEW%'", 20);
+      diagTxt += diagSeccion("B) @name = 'VIEW136'", "@name = 'VIEW136'", 20);
+      diagTxt += diagSeccion("B) @name = 'VIEW140'", "@name = 'VIEW140'", 20);
+      diagTxt += diagSeccion("C) @id = 136", "@id = 136", 20);
+      diagTxt += diagSeccion("C) @id = 140", "@id = 140", 20);
+      diagTxt += diagSeccion("C) @id = 257", "@id = 257", 20);
+      diagTxt += diagTipos();
+    }
     if (fragment) {
       if (fragment.source.html)
         fragmentHtml = fragment.source.html.toString();
