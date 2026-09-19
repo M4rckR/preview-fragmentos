@@ -176,6 +176,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .vars__tipo { font-size:10px; color:var(--text-muted); margin-left:auto; white-space:nowrap; }
 .vars__seg { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.vars__seg--uno { grid-template-columns:1fr; }
 .vars__seg button { font:inherit; font-size:var(--fs-xs); padding:4px 6px; border:1px solid var(--vars-border);
                     background:#fff; color:var(--text); border-radius:var(--radius-chip); cursor:pointer;
                     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -205,7 +206,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                border:1px solid var(--vars-border); border-radius:var(--radius-chip); padding:1px 6px;
                overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ramas__chip--sin { background:var(--warn-bg); color:var(--warn-fg); border-color:rgba(146,64,14,.3); }
-.ramas__chip--todas { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
 
 /* ---------- lienzo ---------- */
 .lienzo { flex:1; min-width:0; overflow:auto; padding:16px; display:flex; justify-content:center; align-items:flex-start; }
@@ -459,7 +459,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       "TCRLY1": "Qore Infinite"
   };
 
-  // Función auxiliar para obtener la etiqueta visible
+  // Funcion auxiliar para obtener la etiqueta visible
   function traducirUI(clave) {
       return DICCIONARIO_UI[clave] || clave;
   }
@@ -625,7 +625,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // ---------------- Estado ----------------
   var TEMPLATES = [], actual = elCombo.getAttribute("data-sel") || "";
   var perfil = {}, det = null, ultimo = null;
-  var vista = { w: 700, z: 100, todas: false, muestra: true, panel: true };
+  var vista = { w: 700, z: 100, muestra: true, panel: true };
   var original = elVista ? decodeURIComponent(elVista.getAttribute("data-html") || "") : "";
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
@@ -651,7 +651,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       k = decodeURIComponent(kv[0]); v = decodeURIComponent((kv[1] || "").replace(/\+/g, " "));
       if (k === "w") { if (v === "375" || v === "700") vista.w = parseInt(v, 10); }
       else if (k === "z") { var z = parseInt(v, 10); if (z >= 50 && z <= 100) vista.z = z; }
-      else if (k === "todas") vista.todas = (v === "1");
       else if (k === "muestra") vista.muestra = (v !== "0");
       else if (k.indexOf("v.") === 0) perfil[k.slice(2)] = v;
     }
@@ -663,7 +662,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var n = det.orden[k];
       q.push("v." + encodeURIComponent(n) + "=" + encodeURIComponent(perfil[n] === undefined ? "" : perfil[n]));
     }
-    if (vista.todas) q.push("todas=1");
     if (!vista.muestra) q.push("muestra=0");
     if (vista.w !== 700) q.push("w=" + vista.w);
     if (vista.z !== 100) q.push("z=" + vista.z);
@@ -798,6 +796,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   function valorPorDefecto(v) { return v.reales.length ? v.reales[0] : VAL_OTRO; }
 
+  // Para variables de tipo "valores" el escenario solo puede ser uno de los valores reales.
+  function normalizarPerfil() {
+    for (var i = 0; i < det.orden.length; i++) {
+      var n = det.orden[i], v = det.vars[n];
+      if (v.tipo !== "valores") continue;
+      var ok = false;
+      for (var j = 0; j < v.reales.length; j++) if (perfil[n] === v.reales[j]) ok = true;
+      if (!ok) perfil[n] = valorPorDefecto(v);
+    }
+  }
+
   function pintarEscenario() {
     elVars.textContent = "";
     if (!det.orden.length) {
@@ -838,13 +847,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     g.className = "vars__g";
     g.appendChild(cabecera(nombre, "valores"));
     var seg = document.createElement("div");
-    seg.className = "vars__seg";
+    seg.className = "vars__seg" + (v.reales.length === 1 ? " vars__seg--uno" : "");
     seg.setAttribute("role", "group");
     seg.setAttribute("aria-label", nombre);
+    // Solo los valores que el template compara de verdad. "(otro valor)" y "(vacio)" caian
+    // siempre en la rama por defecto, que suele estar vacia, y se veia como si no hubiera nada.
     var ops = [], i;
     for (i = 0; i < v.reales.length; i++) ops.push([v.reales[i], traducirUI(v.reales[i])]);
-    ops.push([VAL_OTRO, ETIQ_OTRO]);
-    ops.push(["", ETIQ_VACIO]);
     for (i = 0; i < ops.length; i++) {
       (function (val, txt) {
         var b = document.createElement("button");
@@ -936,24 +945,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       g.className = "ramas__g";
       g.textContent = "Grupo " + elegidas[i].grupo + " \u2192";
       var c = document.createElement("span");
-      c.className = "ramas__chip" + (elegidas[i].sin ? " ramas__chip--sin" : (elegidas[i].todas ? " ramas__chip--todas" : ""));
-      c.textContent = elegidas[i].sin ? "sin rama activa" : (elegidas[i].todas ? "todas las ramas" : elegidas[i].label);
+      c.className = "ramas__chip" + (elegidas[i].sin ? " ramas__chip--sin" : "");
+      c.textContent = elegidas[i].sin ? "sin rama activa" : elegidas[i].label;
       c.title = c.textContent;
       f.appendChild(g); f.appendChild(c);
       elRamas.appendChild(f);
     }
-    var sw = document.createElement("button");
-    sw.type = "button";
-    sw.className = "vars__sw";
-    sw.setAttribute("role", "switch");
-    sw.setAttribute("aria-checked", vista.todas ? "true" : "false");
-    sw.style.marginTop = "8px";
-    var p = document.createElement("span"); p.className = "sw__p";
-    var n = document.createElement("span"); n.className = "sw__n"; n.style.fontFamily = "inherit";
-    n.textContent = "Ver todas las ramas";
-    sw.appendChild(p); sw.appendChild(n);
-    sw.onclick = function () { vista.todas = !vista.todas; pintar(); };
-    elRamas.appendChild(sw);
   }
 
   // ---------------- Avisos y detalle ----------------
@@ -1025,7 +1022,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
   function pintar() {
     if (!elVista) return;
-    var r = podar(original, perfil, { todas: vista.todas, muestra: vista.muestra });
+    var r = podar(original, perfil, { muestra: vista.muestra });
     ultimo = r;
     elVista.srcdoc = r.html;
     var txt = r.elegidas.length ? r.elegidas.length + " grupo(s) condicional(es)" : "guardado en Campaign";
@@ -1047,6 +1044,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       if (perfil[nq] === undefined) perfil[nq] = valorPorDefecto(det.vars[nq]);
     }
     if (lee("muestra") === "0" && location.search.indexOf("muestra=") < 0) vista.muestra = false;
+    normalizarPerfil();
     pintarEscenario();
     pintar();
 
@@ -1061,7 +1059,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     };
     $("restablecer").onclick = function () {
       for (var i = 0; i < det.orden.length; i++) perfil[det.orden[i]] = valorPorDefecto(det.vars[det.orden[i]]);
-      vista.todas = false;
       pintarEscenario();
       pintar();
     };
@@ -1098,7 +1095,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
       else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
       else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
-      else if (ev.key === "t" || ev.key === "T") { vista.todas = !vista.todas; pintar(); }
       else if (ev.key === "Escape" && elModal.className.indexOf("abierto") > 0) cerrarModal();
     };
   }
@@ -1130,7 +1126,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var p = [], i;
     for (i = 0; i < ultimo.elegidas.length; i++) {
       var e = ultimo.elegidas[i];
-      p.push("Grupo " + e.grupo + " \u2192 " + (e.sin ? "sin rama activa" : (e.todas ? "todas" : e.label)));
+      p.push("Grupo " + e.grupo + " \u2192 " + (e.sin ? "sin rama activa" : e.label));
     }
     return p.length ? p.join("; ") : "sin grupos condicionales";
   }
