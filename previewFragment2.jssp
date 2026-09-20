@@ -66,6 +66,25 @@ function frgPendientes(html, enRama) {
   return out;
 }
 
+// Una consulta suelta, para el plan B.
+function frgUno(nombre) {
+  try {
+    var uno = xtk.queryDef.create(
+      <queryDef schema="nms:includeView" operation="select">
+        <select>
+          <node expr="@id"/>
+          <node expr="@name"/>
+          <node expr="source/html"/>
+        </select>
+        <where>
+          <condition expr={"@type=2 and @name = '" + nombre + "'"}/>
+        </where>
+      </queryDef>
+    ).ExecuteQuery();
+    for each (var r1 in uno.*) frgGuarda(r1);
+  } catch (e) {}
+}
+
 // Una sola consulta por pasada para todo el lote.
 function frgTrae(nombres) {
   if (!nombres.length) return;
@@ -87,27 +106,16 @@ function frgTrae(nombres) {
       </queryDef>
     ).ExecuteQuery();
   } catch (e) { res = null; }
-  if (res == null) {                   // sin IN: una consulta por nombre
-    for (i = 0; i < nombres.length; i++) {
-      try {
-        var uno = xtk.queryDef.create(
-          <queryDef schema="nms:includeView" operation="select">
-            <select>
-              <node expr="@id"/>
-              <node expr="@name"/>
-              <node expr="source/html"/>
-            </select>
-            <where>
-              <condition expr={"@type=2 and @name = '" + nombres[i] + "'"}/>
-            </where>
-          </queryDef>
-        ).ExecuteQuery();
-        for each (var r1 in uno.*) frgGuarda(r1);
-      } catch (e2) {}
-    }
-    return;
+  if (res != null) { for each (var r in res.*) frgGuarda(r); }
+  // Plan B, una consulta por nombre. No basta con atrapar la excepcion: si esta
+  // instalacion no resuelve el IN pero tampoco falla, la consulta del lote
+  // devuelve cero filas y los fragmentos quedarian sin resolver en silencio, con
+  // el mismo aviso que si no existieran. Por eso se reintenta todo lo que siga
+  // sin html, venga de un error o de un lote vacio. Un nombre que de verdad no
+  // existe cuesta una consulta de mas y queda cacheado en null: no se repite.
+  for (i = 0; i < nombres.length; i++) {
+    if (frgCache["n_" + nombres[i]] == null) frgUno(nombres[i]);
   }
-  for each (var r in res.*) frgGuarda(r);
 }
 
 function frgGuarda(fila) {
