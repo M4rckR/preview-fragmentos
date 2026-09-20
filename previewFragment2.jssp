@@ -17,8 +17,18 @@
 //     return;
 //   }
 //
-// y, ademas, validar que el operador tenga derecho (hasNamedRight o grupo)
-// antes de escalar. Ver QA-CAMPAIGN.md.
+// TODO (lo define quien administra Campaign en el banco, no se inventa aqui):
+// ademas del login, validar que ESE operador tenga permiso antes de escalar a
+// "neolane". Sin esto, cualquier operador con sesion lee cualquier template.
+// Hay dos formas; quien sepa cual usa el banco solo tiene que poner el nombre:
+//
+//   a) por named right:
+//      if (!hasNamedRight("NOMBRE_DEL_DERECHO")) { response.sendError(403); return; }
+//   b) por pertenencia a un grupo de operadores:
+//      consultar xtk:operator del operador de la sesion y comprobar que este en
+//      el grupo "NOMBRE_DEL_GRUPO"; si no, cortar igual.
+//
+// La comprobacion va ANTES de logonEscalation. Ver QA-CAMPAIGN.md.
 // ==========================================================================
 
 // frgId: solo digitos
@@ -43,6 +53,13 @@ var FRG_PROF_MAX = 5;                  // tope de anidamiento
 var FRG_PESO_MAX = 2 * 1024 * 1024;    // tope del HTML resuelto (bytes aprox.)
 var frgCache = {};                     // "n_" + nombre -> html, o null si no se pudo
 var frgPeso = 0;
+// "n_" + nombre -> como quedo ese fragmento. Resueltos: lote (la consulta con
+// IN), nombre (una consulta suelta), id (hubo que cargar la entidad). Sin
+// resolver: noexiste, peso, ciclo. El cliente lo usa para el aviso y el panel
+// Detalle; de paso dice si esta instalacion de Campaign resuelve el IN.
+// Es por nombre, no por aparicion: si el mismo fragmento se resuelve en un
+// sitio y topa el limite en otro, queda escrito lo ultimo que le paso.
+var frgVia = {};
 
 // El token se arma por partes: los delimitadores de Campaign, escritos literales
 // aqui, cerrarian el bloque de servidor.
@@ -81,7 +98,7 @@ function frgUno(nombre) {
         </where>
       </queryDef>
     ).ExecuteQuery();
-    for each (var r1 in uno.*) frgGuarda(r1);
+    for each (var r1 in uno.*) frgGuarda(r1, "nombre");
   } catch (e) {}
 }
 
@@ -89,7 +106,10 @@ function frgUno(nombre) {
 function frgTrae(nombres) {
   if (!nombres.length) return;
   var i;
-  for (i = 0; i < nombres.length; i++) frgCache["n_" + nombres[i]] = null;
+  for (i = 0; i < nombres.length; i++) {
+    frgCache["n_" + nombres[i]] = null;
+    frgVia["n_" + nombres[i]] = "noexiste";   // hasta que alguna consulta lo traiga
+  }
   var cond = "@type=2 and @name IN ('" + nombres.join("','") + "')";
   var res = null;
   try {
@@ -106,7 +126,7 @@ function frgTrae(nombres) {
       </queryDef>
     ).ExecuteQuery();
   } catch (e) { res = null; }
-  if (res != null) { for each (var r in res.*) frgGuarda(r); }
+  if (res != null) { for each (var r in res.*) frgGuarda(r, "lote"); }
   // Plan B, una consulta por nombre. No basta con atrapar la excepcion: si esta
   // instalacion no resuelve el IN pero tampoco falla, la consulta del lote
   // devuelve cero filas y los fragmentos quedarian sin resolver en silencio, con
@@ -118,7 +138,7 @@ function frgTrae(nombres) {
   }
 }
 
-function frgGuarda(fila) {
+function frgGuarda(fila, via) {
   var n = fila.@name.toString();
   if (n == "") return;
   var html = "";
@@ -126,21 +146,29 @@ function frgGuarda(fila) {
   if (html == "") {                    // la consulta no trajo el memo: se carga la entidad
     try {
       var ent = NLWS.nmsIncludeView.load(fila.@id.toString());
-      if (ent && ent.source.html) html = ent.source.html.toString();
+      if (ent && ent.source.html) { html = ent.source.html.toString(); via = "id"; }
     } catch (e3) { html = ""; }
   }
   frgCache["n_" + n] = html != "" ? html : null;
+  if (html != "") frgVia["n_" + n] = via;
+}
+
+// Se topo el anidamiento: lo que quede dentro no se expande. Se marca igual que
+// el ciclo, porque para quien mira el preview es el mismo caso.
+function frgMarcaProf(html) {
+  var re = frgRegex(), m;
+  while ((m = re.exec(html)) != null) frgVia["n_" + m[1]] = "ciclo";
 }
 
 // enRama: nombres que ya se estan expandiendo mas arriba, para cortar ciclos.
 function frgExpande(html, prof, enRama) {
-  if (prof >= FRG_PROF_MAX) return html;
+  if (prof >= FRG_PROF_MAX) { frgMarcaProf(html); return html; }
   frgTrae(frgPendientes(html, enRama));
   return html.replace(frgRegex(), function (tok, n) {
-    if (enRama["n_" + n]) return tok;               // ciclo
+    if (enRama["n_" + n]) { frgVia["n_" + n] = "ciclo"; return tok; }
     var sub = frgCache["n_" + n];
-    if (!sub) return tok;                           // no existe o sin html
-    if (frgPeso + sub.length > FRG_PESO_MAX) return tok;
+    if (!sub) return tok;                           // ya quedo marcado noexiste
+    if (frgPeso + sub.length > FRG_PESO_MAX) { frgVia["n_" + n] = "peso"; return tok; }
     frgPeso += sub.length;
     var rama = {}, k;
     for (k in enRama) if (enRama.hasOwnProperty(k)) rama[k] = true;
@@ -193,6 +221,15 @@ if (fragments != null) {
 }
 var datosLista = items.join(",");
 var datosHtml = fragmentHtml != "" ? encodeURIComponent(fragmentHtml) : "";
+
+// Traza de los fragmentos, con la misma forma que la lista: "nombre|via,...".
+// No sale nada guardado: el nombre ya paso el filtro de frgPendientes y la via
+// es una de seis palabras que escribe este archivo.
+var vias = [];
+for (var kv in frgVia) {
+  if (frgVia.hasOwnProperty(kv)) vias.push(encodeURIComponent(kv.substring(2)) + "|" + frgVia[kv]);
+}
+var datosFrg = vias.join(",");
 %>
 <!DOCTYPE html>
 <html>
@@ -276,7 +313,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .avisos--error { background:var(--err-bg); color:var(--err-fg); border-bottom-color:rgba(153,27,27,.22); }
 .avisos__b { font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
              border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
-.detalle { flex:none; display:none; gap:24px; padding:10px 12px; background:#fff;
+.detalle { flex:none; display:none; gap:24px; flex-wrap:wrap; padding:10px 12px; background:#fff;
            border-bottom:1px solid var(--linea); font-size:var(--fs-xs); overflow:auto; max-height:200px; }
 .detalle--abierto { display:flex; }
 .detalle__col { flex:1; min-width:180px; }
@@ -443,7 +480,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
              `sh lint.sh` falla si ese valor aparece en cualquier parte del archivo. -->
         <iframe id="vista" width="700" height="100%" sandbox="allow-same-origin" referrerpolicy="no-referrer"
                 title="Vista del template"
-                data-id="<%= selAttr %>" data-html="<%= datosHtml %>"></iframe>
+                data-id="<%= selAttr %>" data-html="<%= datosHtml %>" data-frg="<%= datosFrg %>"></iframe>
       </div>
       <% } else { %>
       <div class="espera" id="espera">Elige un template.</div>
@@ -471,6 +508,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   // ---------------- Logica pura (testeable sin DOM) ----------------
   // BEGIN-PODA
+  // Traza que manda el servidor: nombre del fragmento -> como quedo. Se llena
+  // una vez al cargar la pagina (cargarFrgVia) y no cambia al podar.
+  var FRG_VIA = {};
+  function frgMotivo(n) {
+    var v = FRG_VIA[n];
+    if (v === "peso") return "se cort\u00f3 por tama\u00f1o";
+    if (v === "ciclo") return "ciclo o profundidad";
+    return "no existe";
+  }
   // Los delimitadores se arman por partes para que el servidor no los tome por codigo.
   var O = "<" + "%", C = "%" + ">";
   function rx(s, f) { return new RegExp(s, f || "g"); }
@@ -661,9 +707,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       });
     out = out.replace(rx(O + "@\\s*include\\s+fragment\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
       function (m, n) {
-        anota(includes, n);
+        var motivo = frgMotivo(n);
+        anota(includes, n + " - " + motivo);
         return "<div style='font:11px Arial,sans-serif;background:#fef3c7;color:#92400e;padding:6px 8px;text-align:center;'>[fragmento " +
-               esc(n) + " no resuelto]</div>";
+               esc(n) + " no resuelto: " + esc(motivo) + "]</div>";
       });
     out = out.replace(rx(O + "=([\\s\\S]*?)" + C),
       function (m, e) {
@@ -781,6 +828,22 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var id = decodeURIComponent(p[0]), nom = decodeURIComponent(p[1] || "");
       TEMPLATES.push({ id: id, nom: nom, k: norm(nom) });
       if (id === actual) { elBuscar.value = nom; elComboId.textContent = id; }
+    }
+  })();
+
+  // Traza de fragmentos del servidor: llena FRG_VIA y deja aparte los que si se
+  // resolvieron, con el camino que los trajo, para verlos en el panel Detalle.
+  var FRG_OK = [];
+  (function cargarFrgVia() {
+    if (!elVista) return;
+    var CAMINO = { lote: "consulta por lote (IN)", nombre: "consulta suelta por nombre", id: "carga por id" };
+    var lista = (elVista.getAttribute("data-frg") || "").split(",");
+    for (var i = 0; i < lista.length; i++) {
+      if (!lista[i]) continue;
+      var p = lista[i].split("|");
+      var n = decodeURIComponent(p[0]), via = p[1] || "";
+      FRG_VIA[n] = via;
+      if (CAMINO[via]) FRG_OK.push(n + " - " + CAMINO[via]);
     }
   })();
 
@@ -1102,11 +1165,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var partes = [];
     if (r.noEval) partes.push(r.noEval + " condici\u00f3n(es) no evaluable(s): se omiti\u00f3 esa rama.");
     if (r.includes.length) partes.push(r.includes.length + " fragmento(s) no resuelto(s).");
-    if (!partes.length && !r.sinValor.length) { elAvisos.hidden = true; cerrarDetalle(); return; }
+    // La barra tambien sale cuando todo fue bien pero hubo fragmentos: es la
+    // unica forma de abrir el Detalle y ver por que camino los trajo el servidor.
+    if (!partes.length && !r.sinValor.length && !FRG_OK.length) { elAvisos.hidden = true; cerrarDetalle(); return; }
     elAvisos.hidden = false;
     elAvisos.className = "avisos";
     var s = document.createElement("span");
-    s.textContent = partes.length ? partes.join(" \u00b7 ") : r.sinValor.length + " token(s) sin valor de muestra.";
+    var suave = r.sinValor.length
+      ? r.sinValor.length + " token(s) sin valor de muestra."
+      : FRG_OK.length + " fragmento(s) resuelto(s) en el servidor.";
+    s.textContent = partes.length ? partes.join(" \u00b7 ") : suave;
     elAvisos.appendChild(s);
     var b = document.createElement("button");
     b.type = "button";
@@ -1145,6 +1213,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elDetalle.className = "detalle detalle--abierto";
     elDetalle.appendChild(columna("Condiciones no evaluables", r.noEvalTextos, "ninguna"));
     elDetalle.appendChild(columna("Fragmentos no resueltos", r.includes, "ninguno"));
+    elDetalle.appendChild(columna("Fragmentos resueltos", FRG_OK, "ninguno"));
     elDetalle.appendChild(columna("Tokens sin valor de muestra", r.sinValor, "ninguno"));
   }
 

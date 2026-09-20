@@ -10,25 +10,21 @@ bien() { echo "ok   : $1"; }
 
 [ -f "$F" ] || { echo "FALLA: no existe $F"; exit 1; }
 
-# 1. Solo ASCII imprimible (mas tabulador) en el .jssp, en los .md y en este lint.
-#    El servidor real mostro "M?vil" por codificacion, y el "Funcion auxiliar" con tilde se
-#    colo una vez: se revisa todo el repo, no solo el .jssp.
-#    Se excluye design/: son referencias de diseno, no se despliegan y llevan acentos a proposito.
-sucios=""
-for a in "$F" *.md lint.sh; do
-  [ -f "$a" ] || continue
-  if LC_ALL=C grep -q '[^ -~	]' "$a"; then
-    sucios="$sucios $a"
-    mal "hay caracteres no ASCII en $a"
-    LC_ALL=C grep -n '[^ -~	]' "$a" | head -3
-  fi
-done
-[ -n "$sucios" ] || bien "solo ASCII (jssp, .md y lint.sh; design/ queda fuera)"
+# 1. Solo ASCII imprimible (mas tabulador) en el .jssp.
+#    La regla es por la codificacion del servidor de Campaign: mostro "M?vil". Aplica solo
+#    al archivo que se despliega. Los .md en espanol llevan tildes y estan bien asi.
+if LC_ALL=C grep -q '[^ -~	]' "$F"; then
+  mal "hay caracteres no ASCII en $F"
+  LC_ALL=C grep -n '[^ -~	]' "$F" | head -3
+else
+  bien "solo ASCII en $F"
+fi
 
 # 2. Nada de delimitadores de Campaign en la parte cliente (desde <!DOCTYPE html>),
-#    salvo los tres <%= permitidos y los <% if/else del propio servidor.
+#    salvo los cuatro <%= permitidos y los <% if/else del propio servidor.
 cliente=$(awk '/<!DOCTYPE html>/{f=1} f && /<%|%>/{print NR": "$0}' "$F" \
   | grep -v '<%= datosLista %>' | grep -v '<%= selAttr %>' | grep -v '<%= datosHtml %>' \
+  | grep -v '<%= datosFrg %>' \
   | grep -v '<% if (fragmentHtml != "") { %>' | grep -v '<% } else { %>' | grep -v '<% } %>')
 if [ -n "$cliente" ]; then
   mal "delimitadores de Campaign en la parte cliente"

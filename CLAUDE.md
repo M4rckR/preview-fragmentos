@@ -38,7 +38,9 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
    en JS (`\u00bf` = ?, `\u2713` = check). El servidor real mostro `M?vil` por codificacion.
 3. **Nada guardado se imprime con `<%= %>`.** Los datos viajan con `encodeURIComponent` en
    atributos `data-*` y el cliente los decodifica; se insertan con `textContent` o `srcdoc`.
-   Solo se permiten `<%= datosLista %>`, `<%= selAttr %>` y `<%= datosHtml %>`.
+   Solo se permiten `<%= datosLista %>`, `<%= selAttr %>`, `<%= datosHtml %>` y
+   `<%= datosFrg %>` (la traza de fragmentos: nombres que ya pasaron el filtro
+   `/^[A-Za-z0-9_-]+$/` y una de seis palabras que escribe el propio archivo).
    (Evidencia: al escapar a mano, el HTML se veia como texto; `<%=` parece escapar por si solo.)
 4. **El iframe del preview lleva `sandbox="allow-same-origin"` y nada mas.** El contenido guardado
    no es confiable. `allow-same-origin` esta solo para que la pagina pueda leer el alto real del
@@ -76,7 +78,13 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
     lista el buscador), **2** fragmentos. La resolucion filtra por `@type=2`; un template puede
     llamarse igual (el 11104969 se llama `PTLL_MDP_0017_...`).
   - El HTML del fragmento entra tal cual, con sus condicionales y tokens: los poda el cliente.
-  - Un token que no se resuelve se deja intacto -> recuadro amarillo y panel Detalle.
+  - Un token que no se resuelve se deja intacto -> recuadro amarillo y panel Detalle,
+    con la causa: «no existe», «se cortó por tamaño» o «ciclo o profundidad».
+  - La consulta por lote usa `@name IN (...)`. El plan B (una consulta por nombre) se
+    dispara **por resultado, no por excepción**: si una instalación no resuelve el `IN`
+    pero tampoco falla, devuelve cero filas y todo quedaría sin resolver en silencio.
+    El panel Detalle dice por qué camino vino cada fragmento (lote / nombre / id), que es
+    la forma de saber si el `IN` sirve en esa versión de Campaign.
 - Condiciones no evaluables cuentan en `noEval`, se salta esa rama y se listan en el panel Detalle.
 - Workfront envia `{ templateId, nombreTemplate, htmlFinal, fechaEnvio }`; `htmlFinal` es lo que se
   ve en pantalla (escenario aplicado y, si esta activo, con valores de muestra).
