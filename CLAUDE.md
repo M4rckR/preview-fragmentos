@@ -19,6 +19,12 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
   buscador de templates, panel de escenario, ramas activas, datos de muestra, zoom, avisos con
   detalle, Workfront con dialogo propio, estado en la URL y atajos. Ver `CHANGELOG.md`.
 - **Nunca se ha visto renderizada**: ni en un navegador ni dentro de Campaign.
+- **Mientras el login siga fuera, este repo NO vuelve a ser publico.** Paso a privado el
+  2026-09-20 por esto. La cabecera del `.jssp` dice que la pagina no exige sesion y que corre
+  con `logonEscalation("neolane")` (administrador): publicarla es dar media entrada, y el
+  `OBSERVACIONES.json` lo deja por escrito junto con el host de stage12 y la nomenclatura
+  interna. Antes de volver a ponerlo publico hay que restaurar el login **y** la validacion
+  por operador (ver el TODO al inicio del `.jssp`).
 - **El `.jssp` esta SIN login**, a pedido, para poder probar. El bloque de `checkAuthentication`
   quedo comentado al inicio del archivo. No lo borres ni lo "limpies": hay que volver a ponerlo
   antes de dejarlo fijo, junto con la validacion por operador antes del escalamiento.
