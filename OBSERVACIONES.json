@@ -1,0 +1,138 @@
+{
+  "revision": {
+    "fecha": "2026-09-19",
+    "entorno": "Adobe Campaign stage12, /cus/previewFragment.jssp",
+    "como": "navegador real, 1440x900 y 1024x800",
+    "template": "CEF-TASAMEJORADA-BMO (11157592)",
+    "version_revisada": "repo M4rckR/preview-fragmentos @ main, con DICCIONARIO_UI"
+  },
+  "funciona_bien": [
+    "Buscador: 500 templates, filtrado en ~2 ms, resaltado de coincidencia, id visible en duplicados.",
+    "DICCIONARIO_UI: se lee SEGMENTO / CONSUMO / BEX en vez de CODSUBSEGMENTO / M1N / X1N.",
+    "agrupar() acerto: junto las tres banderas como DES...EENNPRINCIPAL con interruptor 'todos' en estado parcial.",
+    "Cambiar a BEX da 'Banner - Bex' + 'Variant - 2'; Restablecer y el modo [CAMPOS] responden.",
+    "Panel Detalle correcto: 1 fragmento sin resolver (VIEW140) y 3 tokens sin valor (CTDMESPLAZO, MTOCUOTAMENSUALSOL, TEA).",
+    "A 1024 px no hay desborde horizontal; la barra se reacomoda en 4 filas."
+  ],
+  "pendientes": [
+    {
+      "id": 1,
+      "gravedad": "alta",
+      "titulo": "El email no se puede ver completo",
+      "detalle": "El iframe usa alto fijo (innerHeight - 190). A 1024 px queda en 439 px mientras el email mide ~2694 px: solo se ve el banner. El scroll ocurre DENTRO del iframe y con sandbox=\"\" no se puede medir el contenido para ajustarlo.",
+      "medido": {
+        "iframe_alto_1440": "689px",
+        "iframe_alto_1024": "439px",
+        "email_alto_real": "2694px"
+      },
+      "idea": "Que el iframe tome todo el alto disponible y el scroll lo haga el lienzo, o darle un alto fijo grande (2000-3000 px) y dejar que el lienzo scrollee.",
+      "estado": "resuelto por el commit del scroll + la medicion con allow-same-origin; falta verificar en Campaign"
+    },
+    {
+      "id": 2,
+      "gravedad": "media",
+      "titulo": "La cinta duplica el texto",
+      "detalle": "Se ve '◆ Datos de muestra (ficticios) ◆ Datos de muestra (ficticios) muestra'. En aplicarVista se hace elCinta.firstChild.textContent = ..., pero firstChild es un nodo de texto con espacios, no el <b>.",
+      "idea": "Darle un id al <b> y escribir ahi.",
+      "estado": "abierto"
+    },
+    {
+      "id": 3,
+      "gravedad": "media",
+      "titulo": "El visor se ve en blanco varios segundos al cargar",
+      "detalle": "Mientras bajan las imagenes del CDN el marco queda blanco y parece roto. En la revision hizo perder tiempo persiguiendo un bug inexistente. Puede haber mejorado con la medicion del alto, que remide al cargar las imagenes: verificar.",
+      "idea": "Estado 'cargando' en el marco hasta el load del iframe.",
+      "estado": "abierto"
+    },
+    {
+      "id": 4,
+      "gravedad": "media",
+      "titulo": "Ocultar el panel no tiene vuelta",
+      "detalle": "El boton ◀ pone panel.hidden = true y no queda forma de reabrirlo sin recargar.",
+      "idea": "Convertirlo en alternar, con un boton visible cuando esta oculto.",
+      "estado": "abierto"
+    },
+    {
+      "id": 5,
+      "gravedad": "baja",
+      "titulo": "Con zoom queda un hueco a la derecha",
+      "detalle": "transform: scale() encoge el marco pero no el espacio que ocupa, asi que el lienzo no se reajusta.",
+      "idea": "Compensar con margin negativo o usar zoom sobre el ancho real.",
+      "estado": "resuelto: se compensa el scale() con margin-bottom; falta verificar en Campaign"
+    },
+    {
+      "id": 6,
+      "gravedad": "media",
+      "titulo": "Caracter no ASCII en el comentario del diccionario",
+      "detalle": "Decia 'Funcion auxiliar' con tilde. Rompe la regla 2 (solo ASCII), la misma que produjo el 'M?vil'.",
+      "estado": "corregido 2026-09-19"
+    },
+    {
+      "id": 7,
+      "gravedad": "baja",
+      "titulo": "La traduccion de DICCIONARIO_UI esta a medias",
+      "detalle": "Solo se aplica en la cabecera de la caja y en los botones de valores. Siguen crudos: los interruptores de presencia (n.textContent = nombre), la etiqueta del grupo que arma agrupar(), y el resumen del dialogo de Workfront (resumenEscenario muestra CODSUBSEGMENTO=M1N mientras la UI dice SEGMENTO=CONSUMO).",
+      "estado": "abierto"
+    },
+    {
+      "id": 8,
+      "gravedad": "alta",
+      "titulo": "Sigue sin login y sin validacion por operador",
+      "detalle": "Cualquiera con la URL lista y lee los 500 templates con el operador neolane. El bloque de login esta comentado al inicio del .jssp.",
+      "estado": "abierto, a proposito para probar"
+    },
+    {
+      "id": 9,
+      "gravedad": "media",
+      "titulo": "DICCIONARIO_UI expone nomenclatura interna en repo publico",
+      "detalle": "Incluye la tabla de subsegmentos y productos de tarjeta (M1N, X1N, TCRPLL, AMXGRE, TCRLY1...). El repo es publico. El repo paso a publico el 2026-09-19.",
+      "idea": "Sacarlo del repo o pedir visto bueno al area.",
+      "estado": "abierto"
+    },
+    {
+      "id": 10,
+      "gravedad": "media",
+      "titulo": "Fragmentos sin resolver",
+      "detalle": "Los <%@ include fragment=\"VIEWnnn\" %> se ven como recuadro amarillo. En el template revisado era VIEW140, el pie de la rama Consumo.",
+      "idea": "Consultar nms:includeView por nombre en el servidor.",
+      "estado": "resuelto por frgResuelve() en el servidor (campo @name, @type=2); falta verificar en Campaign"
+    },
+    {
+      "id": 11,
+      "gravedad": "desconocida",
+      "titulo": "Workfront sin probar contra el webhook real",
+      "detalle": "Con WORKFRONT_URL vacia el boton sale deshabilitado, como se espera. Falta probar CORS/CSP desde el dominio de Campaign.",
+      "estado": "abierto"
+    },
+    {
+      "id": 12,
+      "gravedad": "baja",
+      "titulo": "El aviso de fragmento no distingue la causa",
+      "detalle": "El recuadro amarillo dice 'no resuelto' tanto si el fragmento no existe como si se corto por el tope de 2 MB o por ciclo/profundidad.",
+      "estado": "en curso: se pidió distinguir las tres causas en el panel Detalle"
+    },
+    {
+      "id": 13,
+      "gravedad": "media",
+      "titulo": "El IN del lote puede devolver 0 filas sin lanzar excepcion",
+      "detalle": "frgTrae solo cae al plan B si la consulta lanza excepcion. Si Campaign acepta la sintaxis pero devuelve 0 filas, todos los tokens quedan sin resolver y parece que los fragmentos no existen.",
+      "estado": "en curso: se pidió fallback por conteo y registro del camino usado"
+    },
+    {
+      "id": 14,
+      "gravedad": "cerrado",
+      "titulo": "Resolver los bloques de personalizacion type 0",
+      "detalle": "Se evaluó y se descartó: no guardan HTML final sino codigo de Campaign, que la poda mostraria entre corchetes o partido. El diccionario de valores de muestra da mejor resultado.",
+      "estado": "cerrado 2026-09-19, no se hace"
+    }
+  ],
+  "cambios_pedidos_2026_09_19": [
+    "Quitado 'Ver todas las ramas' (interruptor, estado vista.todas, parametro todas=1 de la URL y atajo T).",
+    "El segmentado de valores ya no muestra '(otro valor)' ni '(vacio)': solo los valores que el template compara. Caian siempre en la rama por defecto, que suele estar vacia, y parecia que no se mostraba nada.",
+    "Con un solo valor, el segmentado pasa a una columna (.vars__seg--uno).",
+    "normalizarPerfil(): si la URL trae un valor que no existe, se corrige al primero real.",
+    "Resolucion de fragmentos VIEWnnn en el servidor: campo @name, filtrando @type=2. VIEWnnn NO es 'VIEW'+id. type 0 = bloques Adobe, 1 = templates, 2 = fragmentos.",
+    "Alto del preview: scroll en el lienzo y medicion real con sandbox='allow-same-origin' (sin permiso de scripts), con ALTO_VISTA de respaldo.",
+    "lint.sh con las reglas duras. ASCII solo sobre el .jssp: los .md en espanol llevan tildes."
+  ]
+}
