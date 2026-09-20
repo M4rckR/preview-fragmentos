@@ -62,7 +62,16 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
 - **Valores de muestra**: los tokens `<%= targetData.X %>` / `recipient.X` y
   `<%@ include view='n' %>` se reemplazan por el valor del `diccionario` si existe; si no, se ven
   como `[X]`. El interruptor "muestra / [CAMPOS]" apaga el reemplazo.
-- `<%@ include fragment="VIEWnnn" %>` -> recuadro amarillo "no resuelto" (limitacion conocida).
+- `<%@ include fragment="VIEWnnn" %>` se resuelve **en el servidor** (`frgResuelve`): se sustituye
+  por el `source.html` del `nms:includeView` con ese `@name`, de forma recursiva (tope 5 niveles,
+  corte de ciclos, tope de ~2 MB). Lo que aprendio stage12 y no se debe volver a perder:
+  - El nombre del token es el **`@name`**, NO el `@id`: `VIEWnnn` es autogenerado con su propio
+    contador (`@id=136` no existe; `VIEW136` es el id 11034018).
+  - `@type` separa la tabla: **0** bloques de personalizacion de Adobe, **1** templates (los que
+    lista el buscador), **2** fragmentos. La resolucion filtra por `@type=2`; un template puede
+    llamarse igual (el 11104969 se llama `PTLL_MDP_0017_...`).
+  - El HTML del fragmento entra tal cual, con sus condicionales y tokens: los poda el cliente.
+  - Un token que no se resuelve se deja intacto -> recuadro amarillo y panel Detalle.
 - Condiciones no evaluables cuentan en `noEval`, se salta esa rama y se listan en el panel Detalle.
 - Workfront envia `{ templateId, nombreTemplate, htmlFinal, fechaEnvio }`; `htmlFinal` es lo que se
   ve en pantalla (escenario aplicado y, si esta activo, con valores de muestra).
@@ -78,7 +87,5 @@ Los tokens viven como variables CSS en `:root`; usalas, no pongas colores suelto
 - El `.jssp` fue **reconstruido** a partir de una version pegada en el chat a la que le faltaban los
   `*` y `\`. Si aparece el archivo real exportado de Campaign, comparar antes de seguir.
 - Sin login y sin validacion por operador antes del escalamiento.
-- Los `<%@ include fragment %>` no se resuelven. Resolverlos requiere consultar `nms:includeView`
-  por nombre en el servidor.
 - Workfront puede fallar por CORS/CSP desde el dominio de Campaign; sin probarlo no se sabe.
 - Preguntas abiertas del handoff: al final de `design/handoff-legible.html`.

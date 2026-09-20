@@ -26,6 +26,126 @@ var selectedFrgId = request.parameters.frgId;
 if (selectedFrgId && !/^\d+$/.test(String(selectedFrgId))) selectedFrgId = null;
 var selAttr = selectedFrgId ? String(selectedFrgId) : "";
 
+
+// ==========================================================================
+// Resolucion de los tokens include fragment="VIEWnnn" (lo aprendido en stage12)
+// - El nombre del token (VIEW136) es el @name de nms:includeView, NO el @id:
+//   VIEWnnn es un nombre autogenerado con su propio contador (@id=136 no existe).
+// - @type separa la tabla: 0 = bloques de personalizacion de Adobe (Greetings...),
+//   1 = templates (los que lista el buscador), 2 = fragmentos. Por eso aqui se
+//   filtra por @type=2: un template puede llamarse igual y no es el que se busca.
+// - El HTML del fragmento entra tal cual, con sus condicionales y sus tokens:
+//   la poda del cliente los procesa despues.
+// Un token que no se pueda resolver se deja intacto: el cliente lo pinta como
+// recuadro amarillo y lo lista en el panel Detalle.
+// ==========================================================================
+var FRG_PROF_MAX = 5;                  // tope de anidamiento
+var FRG_PESO_MAX = 2 * 1024 * 1024;    // tope del HTML resuelto (bytes aprox.)
+var frgCache = {};                     // "n_" + nombre -> html, o null si no se pudo
+var frgPeso = 0;
+
+// El token se arma por partes: los delimitadores de Campaign, escritos literales
+// aqui, cerrarian el bloque de servidor.
+function frgRegex() {
+  var O = "<" + "%", C = "%" + ">";
+  return new RegExp(O + "@\\s*include\\s+fragment\\s*=\\s*[\"']([^\"']+)[\"']\\s*" + C, "g");
+}
+
+// Nombres pendientes de traer. Solo se aceptan nombres simples: el nombre entra
+// en la condicion de la consulta.
+function frgPendientes(html, enRama) {
+  var re = frgRegex(), m, vistos = {}, out = [];
+  while ((m = re.exec(html)) != null) {
+    var n = m[1];
+    if (!/^[A-Za-z0-9_-]+$/.test(n)) continue;
+    if (enRama["n_" + n] || vistos["n_" + n]) continue;
+    if (frgCache.hasOwnProperty("n_" + n)) continue;
+    vistos["n_" + n] = true;
+    out.push(n);
+  }
+  return out;
+}
+
+// Una sola consulta por pasada para todo el lote.
+function frgTrae(nombres) {
+  if (!nombres.length) return;
+  var i;
+  for (i = 0; i < nombres.length; i++) frgCache["n_" + nombres[i]] = null;
+  var cond = "@type=2 and @name IN ('" + nombres.join("','") + "')";
+  var res = null;
+  try {
+    res = xtk.queryDef.create(
+      <queryDef schema="nms:includeView" operation="select">
+        <select>
+          <node expr="@id"/>
+          <node expr="@name"/>
+          <node expr="source/html"/>
+        </select>
+        <where>
+          <condition expr={cond}/>
+        </where>
+      </queryDef>
+    ).ExecuteQuery();
+  } catch (e) { res = null; }
+  if (res == null) {                   // sin IN: una consulta por nombre
+    for (i = 0; i < nombres.length; i++) {
+      try {
+        var uno = xtk.queryDef.create(
+          <queryDef schema="nms:includeView" operation="select">
+            <select>
+              <node expr="@id"/>
+              <node expr="@name"/>
+              <node expr="source/html"/>
+            </select>
+            <where>
+              <condition expr={"@type=2 and @name = '" + nombres[i] + "'"}/>
+            </where>
+          </queryDef>
+        ).ExecuteQuery();
+        for each (var r1 in uno.*) frgGuarda(r1);
+      } catch (e2) {}
+    }
+    return;
+  }
+  for each (var r in res.*) frgGuarda(r);
+}
+
+function frgGuarda(fila) {
+  var n = fila.@name.toString();
+  if (n == "") return;
+  var html = "";
+  try { html = fila.source.html.toString(); } catch (e) { html = ""; }
+  if (html == "") {                    // la consulta no trajo el memo: se carga la entidad
+    try {
+      var ent = NLWS.nmsIncludeView.load(fila.@id.toString());
+      if (ent && ent.source.html) html = ent.source.html.toString();
+    } catch (e3) { html = ""; }
+  }
+  frgCache["n_" + n] = html != "" ? html : null;
+}
+
+// enRama: nombres que ya se estan expandiendo mas arriba, para cortar ciclos.
+function frgExpande(html, prof, enRama) {
+  if (prof >= FRG_PROF_MAX) return html;
+  frgTrae(frgPendientes(html, enRama));
+  return html.replace(frgRegex(), function (tok, n) {
+    if (enRama["n_" + n]) return tok;               // ciclo
+    var sub = frgCache["n_" + n];
+    if (!sub) return tok;                           // no existe o sin html
+    if (frgPeso + sub.length > FRG_PESO_MAX) return tok;
+    frgPeso += sub.length;
+    var rama = {}, k;
+    for (k in enRama) if (enRama.hasOwnProperty(k)) rama[k] = true;
+    rama["n_" + n] = true;
+    return frgExpande(sub, prof + 1, rama);
+  });
+}
+
+function frgResuelve(html) {
+  frgPeso = html.length;
+  try { return frgExpande(html, 0, {}); } catch (e) { return html; }
+}
+
 var fragments = null;
 var fragmentHtml = "";
 var org_ctx = logonEscalation("neolane");   // fuera del try
@@ -45,7 +165,7 @@ try {
     var fragment = NLWS.nmsIncludeView.load(selectedFrgId);
     if (fragment) {
       if (fragment.source.html)
-        fragmentHtml = fragment.source.html.toString();
+        fragmentHtml = frgResuelve(fragment.source.html.toString());
       else
         fragmentHtml = "<p style='color:red'>No html</p>";
     }
