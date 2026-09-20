@@ -423,7 +423,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           <span id="cintaTxt">muestra</span>
           <button type="button" id="modoMuestra">muestra / [CAMPOS]</button>
         </div>
-        <iframe id="vista" width="700" height="100%" sandbox="" referrerpolicy="no-referrer"
+        <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
+             Sirve para que esta pagina pueda leer el alto real del correo (medirVista) y el
+             scroll lo haga el lienzo. Con ese valor solo, el HTML guardado no puede ejecutar
+             nada: el sandbox le sigue bloqueando los scripts.
+             NUNCA agregar a este atributo el valor que permite ejecutar scripts (el otro
+             allow-... , el de los scripts). Esa combinacion es la unica que anula el
+             aislamiento: el HTML guardado, que viene de la base y no es confiable, pasaria a
+             ejecutarse con acceso al origen de Campaign, o sea a la sesion del operador.
+             Si el correo no se ve bien, la solucion NO es tocar esta linea.
+             `sh lint.sh` falla si ese valor aparece en cualquier parte del archivo. -->
+        <iframe id="vista" width="700" height="100%" sandbox="allow-same-origin" referrerpolicy="no-referrer"
                 title="Vista del template"
                 data-id="<%= selAttr %>" data-html="<%= datosHtml %>"></iframe>
       </div>
@@ -746,7 +756,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var TEMPLATES = [], actual = elCombo.getAttribute("data-sel") || "";
   var perfil = {}, det = null, ultimo = null;
   var vista = { w: 700, z: 100, muestra: true, panel: true };
-  var ALTO_VISTA = 3000;   // px; alto del iframe del preview (ver aplicarVista)
+  var ALTO_VISTA = 3000;   // px; alto de respaldo si no se puede medir (ver medirVista)
+  var observador = null;   // ResizeObserver sobre el body del preview, si el navegador lo trae
+  var ALTO_MAX = 30000;    // px; tope duro del alto medido
+  var altoMedido = 0;      // ultimo alto aplicado, para no remedir en bucle
   var original = elVista ? decodeURIComponent(elVista.getAttribute("data-html") || "") : "";
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
@@ -1139,16 +1152,60 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("zval").textContent = vista.z + "%";
     elCintaTxt.textContent = vista.muestra ? "muestra" : "[CAMPOS]";
     elCinta.firstChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
-    // El iframe no se puede medir (sandbox="" lo deja en otro origen), asi que va con un alto
-    // fijo holgado y el scroll lo hace .lienzo, no el iframe.
-    elVista.style.height = ALTO_VISTA + "px";
-    // scale() no achica la caja en el layout: sin esto, con zoom < 100 queda un hueco debajo.
+    medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
+    ajustarMargen();
+  }
+  // scale() no achica la caja en el layout: sin esto, con zoom < 100 queda un hueco debajo.
+  function ajustarMargen() {
+    if (!elMarco) return;
     elMarco.style.marginBottom = vista.z === 100 ? "" : -Math.round(elMarco.offsetHeight * (1 - vista.z / 100)) + "px";
+  }
+  // El alto lo pone el contenido y el scroll lo hace .lienzo, no el iframe.
+  // Se puede leer el alto porque el iframe lleva sandbox="allow-same-origin" (ver el comentario
+  // del iframe: nunca con el permiso de scripts). Si no se mide, queda ALTO_VISTA de respaldo.
+  // Sin margen extra y solo si cambia de verdad: un correo con height:100% mide lo que mide el
+  // iframe, y con el ResizeObserver cada ajuste dispararia el siguiente y creceria sin parar.
+  function medirVista() {
+    if (!elVista) return;
+    try {
+      var d = elVista.contentDocument;
+      if (d && d.body) {
+        var h = Math.max(d.body.scrollHeight, d.documentElement ? d.documentElement.scrollHeight : 0);
+        h = Math.min(Math.max(h, 200), ALTO_MAX);
+        if (h > 0 && Math.abs(h - altoMedido) > 2) {
+          altoMedido = h;
+          elVista.style.height = h + "px";
+        }
+      }
+    } catch (e) {}
+    ajustarMargen();
+  }
+  // Las imagenes del CDN llegan despues del load y estiran el correo. Nada de timers fijos:
+  // se remide con el load de cada imagen y, si existe, con un ResizeObserver sobre el body.
+  function seguirVista() {
+    medirVista();
+    try {
+      var d = elVista.contentDocument;
+      if (!d || !d.body) return;
+      var imgs = d.getElementsByTagName("img");
+      for (var i = 0; i < imgs.length; i++) {
+        if (imgs[i].complete) continue;
+        imgs[i].onload = medirVista;
+        imgs[i].onerror = medirVista;
+      }
+      if (typeof ResizeObserver === "function") {
+        if (observador) { try { observador.disconnect(); } catch (e1) {} }
+        observador = new ResizeObserver(medirVista);
+        observador.observe(d.body);
+      }
+    } catch (e) {}
   }
   function pintar() {
     if (!elVista) return;
     var r = podar(original, perfil, { muestra: vista.muestra });
     ultimo = r;
+    altoMedido = 0;                            // contenido nuevo: se vuelve a medir
+    elVista.style.height = ALTO_VISTA + "px";   // respaldo hasta que cargue y se pueda medir
     elVista.srcdoc = r.html;
     var txt = r.elegidas.length ? r.elegidas.length + " grupo(s) condicional(es)" : "guardado en Campaign";
     elInfo.textContent = txt;
@@ -1215,6 +1272,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       } catch (e) { fin(false); }
     };
     window.onresize = aplicarVista;
+    elVista.onload = seguirVista;
     document.onkeydown = function (ev) {
       if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
       if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }

@@ -9,8 +9,9 @@ dependencias, sin entorno local: se prueba desplegandolo.
 Marcos pega el archivo en Campaign y abre:
 `https://bcp-mkt-stage12.campaign.adobe.com/cus/previewFragment.jssp`
 (Dynamic JavaScript pages -> `previewFragment`, namespace `cus` -> Edit code -> reemplazar todo.)
-No hay entorno local ni pruebas automaticas: **antes de entregar un cambio, revisa a mano la lista
-"Reglas duras" de aqui abajo y dile a Marcos que pase `QA-CAMPAIGN.md`.**
+No hay entorno local: **antes de entregar un cambio, corre `sh lint.sh`** (revisa las reglas duras
+que se pueden comprobar leyendo el archivo), repasa a mano el resto de la lista "Reglas duras" de
+aqui abajo y **dile a Marcos que pase `QA-CAMPAIGN.md`**, que es la unica prueba de verdad.
 Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (rompe comentarios y regex).
 
 ## Estado actual (leer antes de tocar nada)
@@ -39,8 +40,12 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
    atributos `data-*` y el cliente los decodifica; se insertan con `textContent` o `srcdoc`.
    Solo se permiten `<%= datosLista %>`, `<%= selAttr %>` y `<%= datosHtml %>`.
    (Evidencia: al escapar a mano, el HTML se veia como texto; `<%=` parece escapar por si solo.)
-4. **El iframe del preview lleva `sandbox=""`** (sin allow-scripts): el contenido guardado no es
-   confiable.
+4. **El iframe del preview lleva `sandbox="allow-same-origin"` y nada mas.** El contenido guardado
+   no es confiable. `allow-same-origin` esta solo para que la pagina pueda leer el alto real del
+   correo (`medirVista`) y el scroll lo haga el lienzo; sin scripts, el contenido no puede hacer
+   nada con ese origen. **Nunca agregar el permiso de scripts del sandbox**: junto con
+   `allow-same-origin` anula el aislamiento y deja el HTML guardado corriendo en el origen de
+   Campaign. `sh lint.sh` falla si aparece.
 5. **Sin `eval`, `new Function`, XHR ni recursos externos** (CDN, fuentes, imagenes remotas).
    Los condicionales se evaluan con el mini evaluador propio (`targetData.X` / `recipient.X`,
    textos, `== != === !== && || ! ( )`).
