@@ -4,12 +4,13 @@
 
 `previewFragment2.jssp` is the only deployed file. It contains Campaign server-side JavaScript/E4X, HTML, CSS, and client-side JavaScript. Pure conditional-content logic sits between `// BEGIN-PODA` and `// END-PODA`.
 
-Read `CLAUDE.md` for environment constraints and `SIGUIENTE.md` for workflow context. `QA-CAMPAIGN.md` holds manual checks; `CHANGELOG.md` records historical changes. Some historical notes are outdated: verify them against current code and tooling. `design/handoff-legible.html` is the approved visual specification; other HTML files are reference artifacts. There are no separate source, asset, or test directories.
+Read `CLAUDE.md` for environment constraints and `SIGUIENTE.md` for workflow context. `QA-CAMPAIGN.md` holds manual checks; `CHANGELOG.md` records historical changes. Some historical notes are outdated: verify them against current code and tooling. `design/handoff-legible.html` is the approved visual specification; other HTML files are reference artifacts. `tests/` contains generic regression fixtures.
 
 ## Build, Test, and Development Commands
 
 - `sh lint.sh`: run from the repository root before delivering changes. Checks encoding, Campaign delimiters, iframe isolation, network restrictions, and configuration; exits nonzero on failure.
 - `git diff --check`: check patches for whitespace errors.
+- `node tests/preview-contacto.test.js`: verify variant selection, mock values, and legacy links using Node's built-in assertions.
 
 There is no build, package installation, or local Campaign runtime. Historical references to `npm run test:all` are not runnable in this checkout. For deployment, replace the code of Campaign's `cus:previewFragment` Dynamic JavaScript page with the complete JSSP file. Transfer the file intact to preserve backslashes and asterisks.
 
@@ -21,7 +22,7 @@ Keep the JSSP ASCII-only: use HTML entities or JavaScript Unicode escapes for ac
 
 ## Testing Guidelines
 
-No automated test framework or coverage threshold is configured. Lint does not replace runtime validation. Ask Marcos to execute `QA-CAMPAIGN.md` in Campaign, covering search, scenarios, preview sizing, exported HTML, keyboard navigation, and Workfront. Report checks performed and pending Campaign verification explicitly.
+Use `*.test.js` for regression tests; no external framework or coverage threshold is configured. Keep fixtures generic. Local checks do not replace runtime validation. Execute `QA-CAMPAIGN.md` in Campaign, covering search, scenarios, preview sizing, exported HTML, keyboard navigation, and Workfront. Report checks performed and pending Campaign verification explicitly.
 
 ## Commit & Pull Request Guidelines
 

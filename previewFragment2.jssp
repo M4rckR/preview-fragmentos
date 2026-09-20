@@ -554,17 +554,37 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return out;
   }
 
+  // Solo estas tres variables se omiten al elegir variantes del preview.
+  // Sus valores de muestra se siguen sustituyendo en el HTML por separado.
+  function esContactoMuestra(nombre) {
+    return nombre === "DESCORREOEENNPRINCIPAL" || nombre === "DESNBREENNPRINCIPAL" ||
+      nombre === "DESCELULAREENNPRINCIPAL";
+  }
+
   function evaluar(cond, perfil) {
     var tk = tokenizar(cond), i = 0;
+    var OMITIDO = {};
+    // Quitar un predicado no equivale a true: en un OR activaria Consumo.
+    // Se conserva el otro operando en AND/OR y se propaga la omision en NOT/comparaciones.
+    function combinar(a, b, esAnd) {
+      if (a === OMITIDO) return b;
+      if (b === OMITIDO) return a;
+      return esAnd ? a && b : a || b;
+    }
     function esOp(v) { var t = tk[i]; return !!t && t.t === "op" && t.v === v; }
-    function pOr() { var a = pAnd(); while (esOp("||")) { i++; var b = pAnd(); a = a || b; } return a; }
-    function pAnd() { var a = pNot(); while (esOp("&&")) { i++; var b = pNot(); a = a && b; } return a; }
-    function pNot() { if (esOp("!")) { i++; return !pNot(); } return pCmp(); }
+    function pOr() { var a = pAnd(); while (esOp("||")) { i++; var b = pAnd(); a = combinar(a, b, false); } return a; }
+    function pAnd() { var a = pNot(); while (esOp("&&")) { i++; var b = pNot(); a = combinar(a, b, true); } return a; }
+    function pNot() {
+      if (esOp("!")) { i++; var a = pNot(); return a === OMITIDO ? OMITIDO : !a; }
+      return pCmp();
+    }
     function pCmp() {
       var a = pPrim(), t = tk[i];
       if (t && t.t === "op" && (t.v === "==" || t.v === "===" || t.v === "!=" || t.v === "!==")) {
         i++;
-        var b = pPrim(), eq = String(a) === String(b);
+        var b = pPrim();
+        if (a === OMITIDO || b === OMITIDO) return OMITIDO;
+        var eq = String(a) === String(b);
         return (t.v === "==" || t.v === "===") ? eq : !eq;
       }
       return a;
@@ -581,7 +601,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       if (t.t === "str" || t.t === "num") return t.v;
       if (t.t === "id") {
         var m = /^(?:targetData|recipient)\.(\w+)$/.exec(t.v);
-        if (m) return perfil[m[1]] === undefined ? "" : perfil[m[1]];
+        if (m) {
+          if (esContactoMuestra(m[1])) return OMITIDO;
+          return perfil[m[1]] === undefined ? "" : perfil[m[1]];
+        }
         if (t.v === "true") return true;
         if (t.v === "false") return false;
         if (t.v === "null") return "";
@@ -590,7 +613,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     var r = pOr();
     if (i !== tk.length) throw new Error("sobra");
-    return !!r;
+    // Si solo habia condiciones de contacto, mostrar la primera variante.
+    return r === OMITIDO || !!r;
   }
 
   function reGrupo() {
@@ -733,14 +757,19 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var r = rx(O + "\\s*\\}?\\s*(?:else\\s+)?if\\s*\\(([\\s\\S]*?)\\)\\s*\\{\\s*" + C +
                "\\s*" + O + "\\/\\*\\s*\\[acr-dc-start-cond");
     while ((m = r.exec(src))) conds.push(m[1]);
-    var vars = {}, orden = [], k, mm;
+    var vars = {}, orden = [], omitidas = [], k, mm;
     for (k = 0; k < conds.length; k++) {
       var rv = /(?:targetData|recipient)\.(\w+)/g;
       while ((mm = rv.exec(conds[k]))) {
+        if (esContactoMuestra(mm[1])) {
+          if (omitidas.indexOf(mm[1]) < 0) omitidas.push(mm[1]);
+          continue;
+        }
         if (!vars[mm[1]]) { vars[mm[1]] = { lits: [] }; orden.push(mm[1]); }
       }
       var rl = /(?:targetData|recipient)\.(\w+)\s*(?:===?|!==?)\s*(?:'([^']*)'|"([^"]*)")/g;
       while ((mm = rl.exec(conds[k]))) {
+        if (esContactoMuestra(mm[1])) continue;
         var lit = mm[2] !== undefined ? mm[2] : mm[3];
         if (vars[mm[1]].lits.indexOf(lit) < 0) vars[mm[1]].lits.push(lit);
       }
@@ -752,7 +781,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       vars[orden[k]].reales = reales;
       vars[orden[k]].tipo = reales.length ? "valores" : "presencia";
     }
-    return { orden: orden, vars: vars, n: conds.length };
+    return { orden: orden, vars: vars, n: conds.length, omitidas: omitidas };
   }
 
   // Agrupa banderas de presencia que se parecen (prefijo largo, o prefijo + sufijo comunes),
@@ -859,7 +888,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       if (k === "w") { if (v === "375" || v === "700") vista.w = parseInt(v, 10); }
       else if (k === "z") { var z = parseInt(v, 10); if (z >= 50 && z <= 100) vista.z = z; }
       else if (k === "muestra") vista.muestra = (v !== "0");
-      else if (k.indexOf("v.") === 0) perfil[k.slice(2)] = v;
+      else if (k.indexOf("v.") === 0 && !esContactoMuestra(k.slice(2))) perfil[k.slice(2)] = v;
     }
   }
   function escribirURL() {
@@ -1016,10 +1045,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   function pintarEscenario() {
     elVars.textContent = "";
+    if (det.omitidas.length) {
+      var nota = document.createElement("div");
+      nota.className = "panel__vacio";
+      nota.textContent = "Vista visual: los datos de contacto no condicionan las variantes. Se muestran como datos ficticios en modo muestra.";
+      elVars.appendChild(nota);
+    }
     if (!det.orden.length) {
       var p = document.createElement("div");
       p.className = "panel__vacio";
-      p.textContent = "Este template no tiene contenido condicional.";
+      p.textContent = det.omitidas.length ? "Sin otras variables para elegir en esta vista." : "Este template no tiene contenido condicional.";
       elVars.appendChild(p);
       elPanelN.textContent = "sin variables";
       return;

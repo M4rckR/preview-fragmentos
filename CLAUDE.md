@@ -12,6 +12,7 @@ Marcos pega el archivo en Campaign y abre:
 No hay entorno local: **antes de entregar un cambio, corre `sh lint.sh`** (revisa las reglas duras
 que se pueden comprobar leyendo el archivo), repasa a mano el resto de la lista "Reglas duras" de
 aqui abajo y **dile a Marcos que pase `QA-CAMPAIGN.md`**, que es la unica prueba de verdad.
+Para la lógica de variantes, corre también `node tests/preview-contacto.test.js` (sin dependencias).
 Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (rompe comentarios y regex).
 
 ## Estado actual (leer antes de tocar nada)
@@ -69,6 +70,14 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
 9. `logonEscalation` va FUERA del `try`; el `finally` restaura el contexto.
 
 ## Comportamiento que debes conservar
+- **Vista visual sin condiciones de contacto**: al elegir variantes se omiten exclusivamente
+  `DESCORREOEENNPRINCIPAL`, `DESNBREENNPRINCIPAL` y `DESCELULAREENNPRINCIPAL`, tanto en
+  `targetData` como en `recipient`. Se eliminan sus predicados de AND/OR/NOT; no se sustituyen
+  por `true` dentro de un OR, porque activaría Consumo indebidamente. El resto de condiciones
+  sigue evaluándose. Si una condición solo contiene esos campos, se elige la primera rama.
+  No aparecen como controles ni se conservan en los enlaces del preview. Sus valores ficticios
+  siguen sustituyéndose en el HTML en modo muestra. Esto no modifica las reglas del template
+  guardado ni valida la selección real de destinatarios. La descarga y Workfront usan esta vista.
 - El HTML guardado trae los condicionales como codigo de Campaign:
   `<% if (cond) {%><%/* [acr-dc-start-cond(Etiqueta,id,idCond)] */%>...<%/* [acr-dc-end-cond] */%><%} else {%>...<%}%>`
   dentro de `[acr-dc-start-group(id)]` ... `[acr-dc-end-group]`. La poda elige una rama por grupo.

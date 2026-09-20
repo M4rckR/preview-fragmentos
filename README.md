@@ -15,6 +15,10 @@ por el contenido de `previewFragment2.jssp`. La URL del webhook se pega en `WORK
 alli**. Mover el archivo como archivo: pegarlo por chat/markdown se come `*` y `\`.
 
 ## Probar
+Comprobaciones locales: `sh lint.sh` y `node tests/preview-contacto.test.js`.
+El preview omite las condiciones de correo, nombre y celular del ejecutivo al elegir variantes;
+conserva sus datos ficticios en modo muestra. Las reglas guardadas en Campaign no cambian.
+
 https://bcp-mkt-stage12.campaign.adobe.com/cus/previewFragment.jssp
 
 En Claude Code, dentro de esta carpeta:

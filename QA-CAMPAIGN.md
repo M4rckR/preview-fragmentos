@@ -22,9 +22,12 @@ Mover el archivo como archivo (pegarlo por chat/markdown se come `*` y `\`).
 
 ## Escenario
 - [ ] Un template con `CODSUBSEGMENTO`: el segmentado muestra los valores reales.
-- [ ] Las banderas `DES...ENNPRINCIPAL` salen agrupadas con el interruptor "todos" (tres estados).
+- [ ] Correo, nombre y celular del ejecutivo no aparecen como banderas; se muestra la nota de vista visual. Las demás variables siguen disponibles.
+- [ ] `11104969`, BEX (`X1N`) y LATAM Clásica (`TCRCLL`): cabecera, banner y ambos botones eligen BEX incluso con enlaces antiguos que tengan los tres campos vacíos.
+- [ ] Cambiar a Consumo selecciona sus variantes; volver a BEX recupera las suyas. Copiar enlace no incluye las tres banderas omitidas.
+- [ ] En modo muestra siguen apareciendo los datos ficticios de contacto donde el HTML los use; en modo `[CAMPOS]` se ven los tokens, sin cambiar la variante.
 - [ ] Cambiar un control actualiza el visor y la lista de ramas activas.
-- [ ] Un template sin condicionales dice "no tiene contenido condicional".
+- [ ] Un template sin condicionales dice "no tiene contenido condicional"; uno con solo condiciones de contacto indica que no hay otras variables para elegir.
 - [ ] Un template con condicion rara: aviso "no evaluable" y su texto en Ver detalle.
 - [ ] Restablecer vuelve al inicio.
 
