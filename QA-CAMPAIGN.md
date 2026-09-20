@@ -34,6 +34,12 @@ Mover el archivo como archivo (pegarlo por chat/markdown se come `*` y `\`).
 - [ ] Descargar .html baja lo que se ve.
 - [ ] Copiar enlace: pegarlo en otra pestana reproduce template, escenario, vista y zoom.
 
+## Resolucion de fragmentos
+- [ ] Probar `11104969` con `CODSUBSEGMENTO=M1N` y `CODPRODUCTO=TCRORL`: revisar `VIEW136` y `VIEW140` en Ver detalle.
+- [ ] Probar `11157592`: revisar `VIEW140`. Cuando se resuelven, deben aparecer en Fragmentos resueltos y verse la cabecera/pie correspondientes.
+- [ ] Si aparece consulta o carga fallida, revisar el log del servidor buscando `previewFragment:`. Una consulta vacia o limitada no demuestra que el fragmento no exista.
+- [ ] Confirmar que el correo completo sigue siendo accesible mediante el scroll del lienzo.
+
 ## Workfront
 - [ ] Con `WORKFRONT_URL` vacia: boton deshabilitado, texto "Workfront no configurado", no envia.
 - [ ] Con URL de prueba: el dialogo muestra template, escenario, ramas, vista, destino y el aviso.

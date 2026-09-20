@@ -94,16 +94,17 @@ function frgPendientes(html, enRama) {
   return out;
 }
 
-// Mapa nombre -> id de TODOS los fragmentos (@type=2, ~180 filas). Una sola
-// consulta por peticion, sin condiciones por nombre: son las que fallaban.
+// Mapa nombre -> id de fragmentos (@type=2, ~180 filas). Una sola consulta
+// por peticion. Si alcanza el limite, no se afirma que un nombre ausente no existe.
 var frgMapa = null;
+var frgMapaEstado = "";
 
 function frgCargaMapa() {
   if (frgMapa != null) return;
   frgMapa = {};
   try {
     var res = xtk.queryDef.create(
-      <queryDef schema="nms:includeView" operation="select">
+      <queryDef schema="nms:includeView" operation="select" lineCount="1000">
         <select>
           <node expr="@id"/>
           <node expr="@name"/>
@@ -113,11 +114,18 @@ function frgCargaMapa() {
         </where>
       </queryDef>
     ).ExecuteQuery();
+    var filas = 0;
     for each (var r in res.*) {
+      filas++;
       var n = r.@name.toString();
       if (n != "") frgMapa["n_" + n] = r.@id.toString();
     }
-  } catch (e) { frgMapa = {}; }
+    frgMapaEstado = filas === 0 ? "mapavacio" : (filas >= 1000 ? "mapalimite" : "");
+  } catch (e) {
+    frgMapa = {};
+    frgMapaEstado = "errorconsulta";
+    logWarning("previewFragment: fallo al consultar el mapa de fragmentos: " + String(e));
+  }
 }
 
 // Resuelve cada nombre con load(id), que es lo unico que se comprobo que anda.
@@ -127,14 +135,18 @@ function frgTrae(nombres) {
   for (var i = 0; i < nombres.length; i++) {
     var k = "n_" + nombres[i];
     frgCache[k] = null;
-    frgVia[k] = "noexiste";
+    frgVia[k] = frgMapaEstado || "noexiste";
     if (!frgMapa.hasOwnProperty(k)) continue;
     frgVia[k] = "sinhtml";             // esta en la tabla; falta ver si trae html
     var html = "";
     try {
       var ent = NLWS.nmsIncludeView.load(frgMapa[k]);
       if (ent && ent.source.html) html = ent.source.html.toString();
-    } catch (e2) { html = ""; }
+    } catch (e2) {
+      html = "";
+      frgVia[k] = "errorcarga";
+      logWarning("previewFragment: fallo al cargar fragmento " + nombres[i] + ": " + String(e2));
+    }
     if (html != "") { frgCache[k] = html; frgVia[k] = "mapa"; }
   }
 }
@@ -151,7 +163,7 @@ function frgExpande(html, prof, enRama) {
   return html.replace(frgRegex(), function (tok, n) {
     if (enRama["n_" + n]) { frgVia["n_" + n] = "ciclo"; return tok; }
     var sub = frgCache["n_" + n];
-    if (!sub) return tok;                           // ya quedo marcado noexiste
+    if (!sub) return tok;                           // conserva la causa registrada
     if (frgPeso + sub.length > FRG_PESO_MAX) { frgVia["n_" + n] = "peso"; return tok; }
     frgPeso += sub.length;
     var rama = {}, k;
@@ -208,7 +220,7 @@ var datosHtml = fragmentHtml != "" ? encodeURIComponent(fragmentHtml) : "";
 
 // Traza de los fragmentos, con la misma forma que la lista: "nombre|via,...".
 // No sale nada guardado: el nombre ya paso el filtro de frgPendientes y la via
-// es una de seis palabras que escribe este archivo.
+// es un codigo fijo que escribe este archivo; los errores quedan en el log del servidor.
 var vias = [];
 for (var kv in frgVia) {
   if (frgVia.hasOwnProperty(kv)) vias.push(encodeURIComponent(kv.substring(2)) + "|" + frgVia[kv]);
@@ -500,7 +512,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (v === "peso") return "se cort\u00f3 por tama\u00f1o";
     if (v === "ciclo") return "ciclo o profundidad";
     if (v === "sinhtml") return "existe pero no trae html";
-    return "no existe";
+    if (v === "errorconsulta") return "fall\u00f3 la consulta de fragmentos; revisar log del servidor";
+    if (v === "errorcarga") return "fall\u00f3 la carga por id; revisar log del servidor";
+    if (v === "mapavacio") return "la consulta no devolvi\u00f3 fragmentos";
+    if (v === "mapalimite") return "no encontrado en las primeras 1000 filas; consulta incompleta";
+    if (v === "noexiste") return "no encontrado en el mapa de fragmentos";
+    return "sin diagn\u00f3stico del servidor";
   }
   // Los delimitadores se arman por partes para que el servidor no los tome por codigo.
   var O = "<" + "%", C = "%" + ">";
