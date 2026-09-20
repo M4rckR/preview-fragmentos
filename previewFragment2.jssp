@@ -44,8 +44,19 @@ var selAttr = selectedFrgId ? String(selectedFrgId) : "";
 // - @type separa la tabla: 0 = bloques de personalizacion de Adobe (Greetings...),
 //   1 = templates (los que lista el buscador), 2 = fragmentos. Por eso aqui se
 //   filtra por @type=2: un template puede llamarse igual y no es el que se busca.
-// - El HTML del fragmento entra tal cual, con sus condicionales y sus tokens:
-//   la poda del cliente los procesa despues.
+// - Solo los fragmentos BLOQUEADOS llegan como token. En el editor salen como
+//   div class="acr-fragment is-locked": se guardan por referencia. Los demas
+//   ("acr-fragment acr-component") se guardan con su HTML dentro, por eso la
+//   mayoria del correo se ve sin resolver nada.
+// - El CSS del fragmento YA viaja en el HTML guardado: va como style con
+//   data-fragment-ref="VIEWnnn" dentro del head. Al resolver solo se inyecta el
+//   source.html del cuerpo; no hay que buscar ni duplicar el CSS.
+// - El HTML del fragmento entra tal cual, con sus condicionales y sus tokens, y
+//   con su div envoltorio y sus clases: la poda del cliente los procesa despues.
+// - Las condiciones por @name nunca funcionaron aqui y no se explicaron; load(id)
+//   si (11034018 devuelve la cabecera "BCP - Header - Consumo"). Por eso se trae
+//   la tabla entera de @type=2 (~180 filas), se arma el mapa nombre -> id en
+//   memoria y cada token se resuelve con load(id): sin condiciones con cadenas.
 // Un token que no se pueda resolver se deja intacto: el cliente lo pinta como
 // recuadro amarillo y lo lista en el panel Detalle.
 // ==========================================================================
@@ -53,10 +64,10 @@ var FRG_PROF_MAX = 5;                  // tope de anidamiento
 var FRG_PESO_MAX = 2 * 1024 * 1024;    // tope del HTML resuelto (bytes aprox.)
 var frgCache = {};                     // "n_" + nombre -> html, o null si no se pudo
 var frgPeso = 0;
-// "n_" + nombre -> como quedo ese fragmento. Resueltos: lote (la consulta con
-// IN), nombre (una consulta suelta), id (hubo que cargar la entidad). Sin
-// resolver: noexiste, peso, ciclo. El cliente lo usa para el aviso y el panel
-// Detalle; de paso dice si esta instalacion de Campaign resuelve el IN.
+// "n_" + nombre -> como quedo ese fragmento. Resuelto: mapa (el nombre estaba en
+// el mapa y load(id) trajo el html). Sin resolver: noexiste (el nombre no esta
+// en la tabla de @type=2), sinhtml (esta, pero load(id) no devolvio source.html),
+// peso, ciclo. El cliente lo usa para el aviso y el panel Detalle.
 // Es por nombre, no por aparicion: si el mismo fragmento se resuelve en un
 // sitio y topa el limite en otro, queda escrito lo ultimo que le paso.
 var frgVia = {};
@@ -68,8 +79,8 @@ function frgRegex() {
   return new RegExp(O + "@\\s*include\\s+fragment\\s*=\\s*[\"']([^\"']+)[\"']\\s*" + C, "g");
 }
 
-// Nombres pendientes de traer. Solo se aceptan nombres simples: el nombre entra
-// en la condicion de la consulta.
+// Nombres pendientes de traer. Se sigue exigiendo nombre simple: es lo que se
+// busca en el mapa y lo que se imprime en la traza.
 function frgPendientes(html, enRama) {
   var re = frgRegex(), m, vistos = {}, out = [];
   while ((m = re.exec(html)) != null) {
@@ -83,78 +94,51 @@ function frgPendientes(html, enRama) {
   return out;
 }
 
-// Una consulta suelta, para el plan B.
-function frgUno(nombre) {
+// Mapa nombre -> id de TODOS los fragmentos (@type=2, ~180 filas). Una sola
+// consulta por peticion, sin condiciones por nombre: son las que fallaban.
+var frgMapa = null;
+
+function frgCargaMapa() {
+  if (frgMapa != null) return;
+  frgMapa = {};
   try {
-    var uno = xtk.queryDef.create(
+    var res = xtk.queryDef.create(
       <queryDef schema="nms:includeView" operation="select">
         <select>
           <node expr="@id"/>
           <node expr="@name"/>
-          <node expr="source/html"/>
         </select>
         <where>
-          <condition expr={"@type=2 and @name = '" + nombre + "'"}/>
+          <condition expr="@type=2"/>
         </where>
       </queryDef>
     ).ExecuteQuery();
-    for each (var r1 in uno.*) frgGuarda(r1, "nombre");
-  } catch (e) {}
+    for each (var r in res.*) {
+      var n = r.@name.toString();
+      if (n != "") frgMapa["n_" + n] = r.@id.toString();
+    }
+  } catch (e) { frgMapa = {}; }
 }
 
-// Una sola consulta por pasada para todo el lote.
+// Resuelve cada nombre con load(id), que es lo unico que se comprobo que anda.
 function frgTrae(nombres) {
   if (!nombres.length) return;
-  var i;
-  for (i = 0; i < nombres.length; i++) {
-    frgCache["n_" + nombres[i]] = null;
-    frgVia["n_" + nombres[i]] = "noexiste";   // hasta que alguna consulta lo traiga
-  }
-  var cond = "@type=2 and @name IN ('" + nombres.join("','") + "')";
-  var res = null;
-  try {
-    res = xtk.queryDef.create(
-      <queryDef schema="nms:includeView" operation="select">
-        <select>
-          <node expr="@id"/>
-          <node expr="@name"/>
-          <node expr="source/html"/>
-        </select>
-        <where>
-          <condition expr={cond}/>
-        </where>
-      </queryDef>
-    ).ExecuteQuery();
-  } catch (e) { res = null; }
-  if (res != null) { for each (var r in res.*) frgGuarda(r, "lote"); }
-  // Plan B, una consulta por nombre. No basta con atrapar la excepcion: si esta
-  // instalacion no resuelve el IN pero tampoco falla, la consulta del lote
-  // devuelve cero filas y los fragmentos quedarian sin resolver en silencio, con
-  // el mismo aviso que si no existieran. Por eso se reintenta todo lo que siga
-  // sin html, venga de un error o de un lote vacio. Un nombre que de verdad no
-  // existe cuesta una consulta de mas y queda cacheado en null: no se repite.
-  for (i = 0; i < nombres.length; i++) {
-    if (frgCache["n_" + nombres[i]] == null) frgUno(nombres[i]);
-  }
-}
-
-function frgGuarda(fila, via) {
-  var n = fila.@name.toString();
-  if (n == "") return;
-  var html = "";
-  try { html = fila.source.html.toString(); } catch (e) { html = ""; }
-  if (html == "") {                    // la consulta no trajo el memo: se carga la entidad
+  frgCargaMapa();
+  for (var i = 0; i < nombres.length; i++) {
+    var k = "n_" + nombres[i];
+    frgCache[k] = null;
+    frgVia[k] = "noexiste";
+    if (!frgMapa.hasOwnProperty(k)) continue;
+    frgVia[k] = "sinhtml";             // esta en la tabla; falta ver si trae html
+    var html = "";
     try {
-      var ent = NLWS.nmsIncludeView.load(fila.@id.toString());
-      if (ent && ent.source.html) { html = ent.source.html.toString(); via = "id"; }
-    } catch (e3) { html = ""; }
+      var ent = NLWS.nmsIncludeView.load(frgMapa[k]);
+      if (ent && ent.source.html) html = ent.source.html.toString();
+    } catch (e2) { html = ""; }
+    if (html != "") { frgCache[k] = html; frgVia[k] = "mapa"; }
   }
-  frgCache["n_" + n] = html != "" ? html : null;
-  if (html != "") frgVia["n_" + n] = via;
 }
 
-// Se topo el anidamiento: lo que quede dentro no se expande. Se marca igual que
-// el ciclo, porque para quien mira el preview es el mismo caso.
 function frgMarcaProf(html) {
   var re = frgRegex(), m;
   while ((m = re.exec(html)) != null) frgVia["n_" + m[1]] = "ciclo";
@@ -515,6 +499,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var v = FRG_VIA[n];
     if (v === "peso") return "se cort\u00f3 por tama\u00f1o";
     if (v === "ciclo") return "ciclo o profundidad";
+    if (v === "sinhtml") return "existe pero no trae html";
     return "no existe";
   }
   // Los delimitadores se arman por partes para que el servidor no los tome por codigo.
@@ -836,7 +821,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var FRG_OK = [];
   (function cargarFrgVia() {
     if (!elVista) return;
-    var CAMINO = { lote: "consulta por lote (IN)", nombre: "consulta suelta por nombre", id: "carga por id" };
+    var CAMINO = { mapa: "mapa de nombres + carga por id" };
     var lista = (elVista.getAttribute("data-frg") || "").split(",");
     for (var i = 0; i < lista.length; i++) {
       if (!lista[i]) continue;

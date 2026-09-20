@@ -75,6 +75,14 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
 - **Valores de muestra**: los tokens `<%= targetData.X %>` / `recipient.X` y
   `<%@ include view='n' %>` se reemplazan por el valor del `diccionario` si existe; si no, se ven
   como `[X]`. El interruptor "muestra / [CAMPOS]" apaga el reemplazo.
+- **Solo los fragmentos BLOQUEADOS llegan como token.** En el editor se distinguen por la clase:
+  `acr-fragment is-locked` (se guarda por referencia, deja el `<%@ include fragment=... %>`) frente
+  a `acr-fragment acr-component` (se guarda con el HTML dentro). Por eso la mayor parte del correo
+  se ve bien sin resolver nada: en el template de referencia hay 162 no bloqueados y 2 bloqueados.
+- **El CSS del fragmento ya viaja**: va como `<style type="text/css" data-fragment-ref="VIEWnnn">`
+  dentro del `<head>` del HTML guardado, con sus media queries. Al resolver **solo** se inyecta el
+  `source.html` del cuerpo; no hay que buscar ni duplicar el CSS, y el `<div>` envoltorio y las
+  clases del fragmento entran tal cual.
 - `<%@ include fragment="VIEWnnn" %>` se resuelve **en el servidor** (`frgResuelve`): se sustituye
   por el `source.html` del `nms:includeView` con ese `@name`, de forma recursiva (tope 5 niveles,
   corte de ciclos, tope de ~2 MB). Lo que aprendio stage12 y no se debe volver a perder:
@@ -85,12 +93,15 @@ Mover el archivo como archivo: pegarlo via chat/markdown se come `*` y `\` (romp
     llamarse igual (el 11104969 se llama `PTLL_MDP_0017_...`).
   - El HTML del fragmento entra tal cual, con sus condicionales y tokens: los poda el cliente.
   - Un token que no se resuelve se deja intacto -> recuadro amarillo y panel Detalle,
-    con la causa: «no existe», «se cortó por tamaño» o «ciclo o profundidad».
-  - La consulta por lote usa `@name IN (...)`. El plan B (una consulta por nombre) se
-    dispara **por resultado, no por excepción**: si una instalación no resuelve el `IN`
-    pero tampoco falla, devuelve cero filas y todo quedaría sin resolver en silencio.
-    El panel Detalle dice por qué camino vino cada fragmento (lote / nombre / id), que es
-    la forma de saber si el `IN` sirve en esa versión de Campaign.
+    con la causa: «no existe» (el nombre no está en la tabla), «existe pero no trae html»,
+    «se cortó por tamaño» o «ciclo o profundidad». Los resueltos salen en la columna
+    «Fragmentos resueltos» del mismo panel.
+  - **No se filtra por nombre en la consulta.** Las condiciones con `@name` (igualdad e `IN`)
+    nunca funcionaron en esta instalación y no se llegó a explicar por qué; `load(id)` sí
+    funciona. Se trae la tabla entera de `@type=2` (~180 filas) en **una** consulta por
+    petición, se arma el mapa `nombre -> id` en memoria (`frgCargaMapa`) y cada token se
+    resuelve con `NLWS.nmsIncludeView.load(id)`. Si vuelves a intentarlo con condiciones por
+    cadena, es justo lo que ya falló.
 - Condiciones no evaluables cuentan en `noEval`, se salta esa rama y se listan en el panel Detalle.
 - Workfront envia `{ templateId, nombreTemplate, htmlFinal, fechaEnvio }`; `htmlFinal` es lo que se
   ve en pantalla (escenario aplicado y, si esta activo, con valores de muestra).
