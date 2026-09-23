@@ -390,7 +390,35 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .lienzo__cinta b { font-weight:700; }
 .lienzo__cinta button { margin-left:auto; font:inherit; font-size:10px; background:#fff; color:inherit;
                         border:1px solid currentColor; border-radius:var(--radius-chip); padding:1px 6px; cursor:pointer; }
+.lienzo__cinta button + button { margin-left:0; }
 .marco iframe { display:block; border:0; background:#fff; }
+
+/* ---------- editor de fechas de muestra (panel flotante, no bloquea la vista) ---------- */
+.fechas { position:fixed; right:16px; bottom:16px; width:340px; max-width:calc(100vw - 32px); max-height:72vh;
+          overflow:auto; background:#fff; border:1px solid var(--frame-border); border-top:3px solid var(--muestra-borde);
+          border-radius:8px; box-shadow:0 12px 32px rgba(15,23,42,.25); z-index:35; font-size:var(--fs-sm); }
+.fechas[hidden] { display:none; }
+.fechas__cab { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--linea); }
+.fechas__cab h2 { margin:0; font-size:var(--fs-md); font-weight:700; flex:1; }
+.fechas__intro { margin:0; padding:8px 12px; font-size:var(--fs-xs); color:var(--text-muted); border-bottom:1px solid var(--linea); }
+.fechas__f { padding:10px 12px; border-bottom:1px solid var(--linea); }
+.fechas__f--foco { background:#fffbeb; }
+.fechas__t { display:flex; align-items:center; gap:6px; font-weight:600; }
+.fechas__num { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
+               border-radius:9px; background:var(--muestra-borde); color:#fff; font-size:11px; font-weight:700; }
+.fechas__ed { margin-left:auto; font-size:var(--fs-xs); font-weight:600; color:var(--muestra-borde); }
+.fechas__tok { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-muted); margin-top:2px; }
+.fechas__f input { box-sizing:border-box; width:100%; margin-top:6px; font:inherit; padding:5px 8px;
+                   border:1px solid var(--frame-border); border-radius:var(--radius-field); }
+.fechas__f input:focus { outline:2px solid var(--acento); outline-offset:1px; }
+.fechas__donde { margin-top:6px; font-size:var(--fs-xs); color:var(--text-muted); }
+.fechas__ctx { display:block; margin-top:3px; padding:4px 6px; border-radius:4px; background:var(--canvas-bg); color:var(--text); }
+.fechas__ctx mark { background:#fde68a; color:inherit; padding:0 1px; }
+.fechas__vacio { padding:12px; font-size:var(--fs-sm); color:var(--text-muted); }
+.fechas__pie { display:flex; align-items:center; gap:8px; padding:10px 12px; }
+.fechas__pie span { flex:1; font-size:var(--fs-xs); color:var(--text-muted); }
+.fechas__pie button { font:inherit; font-size:var(--fs-xs); padding:4px 10px; border:1px solid var(--frame-border);
+                      background:#fff; border-radius:var(--radius-btn); cursor:pointer; }
 .espera { margin:auto; color:var(--text-muted); font-size:var(--fs-md); text-align:center; }
 
 /* ---------- modal Workfront ---------- */
@@ -479,6 +507,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         <div class="lienzo__cinta" id="cinta">
           <b>&#x25C6; Datos de muestra (ficticios)</b>
           <span id="cintaTxt">muestra</span>
+          <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
           <button type="button" id="modoMuestra">muestra / [CAMPOS]</button>
         </div>
         <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
@@ -500,6 +529,20 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <% } %>
     </main>
   </div>
+
+  <section class="fechas" id="fechas" role="dialog" aria-labelledby="fechasT" hidden>
+    <div class="fechas__cab">
+      <h2 id="fechasT">Editar fechas de muestra</h2>
+      <button type="button" class="modal__x" id="fechasX" aria-label="Cerrar">&#x2715;</button>
+    </div>
+    <p class="fechas__intro">Cada fecha lleva un n&uacute;mero. En el correo, el mismo n&uacute;mero marca d&oacute;nde aparece.
+      Al escribir o pasar el mouse sobre una fecha, su lugar en el correo se resalta.</p>
+    <div id="fechasL"></div>
+    <div class="fechas__pie">
+      <span>Los cambios se usan en .html, PNG, PDF y Workfront. Siguen siendo datos ficticios.</span>
+      <button type="button" id="fechasReset">Restablecer</button>
+    </div>
+  </section>
 
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalT">
     <div class="modal__caja">
@@ -692,20 +735,36 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function traducirUI(clave) {
       return DICCIONARIO_UI[clave] || clave;
   }
+  // Fechas de muestra: el operador puede cambiarlas desde "Editar fechas" (van en la URL como d.CAMPO).
+  var ETIQ_FECHA = {
+    "FECINICIOVIGENCIACAMPANIA": "Inicio de vigencia de la campa\u00f1a",
+    "FECFINVIGENCIACAMPANIA": "Fin de vigencia de la campa\u00f1a",
+    "FECFINVIGENCIACAMPANIAL": "Fin de vigencia de la campa\u00f1a (variante L)"
+  };
+  var editados = {};
+  function esFecha(k) { return /^FEC|FECHA/i.test(k); }
+  function hayEditados() { for (var k in editados) if (editados.hasOwnProperty(k)) return true; return false; }
+  // Marcas de texto para ubicar cada fecha en la vista; nunca llegan a ultimo.html.
+  var MK_A = "\u27E6", MK_B = "\u27E7", MK_FIN = "\u27E6/\u27E7";
   function valorMuestra(k) {
-    var v = diccionario[k];
+    var v = editados.hasOwnProperty(k) ? editados[k] : diccionario[k];
     return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
   }
 
-  // opciones: { todas:bool, muestra:bool }
-  // devuelve { html, elegidas:[{grupo,label}], noEval, noEvalTextos:[], includes:[], sinValor:[] }
+  // opciones: { todas:bool, muestra:bool, marcar:bool }
+  // devuelve { html, elegidas:[{grupo,label}], noEval, noEvalTextos:[], includes:[], sinValor:[], fechas:[] }
   function podar(src, perfil, opciones) {
     opciones = opciones || {};
     var todas = !!opciones.todas;
     var conMuestra = opciones.muestra !== false;
-    var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [];
+    var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [], fechas = [];
     var nGrupo = 0, guard = 0, out = src, prev;
     function anota(lista, v) { if (lista.indexOf(v) < 0) lista.push(v); }
+    function token(key, x) {
+      if (!key || !esFecha(key)) return x;
+      anota(fechas, key);
+      return opciones.marcar ? MK_A + key + MK_B + x + MK_FIN : x;
+    }
     do {
       prev = out;
       out = out.replace(reGrupo(), function (m, body) {
@@ -748,7 +807,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       function (m, n) {
         if (valorMuestra(n) === null) anota(sinValor, n);
         var x = conMuestra ? valorMuestra(n) : null;
-        return x !== null ? x : "[" + esc(n) + "]";
+        return token(n, x !== null ? x : "[" + esc(n) + "]");
       });
     out = out.replace(rx(O + "@\\s*include\\s+fragment\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
       function (m, n) {
@@ -763,11 +822,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         var key = t ? t[1] : null;
         if (key && valorMuestra(key) === null) anota(sinValor, key);
         var x = (conMuestra && key) ? valorMuestra(key) : null;
-        return x !== null ? x : "[" + (key || "...") + "]";
+        return token(key, x !== null ? x : "[" + (key || "...") + "]");
       });
     out = out.replace(rx(O + "[\\s\\S]*?" + C), "");
     return { html: out, elegidas: elegidas, noEval: noEval, noEvalTextos: noEvalTextos,
-             includes: includes, sinValor: sinValor };
+             includes: includes, sinValor: sinValor, fechas: fechas };
   }
 
   // Variables usadas en las condiciones y los valores con que se comparan
@@ -853,6 +912,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
   var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
   var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
+  var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
   var elAbrirPanel = $("abrirPanel"), elAbrirPanelN = $("abrirPanelN"), elCerrarPanel = $("cerrarPanel");
   var elVista = $("vista"), elMarco = $("marco"), elCinta = $("cinta"), elCintaTxt = $("cintaTxt");
   var elModal = $("modal"), elModalC = $("modalC"), elModalOk = $("modalOk");
@@ -899,6 +959,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   })();
 
   // ---------------- URL ----------------
+  function limpiaFecha(v) {
+    return String(v).replace(/[\u27E6\u27E7]/g, "").replace(/^\s+|\s+$/g, "").slice(0, 60);
+  }
   function leerURL() {
     var q = location.search.replace(/^\?/, "").split("&"), i, kv, k, v;
     for (i = 0; i < q.length; i++) {
@@ -909,6 +972,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       else if (k === "z") { var z = parseInt(v, 10); if (z >= 50 && z <= 100) vista.z = z; }
       else if (k === "muestra") vista.muestra = (v !== "0");
       else if (k.indexOf("v.") === 0 && !esContactoMuestra(k.slice(2))) perfil[k.slice(2)] = v;
+      else if (k.indexOf("d.") === 0 && esFecha(k.slice(2)) && limpiaFecha(v)) editados[k.slice(2)] = limpiaFecha(v);
     }
   }
   function escribirURL() {
@@ -918,6 +982,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var n = det.orden[k];
       q.push("v." + encodeURIComponent(n) + "=" + encodeURIComponent(perfil[n] === undefined ? "" : perfil[n]));
     }
+    for (k in editados) if (editados.hasOwnProperty(k)) q.push("d." + encodeURIComponent(k) + "=" + encodeURIComponent(editados[k]));
     if (!vista.muestra) q.push("muestra=0");
     if (vista.w !== 700) q.push("w=" + vista.w);
     if (vista.z !== 100) q.push("z=" + vista.z);
@@ -1317,6 +1382,187 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elDetalle.appendChild(columna("Tokens sin valor de muestra", r.sinValor, "ninguno"));
   }
 
+  // ---------------- Editor de fechas de muestra ----------------
+  var fechasAbierto = false, fechaFoco = "", fechasLista = [], filasFecha = {}, tFechas = null;
+  function texto(s) { return document.createTextNode(s); }
+  function quitaMarcas(s) { return String(s).replace(/\u27E6\w+\u27E7/g, "").split(MK_FIN).join(""); }
+  function docVista() { try { return elVista.contentDocument; } catch (e) { return null; } }
+  function pintarFechas(lista) {
+    if (elEditarFechas) {
+      elEditarFechas.disabled = !lista.length && !fechasAbierto;
+      elEditarFechas.title = lista.length ? "Cambiar las fechas de muestra de este correo" : "Este correo no usa fechas en esta vista";
+    }
+    if (!fechasAbierto) return;
+    // Orden fijo: primero las conocidas (inicio, fin...), luego el resto como aparezcan.
+    var orden = [];
+    for (var ko in ETIQ_FECHA) orden.push(ko);
+    lista = lista.slice().sort(function (a, b) {
+      var ia = orden.indexOf(a), ib = orden.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    if (lista.join("|") === fechasLista.join("|") && elFechasL.firstChild) { estadoFechas(); return; }
+    fechasLista = lista.slice(); filasFecha = {};
+    elFechasL.textContent = "";
+    if (!lista.length) {
+      var v = document.createElement("div");
+      v.className = "fechas__vacio";
+      v.textContent = "Este correo no usa fechas en la vista actual. Prueba con otro escenario.";
+      elFechasL.appendChild(v);
+      return;
+    }
+    for (var i = 0; i < lista.length; i++) {
+      (function (k, n) {
+        var f = document.createElement("div");
+        f.className = "fechas__f";
+        var cab = document.createElement("div");
+        cab.className = "fechas__t";
+        var num = document.createElement("span");
+        num.className = "fechas__num";
+        num.textContent = n;
+        var lb = document.createElement("label");
+        lb.htmlFor = "fecha" + n;
+        lb.textContent = ETIQ_FECHA[k] || k;
+        var ed = document.createElement("span");
+        ed.className = "fechas__ed";
+        cab.appendChild(num); cab.appendChild(lb); cab.appendChild(ed);
+        var tok = document.createElement("div");
+        tok.className = "fechas__tok";
+        tok.textContent = k;
+        var inp = document.createElement("input");
+        inp.type = "text";
+        inp.id = "fecha" + n;
+        inp.autocomplete = "off";
+        inp.value = editados.hasOwnProperty(k) ? editados[k] : (diccionario[k] || "");
+        inp.placeholder = diccionario[k] ? "Vac\u00edo = " + diccionario[k] : "dd/mm/aaaa";
+        inp.oninput = function () {
+          var v = limpiaFecha(inp.value);
+          if (!v || v === diccionario[k]) delete editados[k]; else editados[k] = v;
+          estadoFechas();
+          clearTimeout(tFechas);
+          tFechas = setTimeout(pintar, 250);
+        };
+        inp.onfocus = function () { enfocarFecha(k, true); };
+        f.onmouseenter = function () { enfocarFecha(k, false); };
+        var donde = document.createElement("div");
+        donde.className = "fechas__donde";
+        donde.textContent = "Buscando en el correo\u2026";
+        f.appendChild(cab); f.appendChild(tok); f.appendChild(inp); f.appendChild(donde);
+        elFechasL.appendChild(f);
+        filasFecha[k] = { fila: f, ed: ed, donde: donde, input: inp };
+      })(lista[i], i + 1);
+    }
+    estadoFechas();
+  }
+  function estadoFechas() {
+    for (var k in filasFecha) if (filasFecha.hasOwnProperty(k)) filasFecha[k].ed.textContent = editados.hasOwnProperty(k) ? "editada" : "";
+  }
+  // Resalta en el correo la fecha k (y en el panel su fila); desplazar=true la trae a la vista.
+  function enfocarFecha(k, desplazar) {
+    fechaFoco = k;
+    for (var c in filasFecha) if (filasFecha.hasOwnProperty(c)) filasFecha[c].fila.className = "fechas__f" + (c === k ? " fechas__f--foco" : "");
+    var d = docVista();
+    if (!d || !d.querySelectorAll) return;
+    var ms = d.querySelectorAll("mark[data-fecha]"), primero = null;
+    for (var i = 0; i < ms.length; i++) {
+      if (ms[i].getAttribute("data-fecha") === k) { ms[i].setAttribute("data-activo", "1"); if (!primero) primero = ms[i]; }
+      else ms[i].removeAttribute("data-activo");
+    }
+    if (desplazar && primero && primero.scrollIntoView) primero.scrollIntoView({ block: "center" });
+  }
+  // Texto alrededor de la fecha dentro de su bloque (p, td...), para mostrar "donde" en el panel.
+  function contextoFecha(d, mk) {
+    var b = mk.parentNode;
+    while (b && b.nodeType === 1 && !/^(P|TD|TH|LI|DIV|H[1-6]|BODY)$/.test(b.nodeName)) b = b.parentNode;
+    if (!b || b.nodeType !== 1) b = mk.parentNode;
+    var r1 = d.createRange(), r2 = d.createRange();
+    r1.setStart(b, 0); r1.setEndBefore(mk);
+    r2.setStartAfter(mk); r2.setEnd(b, b.childNodes.length);
+    var antes = r1.toString().replace(/\s+/g, " ").replace(/^\s+/, "");
+    var despues = r2.toString().replace(/\s+/g, " ").replace(/\s+$/, "");
+    if (antes.length > 45) antes = "\u2026" + antes.slice(-45);
+    if (despues.length > 45) despues = despues.slice(0, 45) + "\u2026";
+    var s = document.createElement("span");
+    s.className = "fechas__ctx";
+    var m = document.createElement("mark");
+    m.textContent = mk.textContent;
+    s.appendChild(texto(antes)); s.appendChild(m); s.appendChild(texto(despues));
+    return s;
+  }
+  // Cambia las marcas de texto por <mark> numerados dentro de la vista (solo la vista, no ultimo.html).
+  function marcarFechas() {
+    var d = docVista();
+    if (!d || !d.documentElement) return;
+    var raiz = d.documentElement, num = {}, porClave = {}, i, j, n;
+    for (i = 0; i < fechasLista.length; i++) num[fechasLista[i]] = i + 1;
+    var els = raiz.getElementsByTagName("*");
+    for (i = 0; i < els.length; i++) {
+      for (j = 0; j < els[i].attributes.length; j++) {
+        var at = els[i].attributes[j];
+        if (at.value.indexOf(MK_A) >= 0) els[i].setAttribute(at.name, quitaMarcas(at.value));
+      }
+    }
+    var w = d.createTreeWalker(raiz, 4, null, false), nodos = [];
+    while ((n = w.nextNode())) if (n.data.indexOf(MK_A) >= 0) nodos.push(n);
+    var re = /\u27E6(\w+)\u27E7([\s\S]*?)\u27E6\/\u27E7/g;
+    for (i = 0; i < nodos.length; i++) {
+      n = nodos[i];
+      if (!n.parentNode) continue;
+      if (/^(STYLE|TITLE|SCRIPT|TEXTAREA|OPTION)$/.test(n.parentNode.nodeName)) { n.data = quitaMarcas(n.data); continue; }
+      var frag = d.createDocumentFragment(), txt = n.data, ult = 0, mm;
+      re.lastIndex = 0;
+      while ((mm = re.exec(txt))) {
+        if (mm.index > ult) frag.appendChild(d.createTextNode(quitaMarcas(txt.slice(ult, mm.index))));
+        var mk = d.createElement("mark");
+        mk.setAttribute("data-fecha", mm[1]);
+        mk.setAttribute("data-n", num[mm[1]] || "?");
+        mk.textContent = mm[2];
+        frag.appendChild(mk);
+        (porClave[mm[1]] = porClave[mm[1]] || []).push(mk);
+        ult = re.lastIndex;
+      }
+      if (ult < txt.length) frag.appendChild(d.createTextNode(quitaMarcas(txt.slice(ult))));
+      n.parentNode.replaceChild(frag, n);
+    }
+    var st = d.createElement("style");
+    st.textContent = "mark[data-fecha]{background:#fde68a;color:inherit;outline:2px dashed #d97706;outline-offset:1px;border-radius:2px;padding:0 1px}" +
+      "mark[data-fecha]::after{content:attr(data-n);display:inline-block;margin-left:3px;padding:0 4px;border-radius:7px;" +
+      "background:#d97706;color:#fff;font:700 9px/14px Arial,sans-serif;vertical-align:super}" +
+      "mark[data-fecha][data-activo]{outline:3px solid #4f46e5;background:#fcd34d}";
+    (d.head || raiz).appendChild(st);
+    for (var k in filasFecha) {
+      if (!filasFecha.hasOwnProperty(k)) continue;
+      var ms = porClave[k] || [], donde = filasFecha[k].donde;
+      donde.textContent = "";
+      if (!ms.length) { donde.textContent = "No se ve como texto en esta vista (puede estar dentro de un enlace o un atributo)."; continue; }
+      donde.appendChild(texto(ms.length === 1 ? "Aparece 1 vez en el correo:" : "Aparece " + ms.length + " veces en el correo. La primera:"));
+      donde.appendChild(contextoFecha(d, ms[0]));
+    }
+    if (fechaFoco) enfocarFecha(fechaFoco, false);
+  }
+  function abrirFechas() {
+    fechasAbierto = true;
+    fechasLista = [];
+    elFechasL.textContent = "";
+    elFechas.hidden = false;
+    elEditarFechas.setAttribute("aria-expanded", "true");
+    pintar();
+    if (fechasLista.length && filasFecha[fechasLista[0]]) filasFecha[fechasLista[0]].input.focus();
+  }
+  function cerrarFechas() {
+    clearTimeout(tFechas);
+    fechasAbierto = false;
+    fechaFoco = "";
+    elFechas.hidden = true;
+    elEditarFechas.setAttribute("aria-expanded", "false");
+    pintar();
+    elEditarFechas.focus();
+  }
+  function resumenFechas() {
+    var p = [];
+    for (var k in editados) if (editados.hasOwnProperty(k)) p.push((ETIQ_FECHA[k] || k) + " = " + editados[k]);
+    return p.join(" \u00b7 ");
+  }
+
   // ---------------- Pintar ----------------
   function actualizarPanel() {
     var abierto = vista.panel;
@@ -1337,7 +1583,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("escritorio").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
     $("movil").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
     $("zval").textContent = vista.z + "%";
-    elCintaTxt.textContent = vista.muestra ? "muestra" : "[CAMPOS]";
+    elCintaTxt.textContent = (vista.muestra ? "muestra" : "[CAMPOS]") + (hayEditados() ? " \u00b7 fechas editadas" : "");
     elCinta.firstElementChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
     medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
     ajustarMargen();
@@ -1386,6 +1632,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         observador.observe(d.body);
       }
     } catch (e) {}
+    if (fechasAbierto) marcarFechas();
   }
   function pintar() {
     if (!elVista) return;
@@ -1393,13 +1640,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     ultimo = r;
     altoMedido = 0;                            // contenido nuevo: se vuelve a medir
     elVista.style.height = ALTO_VISTA + "px";   // respaldo hasta que cargue y se pueda medir
-    elVista.srcdoc = r.html;
+    // Con el editor de fechas abierto la vista lleva marcas para ubicar cada fecha;
+    // ultimo.html (descargas y Workfront) va siempre sin marcas.
+    elVista.srcdoc = fechasAbierto ? podar(original, perfil, { muestra: vista.muestra, marcar: true }).html : r.html;
     var txt = r.elegidas.length ? r.elegidas.length + " grupo(s) condicional(es)" : "guardado en Campaign";
     elInfo.textContent = txt;
     elInfo.title = txt;
     pintarRamas(r.elegidas);
     pintarAvisos(r);
     pintarDetalle(r);
+    pintarFechas(r.fechas);
     aplicarVista();
     escribirURL();
   }
@@ -1421,6 +1671,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("movil").onclick = function () { vista.w = 375; pintar(); };
     $("zmas").onclick = function () { vista.z = Math.min(100, vista.z + 10); pintar(); };
     $("zmenos").onclick = function () { vista.z = Math.max(50, vista.z - 10); pintar(); };
+    elEditarFechas.onclick = function () { if (fechasAbierto) cerrarFechas(); else abrirFechas(); };
+    $("fechasX").onclick = cerrarFechas;
+    $("fechasReset").onclick = function () {
+      editados = {};
+      for (var k in filasFecha) if (filasFecha.hasOwnProperty(k)) filasFecha[k].input.value = diccionario[k] || "";
+      clearTimeout(tFechas);
+      pintar();
+    };
+    elFechas.onkeydown = function (ev) { if (ev.key === "Escape") { ev.preventDefault(); cerrarFechas(); } };
     $("modoMuestra").onclick = function () {
       vista.muestra = !vista.muestra;
       guarda("muestra", vista.muestra ? "1" : "0");
@@ -1847,6 +2106,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModalC.appendChild(fila("Escenario", resumenEscenario(), true));
     elModalC.appendChild(fila("Ramas", resumenRamas(), true));
     elModalC.appendChild(fila("Vista", (vista.w === 700 ? "Escritorio 700 px" : "M\u00f3vil 375 px") + " \u00b7 " + vista.z + "%"));
+    if (hayEditados()) elModalC.appendChild(fila("Fechas editadas", resumenFechas()));
     elModalC.appendChild(fila("Destino", WORKFRONT_URL, true));
     var n = document.createElement("div");
     n.className = "modal__nota";
