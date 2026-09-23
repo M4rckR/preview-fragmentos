@@ -1,0 +1,101 @@
+<%@ page import="xtk:shared/nl.js" %><%
+// ==========================================================================
+// Proxy de imagenes para "Descargar PNG" de previewFragment.jssp.
+// El navegador no puede leer imagenes de dominios sin CORS; el servidor de
+// Campaign si. Esta pagina descarga la imagen y la devuelve como texto
+// "data:image/...;base64,..." desde el mismo origen que el preview.
+// SEGURIDAD: exige sesion y SOLO acepta los dominios/rutas de PERMITIDOS.
+// Sin esa lista cualquiera podria usarlo para pedir URLs internas (SSRF).
+// En produccion, cambia el dominio de stage13 por el de produccion.
+// ==========================================================================
+// PRUEBA EN STAGE: login desactivado (el bloque de login falla en esta instancia).
+// Resolver y reactivar antes de produccion.
+// NL.require("/nl/core/shared/core.js").require("/nl/core/jsspcontext.js");
+// var jsspContext = new NL.JSSPContext(request);
+// if (!jsspContext.checkAuthentication()) { response.sendError(401); return; }
+
+// En los JSSP de Campaign la salida se escribe con document.write; response.write
+// puede no existir. salida() usa la que haya.
+function salida(txt) {
+  if (typeof document != "undefined" && document && typeof document.write == "function") document.write(txt);
+  else response.write(txt);
+}
+
+var PERMITIDOS = {
+  "bcp-mid-stage13-res.adobe-campaign.com": "/res/",
+  "cdn.storage.flexigon.io": "/"
+};
+var TIPOS = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+var PESO_MAX = 5 * 1024 * 1024;
+
+var u = String(request.parameters.u || "");
+var m = /^https:\/\/([a-z0-9.-]+)(\/[A-Za-z0-9._~\/-]+\.(png|jpe?g|gif|webp))$/i.exec(u);
+var host = m ? m[1].toLowerCase() : "";
+if (!m || !PERMITIDOS.hasOwnProperty(host) || m[2].indexOf(PERMITIDOS[host]) !== 0 || m[2].indexOf("..") >= 0) {
+  response.sendError(400);
+  return;
+}
+
+// ---- DEPURACION SOLO EN STAGE: ?dbg=N corta en el paso N y dice como le fue ----
+// 1 validacion  2 logonEscalation  3 new HttpClientRequest  4 execute  5 toBase64
+// 14 = execute SIN escalar. Quitar este bloque en produccion.
+var dbg = parseInt(String(request.parameters.dbg || "0"), 10) || 0;
+if (dbg) {
+  var t = "dbg=" + dbg;
+  var ctx = null, rq = null, rs = null;
+  if (dbg === 1) { salida(t + " | ok validacion"); return; }
+  try {
+    t += " | typeof HttpClientRequest=" + (typeof HttpClientRequest);
+    if (dbg !== 14) { ctx = logonEscalation("neolane"); t += " | ok escalar"; }
+    if (dbg === 2) { logonWithContext(ctx); salida(t); return; }
+    rq = new HttpClientRequest(u); rq.method = "GET"; t += " | ok new";
+    if (dbg === 3) { if (ctx) logonWithContext(ctx); salida(t); return; }
+    rq.execute(); rs = rq.response;
+    t += " | ok execute code=" + rs.code + " typeof body=" + (typeof rs.body);
+    try { t += " | body ctor=" + (rs.body && rs.body.constructor ? rs.body.constructor.name : "?"); } catch (e5) {}
+    try { t += " | len=" + (rs.body && rs.body.length); } catch (e6) {}
+    if (dbg === 4 || dbg === 14) { if (ctx) logonWithContext(ctx); salida(t); return; }
+    var b64 = rs.body.toBase64();
+    t += " | ok toBase64 len=" + String(b64).length;
+    if (ctx) logonWithContext(ctx);
+    salida(t);
+    return;
+  } catch (eDbg) {
+    try { if (ctx) logonWithContext(ctx); } catch (e7) {}
+    salida(t + " | ERROR: " + String(eDbg));
+    return;
+  }
+}
+
+var datos = "", fallo = "", paso = "inicio", org_ctx = null;
+// DIAGNOSTICO SOLO EN STAGE: todo va dentro del try y se anota el paso, para
+// saber exactamente donde falla. En produccion: quitar "paso" y usar sendError(502).
+try {
+  paso = "logonEscalation";
+  org_ctx = logonEscalation("neolane");
+  paso = "new HttpClientRequest";
+  var req = new HttpClientRequest(u);
+  req.method = "GET";
+  paso = "execute";
+  req.execute();
+  paso = "leer response";
+  var r = req.response;
+  if (r.code != 200) fallo = "HTTP " + r.code + " desde el origen";
+  else if (!r.body) fallo = "respuesta sin cuerpo";
+  else {
+    paso = "toBase64 (tipo de body: " + typeof r.body + ")";
+    datos = r.body.toBase64();
+  }
+} catch (e) {
+  fallo = "fallo en [" + paso + "]: " + String(e);
+}
+try { if (org_ctx != null) logonWithContext(org_ctx); } catch (e4) {
+  if (!fallo) fallo = "fallo en [logonWithContext]: " + String(e4);
+}
+if (fallo) {
+  salida("imgProxy: " + fallo);
+  return;
+}
+if (!datos || datos.length > PESO_MAX * 1.4) { response.sendError(502); return; }
+salida("data:" + TIPOS[m[3].toLowerCase()] + ";base64," + datos);
+%>
