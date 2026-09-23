@@ -381,15 +381,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .ramas__chip--sin { background:var(--warn-bg); color:var(--warn-fg); border-color:rgba(146,64,14,.3); }
 
 /* ---------- lienzo ---------- */
-.lienzo { flex:1; min-width:0; overflow:auto; padding:16px; display:flex; justify-content:center; align-items:flex-start; }
-.marco { background:#fff; border:1px solid var(--frame-border); border-radius:4px;
+.lienzo { flex:1; min-width:0; overflow:auto; padding:16px; display:flex; flex-direction:column; align-items:flex-start; }
+.marco { margin:0 auto; background:#fff; border:1px solid var(--frame-border); border-radius:4px;
          transform-origin:top center; display:flex; flex-direction:column; flex:none; }
 .marco--muestra { border-top:3px solid var(--muestra-borde); }
-.lienzo__cinta { display:flex; align-items:center; gap:8px; padding:4px 8px; font-size:10px;
+.lienzo__cinta { position:sticky; top:-16px; z-index:5; align-self:stretch; margin:-16px -16px 16px;
+                 display:flex; align-items:center; gap:8px; padding:6px 16px; font-size:var(--fs-xs);
                  background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
 .lienzo__cinta b { font-weight:700; }
-.lienzo__cinta button { margin-left:auto; font:inherit; font-size:10px; background:#fff; color:inherit;
-                        border:1px solid currentColor; border-radius:var(--radius-chip); padding:1px 6px; cursor:pointer; }
+.lienzo__cinta button { margin-left:auto; font:inherit; font-size:var(--fs-xs); background:#fff; color:inherit; white-space:nowrap;
+                        border:1px solid currentColor; border-radius:var(--radius-chip); padding:2px 8px; cursor:pointer; }
+.lienzo__cinta button:disabled { opacity:.5; cursor:not-allowed; }
 .lienzo__cinta button + button { margin-left:0; }
 .marco iframe { display:block; border:0; background:#fff; }
 
@@ -503,13 +505,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     </aside>
     <main class="lienzo" id="lienzo">
       <% if (fragmentHtml != "") { %>
+      <!-- La cinta va FUERA del marco: el marco es solo para el correo. -->
+      <div class="lienzo__cinta" id="cinta">
+        <b>&#x25C6; Datos de muestra (ficticios)</b>
+        <span id="cintaTxt">muestra</span>
+        <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
+        <button type="button" id="modoMuestra">muestra / [CAMPOS]</button>
+      </div>
       <div class="marco" id="marco">
-        <div class="lienzo__cinta" id="cinta">
-          <b>&#x25C6; Datos de muestra (ficticios)</b>
-          <span id="cintaTxt">muestra</span>
-          <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
-          <button type="button" id="modoMuestra">muestra / [CAMPOS]</button>
-        </div>
         <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
              Sirve para que esta pagina pueda leer el alto real del correo (medirVista) y el
              scroll lo haga el lienzo. Con ese valor solo, el HTML guardado no puede ejecutar
@@ -926,6 +929,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var observador = null;   // ResizeObserver sobre el body del preview, si el navegador lo trae
   var ALTO_MAX = 30000;    // px; tope duro del alto medido
   var altoMedido = 0;      // ultimo alto aplicado, para no remedir en bucle
+  // Algunos correos piden mas ancho que 700 (p. ej. body{min-width:750px}); en escritorio el
+  // marco crece a ese ancho, una sola vez por render, para que no salga scroll horizontal.
+  var anchoMedido = 0, ANCHO_MAX = 1200;
+  function anchoVista() { return vista.w === 700 && anchoMedido > vista.w ? anchoMedido : vista.w; }
   var original = elVista ? decodeURIComponent(elVista.getAttribute("data-html") || "") : "";
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
@@ -1576,8 +1583,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function aplicarVista() {
     actualizarPanel();
     if (!elVista) return;
-    elVista.setAttribute("width", vista.w);
-    elMarco.style.width = vista.w + "px";
+    elVista.setAttribute("width", anchoVista());
+    elMarco.style.width = anchoVista() + "px";
     elMarco.style.transform = vista.z === 100 ? "" : "scale(" + (vista.z / 100) + ")";
     elMarco.className = "marco" + (vista.muestra ? " marco--muestra" : "");
     $("escritorio").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
@@ -1603,6 +1610,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     try {
       var d = elVista.contentDocument;
       if (d && d.body) {
+        if (vista.w === 700 && !anchoMedido && d.documentElement) {
+          var sw = d.documentElement.scrollWidth;
+          if (sw > vista.w + 1) {
+            anchoMedido = Math.min(sw, ANCHO_MAX);
+            elVista.setAttribute("width", anchoMedido);
+            elMarco.style.width = anchoMedido + "px";
+          }
+        }
         var h = Math.max(d.body.scrollHeight, d.documentElement ? d.documentElement.scrollHeight : 0);
         h = Math.min(Math.max(h, 200), ALTO_MAX);
         if (h > 0 && Math.abs(h - altoMedido) > 2) {
@@ -1639,6 +1654,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var r = podar(original, perfil, { muestra: vista.muestra });
     ultimo = r;
     altoMedido = 0;                            // contenido nuevo: se vuelve a medir
+    anchoMedido = 0;
     elVista.style.height = ALTO_VISTA + "px";   // respaldo hasta que cargue y se pueda medir
     // Con el editor de fechas abierto la vista lleva marcas para ubicar cada fecha;
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
