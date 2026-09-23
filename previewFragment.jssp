@@ -300,6 +300,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .combo__item .combo__id { color:var(--text-muted); }
 .combo__marca { background:#fde68a; border-radius:2px; }
 .combo__vacio { padding:10px 8px; font-size:var(--fs-sm); color:var(--text-muted); }
+.combo__vacio b { color:var(--text); }
+.combo__acc { display:flex; gap:6px; margin-top:8px; }
+.combo__acc button { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
+                     border-radius:var(--radius-chip); padding:3px 8px; cursor:pointer; color:var(--text); }
+.combo__acc button:hover { background:#f8fafc; }
 
 /* ---------- avisos ---------- */
 .avisos { display:flex; align-items:center; gap:var(--gap); flex-wrap:wrap; flex:none;
@@ -934,30 +939,62 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     r.unshift(id);
     guarda("recientes", r.slice(0, 5).join(","));
   }
+  // verTodos: "Ver los N" desde "Sin resultados" muestra la lista completa hasta que se escriba otra vez.
+  var verTodos = false;
   function filtrar(q) {
     q = norm(q).replace(/^\s+|\s+$/g, "");
+    var total = TEMPLATES.length + " template" + (TEMPLATES.length === 1 ? "" : "s");
+    if (!q && verTodos) return { titulo: "Todos \u00b7 " + total, items: TEMPLATES };
     if (!q) return { titulo: recientes().length ? "Recientes" : "Todos", items: recientes().length ? recientes() : TEMPLATES.slice(0, 50) };
-    var partes = q.split(/\s+/), out = [], i, j, ok;
+    var partes = q.split(/\s+/), out = [], n = 0, i, j, ok;
     for (i = 0; i < TEMPLATES.length; i++) {
       ok = true;
       for (j = 0; j < partes.length; j++) {
         if (TEMPLATES[i].k.indexOf(partes[j]) < 0 && TEMPLATES[i].id.indexOf(partes[j]) < 0) { ok = false; break; }
       }
-      if (ok) out.push(TEMPLATES[i]);
-      if (out.length >= 80) break;
+      if (ok) { n++; if (out.length < 80) out.push(TEMPLATES[i]); }
     }
-    return { titulo: out.length + " resultado" + (out.length === 1 ? "" : "s"), items: out };
+    return { titulo: n + " de " + total + (n > out.length ? " \u00b7 se muestran " + out.length : ""), items: out };
   }
+  // Marca cada palabra buscada (no solo la primera). norm() cambia letra por letra,
+  // asi que las posiciones del texto normalizado sirven para cortar el original.
   function resaltar(nodo, texto, q) {
-    q = norm(q).replace(/^\s+|\s+$/g, "").split(/\s+/)[0];
-    var i = q ? norm(texto).indexOf(q) : -1;
-    if (i < 0) { nodo.textContent = texto; return; }
-    nodo.appendChild(document.createTextNode(texto.slice(0, i)));
-    var b = document.createElement("span");
-    b.className = "combo__marca";
-    b.textContent = texto.slice(i, i + q.length);
-    nodo.appendChild(b);
-    nodo.appendChild(document.createTextNode(texto.slice(i + q.length)));
+    var partes = norm(q).replace(/^\s+|\s+$/g, "").split(/\s+/), base = norm(texto);
+    var marca = [], i, j, p, desde;
+    for (j = 0; j < partes.length; j++) {
+      p = partes[j];
+      if (!p) continue;
+      desde = base.indexOf(p);
+      while (desde >= 0) {
+        for (i = desde; i < desde + p.length; i++) marca[i] = true;
+        desde = base.indexOf(p, desde + p.length);
+      }
+    }
+    var ini = 0, en;
+    for (i = 0; i <= texto.length; i++) {
+      en = i < texto.length && !!marca[i];
+      if (i === texto.length || en !== !!marca[ini]) {
+        if (i > ini) {
+          if (marca[ini]) {
+            var b = document.createElement("span");
+            b.className = "combo__marca";
+            b.textContent = texto.slice(ini, i);
+            nodo.appendChild(b);
+          } else {
+            nodo.appendChild(document.createTextNode(texto.slice(ini, i)));
+          }
+        }
+        ini = i;
+      }
+    }
+  }
+  function botonLista(txt, accion) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = txt;
+    // mousedown + preventDefault: el campo no pierde el foco y la lista no se cierra.
+    b.onmousedown = function (ev) { ev.preventDefault(); accion(); };
+    return b;
   }
   function pintarLista() {
     var r = filtrar(elBuscar.value);
@@ -970,7 +1007,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (!filtrados.length) {
       var v = document.createElement("div");
       v.className = "combo__vacio";
-      v.textContent = "Sin resultados. Prueba con menos palabras o con el id.";
+      v.appendChild(document.createTextNode("Sin resultados para "));
+      var qb = document.createElement("b");
+      qb.textContent = "\u201c" + elBuscar.value.replace(/^\s+|\s+$/g, "") + "\u201d";
+      v.appendChild(qb);
+      v.appendChild(document.createElement("br"));
+      v.appendChild(document.createTextNode("Busca por parte del nombre (sin tildes) o pega el id num\u00e9rico del template."));
+      var acc = document.createElement("div");
+      acc.className = "combo__acc";
+      acc.appendChild(botonLista("Borrar b\u00fasqueda", function () { verTodos = false; elBuscar.value = ""; pintarLista(); }));
+      acc.appendChild(botonLista("Ver los " + TEMPLATES.length, function () { verTodos = true; elBuscar.value = ""; pintarLista(); }));
+      v.appendChild(acc);
       elLista.appendChild(v);
       return;
     }
@@ -987,7 +1034,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         resaltar(n, tpl.nom, elBuscar.value);
         var d = document.createElement("span");
         d.className = "combo__id";
-        d.textContent = tpl.id;
+        resaltar(d, tpl.id, elBuscar.value);
         it.appendChild(n); it.appendChild(d);
         it.onmousedown = function (ev) { ev.preventDefault(); ir(tpl.id); };
         elLista.appendChild(it);
@@ -1013,6 +1060,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
   function cerrar() {
     abierto = false;
+    verTodos = false;
     elCombo.className = "combo";
     elBuscar.setAttribute("aria-expanded", "false");
     elBuscar.removeAttribute("aria-activedescendant");
@@ -1025,7 +1073,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     location.href = location.pathname + urlTemplate(id);
   }
   elBuscar.onfocus = abrir;
-  elBuscar.oninput = function () { if (!abierto) abrir(); else pintarLista(); };
+  elBuscar.oninput = function () { verTodos = false; if (!abierto) abrir(); else pintarLista(); };
   elBuscar.onblur = function () { setTimeout(cerrar, 120); };
   elBuscar.onkeydown = function (ev) {
     if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
