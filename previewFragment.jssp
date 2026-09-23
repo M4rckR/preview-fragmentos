@@ -328,10 +328,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .panel__b { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
             border-radius:var(--radius-chip); padding:2px 7px; cursor:pointer; color:var(--text-muted); }
 .panel__b:hover { background:#f8fafc; color:var(--text); }
-.panel__abrir { font:inherit; font-size:var(--fs-sm); border:1px solid var(--vars-border);
-                background:var(--vars-bg); color:var(--vars-label); border-radius:var(--radius-btn);
-                padding:5px 10px; cursor:pointer; white-space:nowrap; }
-.panel__abrir:hover { background:#e0e7ff; }
+.panel__abrir { flex:none; width:28px; display:flex; flex-direction:column; align-items:center; gap:8px;
+                padding:10px 0; font:inherit; font-size:var(--fs-sm); color:var(--vars-label);
+                background:var(--panel-bg); border:0; border-right:1px solid var(--linea); cursor:pointer; }
+.panel__abrir:hover { background:var(--vars-bg); }
+.panel__abrir:focus-visible { outline:2px solid var(--acento); outline-offset:-2px; }
+.panel__abrir span { writing-mode:vertical-rl; white-space:nowrap; font-weight:600; }
 .panel__abrir[hidden] { display:none; }
 .panel__vacio { font-size:var(--fs-xs); color:var(--text-muted); }
 
@@ -432,8 +434,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     </div>
     <span class="barra__e" id="info">guardado en Campaign</span>
     <span class="barra__esp"></span>
-    <button type="button" class="panel__abrir" id="abrirPanel" aria-expanded="true"
-            aria-controls="panel" hidden>Escenario &#x25B6;</button>
     <div class="barra__seg" role="group" aria-label="Dispositivo">
       <button type="button" class="barra__btn" id="escritorio" aria-pressed="true">Escritorio</button>
       <button type="button" class="barra__btn" id="movil" aria-pressed="false">M&oacute;vil</button>
@@ -455,6 +455,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   <div class="detalle" id="detalle"></div>
 
   <div class="cuerpo">
+    <button type="button" class="panel__abrir" id="abrirPanel" aria-label="Mostrar panel de escenario"
+            aria-expanded="true" aria-controls="panel" hidden>&#x25B6;<span id="abrirPanelN">Escenario</span></button>
     <aside class="panel" id="panel" aria-label="Escenario">
       <div class="panel__cab">
         <span class="panel__t">Escenario</span>
@@ -846,7 +848,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
   var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
   var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
-  var elAbrirPanel = $("abrirPanel"), elCerrarPanel = $("cerrarPanel");
+  var elAbrirPanel = $("abrirPanel"), elAbrirPanelN = $("abrirPanelN"), elCerrarPanel = $("cerrarPanel");
   var elVista = $("vista"), elMarco = $("marco"), elCinta = $("cinta"), elCintaTxt = $("cintaTxt");
   var elModal = $("modal"), elModalC = $("modalC"), elModalOk = $("modalOk");
   var bWf = $("workfront");
@@ -1273,7 +1275,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var aplicable = !!(det && det.orden.length);
     elPanel.hidden = !abierto;
     elAbrirPanel.hidden = abierto || !aplicable;
-    elAbrirPanel.textContent = "Escenario (" + (aplicable ? det.orden.length : 0) + ") \u25B6";
+    elAbrirPanelN.textContent = "Escenario (" + (aplicable ? det.orden.length : 0) + ")";
     elAbrirPanel.setAttribute("aria-expanded", abierto ? "true" : "false");
     elCerrarPanel.setAttribute("aria-expanded", abierto ? "true" : "false");
   }
@@ -1288,7 +1290,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("movil").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
     $("zval").textContent = vista.z + "%";
     elCintaTxt.textContent = vista.muestra ? "muestra" : "[CAMPOS]";
-    elCinta.firstChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
+    elCinta.firstElementChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
     medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
     ajustarMargen();
   }
@@ -1383,13 +1385,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     };
     elCerrarPanel.onclick = function () {
       vista.panel = false;
-      elPanel.hidden = true;
       aplicarVista();
       if (!elAbrirPanel.hidden) elAbrirPanel.focus();
     };
     elAbrirPanel.onclick = function () {
       vista.panel = true;
-      elPanel.hidden = false;
       aplicarVista();
       elCerrarPanel.focus();
     };
