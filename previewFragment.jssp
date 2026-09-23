@@ -328,6 +328,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .panel__b { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
             border-radius:var(--radius-chip); padding:2px 7px; cursor:pointer; color:var(--text-muted); }
 .panel__b:hover { background:#f8fafc; color:var(--text); }
+.panel__abrir { font:inherit; font-size:var(--fs-sm); border:1px solid var(--vars-border);
+                background:var(--vars-bg); color:var(--vars-label); border-radius:var(--radius-btn);
+                padding:5px 10px; cursor:pointer; white-space:nowrap; }
+.panel__abrir:hover { background:#e0e7ff; }
+.panel__abrir[hidden] { display:none; }
 .panel__vacio { font-size:var(--fs-xs); color:var(--text-muted); }
 
 .vars__g { border:1px solid var(--vars-border); background:var(--vars-bg); border-radius:6px;
@@ -427,6 +432,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     </div>
     <span class="barra__e" id="info">guardado en Campaign</span>
     <span class="barra__esp"></span>
+    <button type="button" class="panel__abrir" id="abrirPanel" aria-expanded="true"
+            aria-controls="panel" hidden>Escenario &#x25B6;</button>
     <div class="barra__seg" role="group" aria-label="Dispositivo">
       <button type="button" class="barra__btn" id="escritorio" aria-pressed="true">Escritorio</button>
       <button type="button" class="barra__btn" id="movil" aria-pressed="false">M&oacute;vil</button>
@@ -453,7 +460,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         <span class="panel__t">Escenario</span>
         <span class="panel__n" id="panelN"></span>
         <button type="button" class="panel__b" id="restablecer">Restablecer</button>
-        <button type="button" class="panel__b" id="cerrarPanel" aria-label="Ocultar panel">&#x25C0;</button>
+        <button type="button" class="panel__b" id="cerrarPanel" aria-label="Ocultar panel"
+                aria-expanded="true" aria-controls="panel">&#x25C0;</button>
       </div>
       <div id="vars"></div>
       <div class="ramas" id="ramas"></div>
@@ -838,6 +846,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
   var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
   var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
+  var elAbrirPanel = $("abrirPanel"), elCerrarPanel = $("cerrarPanel");
   var elVista = $("vista"), elMarco = $("marco"), elCinta = $("cinta"), elCintaTxt = $("cintaTxt");
   var elModal = $("modal"), elModalC = $("modalC"), elModalOk = $("modalOk");
   var bWf = $("workfront");
@@ -1259,7 +1268,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
 
   // ---------------- Pintar ----------------
+  function actualizarPanel() {
+    var abierto = vista.panel;
+    var aplicable = !!(det && det.orden.length);
+    elPanel.hidden = !abierto;
+    elAbrirPanel.hidden = abierto || !aplicable;
+    elAbrirPanel.textContent = "Escenario (" + (aplicable ? det.orden.length : 0) + ") \u25B6";
+    elAbrirPanel.setAttribute("aria-expanded", abierto ? "true" : "false");
+    elCerrarPanel.setAttribute("aria-expanded", abierto ? "true" : "false");
+  }
   function aplicarVista() {
+    actualizarPanel();
     if (!elVista) return;
     elVista.setAttribute("width", vista.w);
     elMarco.style.width = vista.w + "px";
@@ -1362,10 +1381,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pintarEscenario();
       pintar();
     };
-    $("cerrarPanel").onclick = function () {
+    elCerrarPanel.onclick = function () {
       vista.panel = false;
       elPanel.hidden = true;
       aplicarVista();
+      if (!elAbrirPanel.hidden) elAbrirPanel.focus();
+    };
+    elAbrirPanel.onclick = function () {
+      vista.panel = true;
+      elPanel.hidden = false;
+      aplicarVista();
+      elCerrarPanel.focus();
     };
     $("descargar").onclick = function () {
       var url = URL.createObjectURL(new Blob([ultimo.html], { type: "text/html" }));
