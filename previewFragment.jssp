@@ -1,0 +1,1894 @@
+<%@ page import="xtk:shared/nl.js" %>
+<%
+// ==========================================================================
+// PENDIENTE DE SEGURIDAD - VERSION DE PRUEBA, SIN LOGIN
+// Esta version NO exige sesion: cualquiera que abra la URL ejecuta las
+// consultas con el operador interno "neolane" (permisos de administrador) y
+// puede listar y leer CUALQUIER template cambiando el frgId.
+// Es aceptable solo para probar en un ambiente de stage. Antes de dejarla fija
+// (y siempre en produccion) hay que volver a poner el bloque de login:
+//
+// NL.require("/nl/core/shared/core.js").require("/nl/core/jsspcontext.js");
+// var PAGINA = "/cus/previewFragment.jssp";
+// var jsspContext = new NL.JSSPContext(request);
+// if (!jsspContext.checkAuthentication()) {
+//   var target = PAGINA + (selAttr ? "?frgId=" + selAttr : "");
+//   response.sendRedirect("/nl/jsp/logon.jsp?target=" + encodeURIComponent(target));
+//   return;
+// }
+//
+// TODO (lo define quien administra Campaign en el banco, no se inventa aqui):
+// ademas del login, validar que ESE operador tenga permiso antes de escalar a
+// "neolane". Sin esto, cualquier operador con sesion lee cualquier template.
+// Hay dos formas; quien sepa cual usa el banco solo tiene que poner el nombre:
+//
+//   a) por named right:
+//      if (!hasNamedRight("NOMBRE_DEL_DERECHO")) { response.sendError(403); return; }
+//   b) por pertenencia a un grupo de operadores:
+//      consultar xtk:operator del operador de la sesion y comprobar que este en
+//      el grupo "NOMBRE_DEL_GRUPO"; si no, cortar igual.
+//
+// La comprobacion va ANTES de logonEscalation. Ver QA-CAMPAIGN.md.
+// ==========================================================================
+
+// frgId: solo digitos
+var selectedFrgId = request.parameters.frgId;
+if (selectedFrgId && !/^\d+$/.test(String(selectedFrgId))) selectedFrgId = null;
+var selAttr = selectedFrgId ? String(selectedFrgId) : "";
+
+
+// ==========================================================================
+// Resolucion de los tokens include fragment="VIEWnnn" (lo aprendido en stage12)
+// - El nombre del token (VIEW136) es el @name de nms:includeView, NO el @id:
+//   VIEWnnn es un nombre autogenerado con su propio contador (@id=136 no existe).
+// - @type separa la tabla: 0 = bloques de personalizacion de Adobe (Greetings...),
+//   1 = templates (los que lista el buscador), 2 = fragmentos. Por eso aqui se
+//   filtra por @type=2: un template puede llamarse igual y no es el que se busca.
+// - Solo los fragmentos BLOQUEADOS llegan como token. En el editor salen como
+//   div class="acr-fragment is-locked": se guardan por referencia. Los demas
+//   ("acr-fragment acr-component") se guardan con su HTML dentro, por eso la
+//   mayoria del correo se ve sin resolver nada.
+// - El CSS del fragmento YA viaja en el HTML guardado: va como style con
+//   data-fragment-ref="VIEWnnn" dentro del head. Al resolver solo se inyecta el
+//   source.html del cuerpo; no hay que buscar ni duplicar el CSS.
+// - El HTML del fragmento entra tal cual, con sus condicionales y sus tokens, y
+//   con su div envoltorio y sus clases: la poda del cliente los procesa despues.
+// - Las condiciones por @name nunca funcionaron aqui y no se explicaron; load(id)
+//   si (11034018 devuelve la cabecera "BCP - Header - Consumo"). Por eso se trae
+//   la tabla entera de @type=2 (~180 filas), se arma el mapa nombre -> id en
+//   memoria y cada token se resuelve con load(id): sin condiciones con cadenas.
+// Un token que no se pueda resolver se deja intacto: el cliente lo pinta como
+// recuadro amarillo y lo lista en el panel Detalle.
+// ==========================================================================
+var FRG_PROF_MAX = 5;                  // tope de anidamiento
+var FRG_PESO_MAX = 2 * 1024 * 1024;    // tope del HTML resuelto (bytes aprox.)
+var frgCache = {};                     // "n_" + nombre -> html, o null si no se pudo
+var frgPeso = 0;
+// "n_" + nombre -> como quedo ese fragmento. Resuelto: mapa (el nombre estaba en
+// el mapa y load(id) trajo el html). Sin resolver: noexiste (el nombre no esta
+// en la tabla de @type=2), sinhtml (esta, pero load(id) no devolvio source.html),
+// peso, ciclo. El cliente lo usa para el aviso y el panel Detalle.
+// Es por nombre, no por aparicion: si el mismo fragmento se resuelve en un
+// sitio y topa el limite en otro, queda escrito lo ultimo que le paso.
+var frgVia = {};
+
+// El token se arma por partes: los delimitadores de Campaign, escritos literales
+// aqui, cerrarian el bloque de servidor.
+function frgRegex() {
+  var O = "<" + "%", C = "%" + ">";
+  return new RegExp(O + "@\\s*include\\s+fragment\\s*=\\s*[\"']([^\"']+)[\"']\\s*" + C, "g");
+}
+
+// Nombres pendientes de traer. Se sigue exigiendo nombre simple: es lo que se
+// busca en el mapa y lo que se imprime en la traza.
+function frgPendientes(html, enRama) {
+  var re = frgRegex(), m, vistos = {}, out = [];
+  while ((m = re.exec(html)) != null) {
+    var n = m[1];
+    if (!/^[A-Za-z0-9_-]+$/.test(n)) continue;
+    if (enRama["n_" + n] || vistos["n_" + n]) continue;
+    if (frgCache.hasOwnProperty("n_" + n)) continue;
+    vistos["n_" + n] = true;
+    out.push(n);
+  }
+  return out;
+}
+
+// Mapa nombre -> id de fragmentos (@type=2, ~180 filas). Una sola consulta
+// por peticion. Si alcanza el limite, no se afirma que un nombre ausente no existe.
+var frgMapa = null;
+var frgMapaEstado = "";
+
+function frgCargaMapa() {
+  if (frgMapa != null) return;
+  frgMapa = {};
+  try {
+    var res = xtk.queryDef.create(
+      <queryDef schema="nms:includeView" operation="select" lineCount="1000">
+        <select>
+          <node expr="@id"/>
+          <node expr="@name"/>
+        </select>
+        <where>
+          <condition expr="@type=2"/>
+        </where>
+      </queryDef>
+    ).ExecuteQuery();
+    var filas = 0;
+    for each (var r in res.*) {
+      filas++;
+      var n = r.@name.toString();
+      if (n != "") frgMapa["n_" + n] = r.@id.toString();
+    }
+    frgMapaEstado = filas === 0 ? "mapavacio" : (filas >= 1000 ? "mapalimite" : "");
+  } catch (e) {
+    frgMapa = {};
+    frgMapaEstado = "errorconsulta";
+    logWarning("previewFragment: fallo al consultar el mapa de fragmentos: " + String(e));
+  }
+}
+
+// Resuelve cada nombre con load(id), que es lo unico que se comprobo que anda.
+function frgTrae(nombres) {
+  if (!nombres.length) return;
+  frgCargaMapa();
+  for (var i = 0; i < nombres.length; i++) {
+    var k = "n_" + nombres[i];
+    frgCache[k] = null;
+    frgVia[k] = frgMapaEstado || "noexiste";
+    if (!frgMapa.hasOwnProperty(k)) continue;
+    frgVia[k] = "sinhtml";             // esta en la tabla; falta ver si trae html
+    var html = "";
+    try {
+      var ent = NLWS.nmsIncludeView.load(frgMapa[k]);
+      if (ent && ent.source.html) html = ent.source.html.toString();
+    } catch (e2) {
+      html = "";
+      frgVia[k] = "errorcarga";
+      logWarning("previewFragment: fallo al cargar fragmento " + nombres[i] + ": " + String(e2));
+    }
+    if (html != "") { frgCache[k] = html; frgVia[k] = "mapa"; }
+  }
+}
+
+function frgMarcaProf(html) {
+  var re = frgRegex(), m;
+  while ((m = re.exec(html)) != null) frgVia["n_" + m[1]] = "ciclo";
+}
+
+// enRama: nombres que ya se estan expandiendo mas arriba, para cortar ciclos.
+function frgExpande(html, prof, enRama) {
+  if (prof >= FRG_PROF_MAX) { frgMarcaProf(html); return html; }
+  frgTrae(frgPendientes(html, enRama));
+  return html.replace(frgRegex(), function (tok, n) {
+    if (enRama["n_" + n]) { frgVia["n_" + n] = "ciclo"; return tok; }
+    var sub = frgCache["n_" + n];
+    if (!sub) return tok;                           // conserva la causa registrada
+    if (frgPeso + sub.length > FRG_PESO_MAX) { frgVia["n_" + n] = "peso"; return tok; }
+    frgPeso += sub.length;
+    var rama = {}, k;
+    for (k in enRama) if (enRama.hasOwnProperty(k)) rama[k] = true;
+    rama["n_" + n] = true;
+    return frgExpande(sub, prof + 1, rama);
+  });
+}
+
+function frgResuelve(html) {
+  frgPeso = html.length;
+  try { return frgExpande(html, 0, {}); } catch (e) { return html; }
+}
+
+var fragments = null;
+var fragmentHtml = "";
+var org_ctx = logonEscalation("neolane");   // fuera del try
+try {
+  fragments = xtk.queryDef.create(
+    <queryDef schema="nms:includeView" operation="select">
+      <select>
+        <node expr="@id"/>
+        <node expr="@label"/>
+      </select>
+      <where>
+        <condition expr="@type=1"/>
+      </where>
+    </queryDef>
+  ).ExecuteQuery();
+  if (selectedFrgId) {
+    var fragment = NLWS.nmsIncludeView.load(selectedFrgId);
+    if (fragment) {
+      if (fragment.source.html)
+        fragmentHtml = frgResuelve(fragment.source.html.toString());
+      else
+        fragmentHtml = "<p style='color:red'>No html</p>";
+    }
+  }
+}
+finally {
+  logonWithContext(org_ctx);
+}
+
+// Lista "id|etiqueta,id|etiqueta" con cada parte codificada: los datos viajan
+// como texto inerte (sin & < > ") y el navegador arma el HTML con textContent.
+var items = [];
+if (fragments != null) {
+  for each (var frg in fragments.*) {
+    items.push(encodeURIComponent(frg.@id.toString()) + "|" + encodeURIComponent(frg.@label.toString()));
+  }
+}
+var datosLista = items.join(",");
+var datosHtml = fragmentHtml != "" ? encodeURIComponent(fragmentHtml) : "";
+
+// Traza de los fragmentos, con la misma forma que la lista: "nombre|via,...".
+// No sale nada guardado: el nombre ya paso el filtro de frgPendientes y la via
+// es un codigo fijo que escribe este archivo; los errores quedan en el log del servidor.
+var vias = [];
+for (var kv in frgVia) {
+  if (frgVia.hasOwnProperty(kv)) vias.push(encodeURIComponent(kv.substring(2)) + "|" + frgVia[kv]);
+}
+var datosFrg = vias.join(",");
+%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Preview de templates</title>
+<style>
+:root {
+  --bar-bg:#1e293b; --bar-field-bg:#0f172a; --bar-fg:#fff; --bar-fg-muted:rgba(255,255,255,.62);
+  --acento:#4f46e5; --acento-claro:#a5b4fc;
+  --vars-bg:#eef2ff; --vars-border:#c7d2fe; --vars-label:#4338ca;
+  --canvas-bg:#f1f5f9; --frame-border:#cbd5e1; --panel-bg:#fff;
+  --text:#1e293b; --text-muted:#64748b; --linea:#e2e8f0;
+  --warn-bg:#fef3c7; --warn-fg:#92400e; --muestra-borde:#d97706;
+  --err-bg:#fee2e2; --err-fg:#991b1b;
+  --wf-bg:#0284c7; --wf-hover:#0369a1; --wf-ok:#16a34a; --wf-err:#dc2626;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13px;
+  --radius-field:4px; --radius-btn:5px; --radius-chip:3px;
+  --gap:8px; --pad-bar:8px 12px; --panel-w:308px;
+}
+* { box-sizing:border-box; }
+body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg); color:var(--text);
+       display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+.mono { font-family:var(--font-mono); }
+:focus-visible { outline:2px solid var(--acento); outline-offset:2px; }
+.barra :focus-visible, .combo__campo:focus-within { outline:2px solid var(--acento-claro); outline-offset:1px; }
+
+/* ---------- barra ---------- */
+.barra { display:flex; align-items:center; gap:var(--gap); padding:var(--pad-bar);
+         background:var(--bar-bg); color:var(--bar-fg); flex:none; flex-wrap:wrap; }
+.barra__t { font-weight:600; font-size:var(--fs-sm); flex:none; }
+.barra__lb { font-size:var(--fs-xs); color:var(--bar-fg-muted); flex:none; }
+.barra__e { font-size:var(--fs-xs); color:var(--bar-fg-muted); flex:none;
+            max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.barra__sep { width:1px; align-self:stretch; background:rgba(255,255,255,.16); margin:0 2px; flex:none; }
+.barra__esp { flex:1 1 12px; min-width:0; }
+.barra__btn { font:inherit; font-size:var(--fs-sm); padding:5px 10px; border:1px solid rgba(255,255,255,.18);
+              border-radius:var(--radius-btn); background:transparent; color:var(--bar-fg); cursor:pointer; white-space:nowrap; }
+.barra__btn:hover { background:rgba(255,255,255,.10); }
+.barra__btn[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); }
+.barra__btn:disabled { opacity:.45; cursor:not-allowed; }
+.barra__seg, .barra__zoom { display:flex; align-items:center; gap:2px; background:var(--bar-field-bg);
+                            border:1px solid rgba(255,255,255,.14); border-radius:var(--radius-btn); padding:2px; flex:none; }
+.barra__seg .barra__btn, .barra__zoom .barra__btn { border:0; padding:3px 9px; }
+.barra__zoom output { font-size:var(--fs-xs); min-width:38px; text-align:center; color:var(--bar-fg-muted); }
+.barra__wf { font:inherit; font-size:var(--fs-sm); font-weight:600; padding:5px 12px; border:0;
+             border-radius:var(--radius-btn); background:var(--wf-bg); color:#fff; cursor:pointer; white-space:nowrap; }
+.barra__wf:hover { background:var(--wf-hover); }
+.barra__wf:disabled { background:#475569; color:rgba(255,255,255,.6); cursor:not-allowed; }
+
+/* ---------- combobox ---------- */
+.combo { position:relative; flex:1 1 280px; min-width:180px; max-width:420px; }
+.combo__campo { display:flex; align-items:center; gap:6px; background:var(--bar-field-bg);
+                border:1px solid rgba(255,255,255,.18); border-radius:var(--radius-field); padding:3px 6px; }
+.combo__campo input { flex:1; min-width:0; font:inherit; font-size:var(--fs-xs); border:0; outline:0;
+                      background:transparent; color:var(--bar-fg); }
+.combo__campo input::placeholder { color:rgba(255,255,255,.45); }
+.combo__id { font-family:var(--font-mono); font-size:10px; color:var(--bar-fg-muted); flex:none; }
+.combo__fl { color:var(--bar-fg-muted); font-size:9px; flex:none; }
+.combo__lista { position:absolute; z-index:40; top:calc(100% + 4px); left:0; right:0; max-height:320px;
+                overflow:auto; background:#fff; color:var(--text); border:1px solid var(--frame-border);
+                border-radius:6px; box-shadow:0 8px 24px rgba(15,23,42,.22); padding:4px; display:none; }
+.combo--abierto .combo__lista { display:block; }
+.combo__gt { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted);
+             padding:6px 8px 3px; font-weight:700; }
+.combo__item { display:flex; align-items:baseline; gap:8px; padding:5px 8px; border-radius:var(--radius-field); cursor:pointer; }
+.combo__item:hover { background:#f8fafc; }
+.combo__item--activo { background:var(--vars-bg); box-shadow:inset 0 0 0 1px var(--vars-border); }
+.combo__nom { flex:1; min-width:0; font-size:var(--fs-sm); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.combo__item .combo__id { color:var(--text-muted); }
+.combo__marca { background:#fde68a; border-radius:2px; }
+.combo__vacio { padding:10px 8px; font-size:var(--fs-sm); color:var(--text-muted); }
+
+/* ---------- avisos ---------- */
+.avisos { display:flex; align-items:center; gap:var(--gap); flex-wrap:wrap; flex:none;
+          padding:6px 12px; font-size:var(--fs-xs); background:var(--warn-bg); color:var(--warn-fg);
+          border-bottom:1px solid rgba(146,64,14,.22); }
+.avisos:empty, .avisos[hidden] { display:none; }
+.avisos--error { background:var(--err-bg); color:var(--err-fg); border-bottom-color:rgba(153,27,27,.22); }
+.avisos__b { font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
+             border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
+.detalle { flex:none; display:none; gap:24px; flex-wrap:wrap; padding:10px 12px; background:#fff;
+           border-bottom:1px solid var(--linea); font-size:var(--fs-xs); overflow:auto; max-height:200px; }
+.detalle--abierto { display:flex; }
+.detalle__col { flex:1; min-width:180px; }
+.detalle__t { font-weight:700; color:var(--vars-label); margin-bottom:4px; }
+.detalle ul { margin:0; padding-left:16px; }
+.detalle li { margin-bottom:2px; word-break:break-word; }
+
+/* ---------- cuerpo ---------- */
+.cuerpo { flex:1; display:flex; min-height:0; }
+.panel { width:var(--panel-w); flex:none; background:var(--panel-bg); border-right:1px solid var(--linea);
+         overflow:auto; padding:10px 12px 20px; }
+.panel[hidden] { display:none; }
+.panel__cab { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+.panel__t { font-size:var(--fs-sm); font-weight:700; margin-right:auto; }
+.panel__n { font-size:var(--fs-xs); color:var(--text-muted); }
+.panel__b { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
+            border-radius:var(--radius-chip); padding:2px 7px; cursor:pointer; color:var(--text-muted); }
+.panel__b:hover { background:#f8fafc; color:var(--text); }
+.panel__vacio { font-size:var(--fs-xs); color:var(--text-muted); }
+
+.vars__g { border:1px solid var(--vars-border); background:var(--vars-bg); border-radius:6px;
+           padding:8px; margin-bottom:8px; }
+.vars__cab { display:flex; align-items:baseline; gap:6px; margin-bottom:6px; }
+.vars__nom { font-family:var(--font-mono); font-size:var(--fs-xs); font-weight:700; color:var(--vars-label);
+             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vars__tipo { font-size:10px; color:var(--text-muted); margin-left:auto; white-space:nowrap; }
+.vars__seg { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.vars__seg--uno { grid-template-columns:1fr; }
+.vars__seg button { font:inherit; font-size:var(--fs-xs); padding:4px 6px; border:1px solid var(--vars-border);
+                    background:#fff; color:var(--text); border-radius:var(--radius-chip); cursor:pointer;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vars__seg button:hover { background:#f8fafc; }
+.vars__seg button[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
+.vars__sw { display:flex; align-items:center; gap:6px; width:100%; font:inherit; font-size:var(--fs-xs);
+            background:#fff; border:1px solid var(--vars-border); border-radius:var(--radius-chip);
+            padding:4px 6px; cursor:pointer; color:var(--text); text-align:left; }
+.vars__sw + .vars__sw { margin-top:4px; }
+.vars__sw:hover { background:#f8fafc; }
+.vars__sw .sw__n { flex:1; min-width:0; font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vars__sw .sw__e { flex:none; font-weight:600; }
+.vars__sw .sw__p { flex:none; width:26px; height:14px; border-radius:7px; background:#cbd5e1; position:relative; }
+.vars__sw .sw__p::after { content:""; position:absolute; top:2px; left:2px; width:10px; height:10px;
+                          border-radius:50%; background:#fff; }
+.vars__sw[aria-checked="true"] .sw__p { background:var(--acento); }
+.vars__sw[aria-checked="true"] .sw__p::after { left:14px; }
+.vars__sw[aria-checked="mixed"] .sw__p { background:var(--acento); opacity:.55; }
+.vars__sw[aria-checked="mixed"] .sw__p::after { left:8px; }
+.vars__sw--todos { background:transparent; border-style:dashed; margin-bottom:4px; }
+
+.ramas { border-top:1px solid var(--linea); margin-top:12px; padding-top:10px; }
+.ramas__t { font-size:var(--fs-xs); font-weight:700; color:var(--vars-label); margin-bottom:6px; }
+.ramas__f { display:flex; align-items:baseline; gap:6px; font-size:var(--fs-xs); margin-bottom:3px; }
+.ramas__g { color:var(--text-muted); flex:none; }
+.ramas__chip { font-family:var(--font-mono); font-size:10px; background:var(--vars-bg); color:var(--vars-label);
+               border:1px solid var(--vars-border); border-radius:var(--radius-chip); padding:1px 6px;
+               overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ramas__chip--sin { background:var(--warn-bg); color:var(--warn-fg); border-color:rgba(146,64,14,.3); }
+
+/* ---------- lienzo ---------- */
+.lienzo { flex:1; min-width:0; overflow:auto; padding:16px; display:flex; justify-content:center; align-items:flex-start; }
+.marco { background:#fff; border:1px solid var(--frame-border); border-radius:4px;
+         transform-origin:top center; display:flex; flex-direction:column; flex:none; }
+.marco--muestra { border-top:3px solid var(--muestra-borde); }
+.lienzo__cinta { display:flex; align-items:center; gap:8px; padding:4px 8px; font-size:10px;
+                 background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
+.lienzo__cinta b { font-weight:700; }
+.lienzo__cinta button { margin-left:auto; font:inherit; font-size:10px; background:#fff; color:inherit;
+                        border:1px solid currentColor; border-radius:var(--radius-chip); padding:1px 6px; cursor:pointer; }
+.marco iframe { display:block; border:0; background:#fff; }
+.espera { margin:auto; color:var(--text-muted); font-size:var(--fs-md); text-align:center; }
+
+/* ---------- modal Workfront ---------- */
+.modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none;
+         align-items:center; justify-content:center; padding:20px; z-index:60; }
+.modal--abierto { display:flex; }
+.modal__caja { background:#fff; border-radius:8px; width:520px; max-width:100%; max-height:90vh; overflow:auto;
+               box-shadow:0 20px 50px rgba(15,23,42,.35); }
+.modal__cab { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--linea); }
+.modal__cab h2 { margin:0; font-size:var(--fs-md); font-weight:700; flex:1; }
+.modal__x { font:inherit; border:0; background:transparent; cursor:pointer; color:var(--text-muted); font-size:14px; padding:2px 6px; }
+.modal__cuerpo { padding:12px 16px; font-size:var(--fs-sm); }
+.modal__f { display:flex; gap:10px; padding:5px 0; border-bottom:1px solid var(--linea); align-items:baseline; }
+.modal__k { width:86px; flex:none; color:var(--text-muted); font-size:var(--fs-xs); }
+.modal__v { flex:1; min-width:0; word-break:break-word; }
+.modal__nota { margin-top:10px; background:var(--warn-bg); color:var(--warn-fg); border-radius:4px; padding:8px 10px; font-size:var(--fs-xs); }
+.modal__pie { display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid var(--linea); }
+.modal__pie button { font:inherit; font-size:var(--fs-sm); padding:6px 14px; border-radius:var(--radius-btn); cursor:pointer; }
+.modal__cancel { background:#fff; border:1px solid var(--frame-border); color:var(--text); }
+.modal__ok { background:var(--wf-bg); border:1px solid var(--wf-bg); color:#fff; font-weight:600; }
+.modal__ok:disabled { opacity:.6; cursor:not-allowed; }
+
+@media (max-width:1100px) {
+  .barra__t, .barra__lb, .barra__e { display:none; }
+}
+@media (max-width:900px) {
+  .panel { position:absolute; z-index:30; top:auto; left:0; height:auto; max-height:70vh;
+           box-shadow:0 10px 30px rgba(15,23,42,.22); }
+  .cuerpo { position:relative; }
+}
+</style>
+</head>
+<body>
+  <div class="barra" role="toolbar" aria-label="Acciones del preview">
+    <span class="barra__t">Preview de templates</span>
+    <span class="barra__lb" id="lbCombo">Template</span>
+    <div class="combo" id="combo" data-frags="<%= datosLista %>" data-sel="<%= selAttr %>">
+      <div class="combo__campo">
+        <input id="buscar" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Buscar template o id" aria-labelledby="lbCombo"
+               role="combobox" aria-expanded="false" aria-controls="lista" aria-autocomplete="list">
+        <span class="combo__id" id="comboId"></span>
+        <span class="combo__fl" aria-hidden="true">&#x25BC;</span>
+      </div>
+      <div class="combo__lista" id="lista" role="listbox" aria-label="Templates"></div>
+    </div>
+    <span class="barra__e" id="info">guardado en Campaign</span>
+    <span class="barra__esp"></span>
+    <div class="barra__seg" role="group" aria-label="Dispositivo">
+      <button type="button" class="barra__btn" id="escritorio" aria-pressed="true">Escritorio</button>
+      <button type="button" class="barra__btn" id="movil" aria-pressed="false">M&oacute;vil</button>
+    </div>
+    <div class="barra__zoom" role="group" aria-label="Zoom">
+      <button type="button" class="barra__btn" id="zmenos" aria-label="Alejar">&#x2212;</button>
+      <output id="zval" for="zmenos zmas">100%</output>
+      <button type="button" class="barra__btn" id="zmas" aria-label="Acercar">+</button>
+    </div>
+    <button type="button" class="barra__btn" id="descargar">Descargar .html</button>
+    <button type="button" class="barra__btn" id="descargarPng" title="Descarga dos PNG: escritorio 700 px y m&oacute;vil 375 px">Descargar PNG</button>
+    <button type="button" class="barra__btn" id="descargarPdf" title="Un PDF con dos p&aacute;ginas: escritorio y m&oacute;vil">Descargar PDF</button>
+    <button type="button" class="barra__btn" id="enlace">Copiar enlace</button>
+    <span class="barra__sep" aria-hidden="true"></span>
+    <button type="button" class="barra__wf" id="workfront">Enviar a Workfront &#x2197;</button>
+  </div>
+
+  <div class="avisos" id="avisos" role="status" hidden></div>
+  <div class="detalle" id="detalle"></div>
+
+  <div class="cuerpo">
+    <aside class="panel" id="panel" aria-label="Escenario">
+      <div class="panel__cab">
+        <span class="panel__t">Escenario</span>
+        <span class="panel__n" id="panelN"></span>
+        <button type="button" class="panel__b" id="restablecer">Restablecer</button>
+        <button type="button" class="panel__b" id="cerrarPanel" aria-label="Ocultar panel">&#x25C0;</button>
+      </div>
+      <div id="vars"></div>
+      <div class="ramas" id="ramas"></div>
+    </aside>
+    <main class="lienzo" id="lienzo">
+      <% if (fragmentHtml != "") { %>
+      <div class="marco" id="marco">
+        <div class="lienzo__cinta" id="cinta">
+          <b>&#x25C6; Datos de muestra (ficticios)</b>
+          <span id="cintaTxt">muestra</span>
+          <button type="button" id="modoMuestra">muestra / [CAMPOS]</button>
+        </div>
+        <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
+             Sirve para que esta pagina pueda leer el alto real del correo (medirVista) y el
+             scroll lo haga el lienzo. Con ese valor solo, el HTML guardado no puede ejecutar
+             nada: el sandbox le sigue bloqueando los scripts.
+             NUNCA agregar a este atributo el valor que permite ejecutar scripts (el otro
+             allow-... , el de los scripts). Esa combinacion es la unica que anula el
+             aislamiento: el HTML guardado, que viene de la base y no es confiable, pasaria a
+             ejecutarse con acceso al origen de Campaign, o sea a la sesion del operador.
+             Si el correo no se ve bien, la solucion NO es tocar esta linea.
+             `sh lint.sh` falla si ese valor aparece en cualquier parte del archivo. -->
+        <iframe id="vista" width="700" height="100%" sandbox="allow-same-origin" referrerpolicy="no-referrer"
+                title="Vista del template"
+                data-id="<%= selAttr %>" data-html="<%= datosHtml %>" data-frg="<%= datosFrg %>"></iframe>
+      </div>
+      <% } else { %>
+      <div class="espera" id="espera">Elige un template.</div>
+      <% } %>
+    </main>
+  </div>
+
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalT">
+    <div class="modal__caja">
+      <div class="modal__cab">
+        <h2 id="modalT">Enviar a Workfront</h2>
+        <button type="button" class="modal__x" id="modalX" aria-label="Cerrar">&#x2715;</button>
+      </div>
+      <div class="modal__cuerpo" id="modalC"></div>
+      <div class="modal__pie">
+        <button type="button" class="modal__cancel" id="modalCancel">Cancelar</button>
+        <button type="button" class="modal__ok" id="modalOk">Enviar ahora</button>
+      </div>
+    </div>
+  </div>
+<script>
+(function () {
+  // URL del webhook de Workfront. Dejala VACIA en el repo; pegala solo en Campaign.
+  var WORKFRONT_URL = "https://hook.fusion.adobe.com/03eeral72w5620flcc4jtdhqjko71pcw";
+  var WORKFRONT_USER = "bcp";
+  var WORKFRONT_PASS = "1234";
+
+  // ---------------- Logica pura (testeable sin DOM) ----------------
+  // BEGIN-PODA
+  // Traza que manda el servidor: nombre del fragmento -> como quedo. Se llena
+  // una vez al cargar la pagina (cargarFrgVia) y no cambia al podar.
+  var FRG_VIA = {};
+  function frgMotivo(n) {
+    var v = FRG_VIA[n];
+    if (v === "peso") return "se cort\u00f3 por tama\u00f1o";
+    if (v === "ciclo") return "ciclo o profundidad";
+    if (v === "sinhtml") return "existe pero no trae html";
+    if (v === "errorconsulta") return "fall\u00f3 la consulta de fragmentos; revisar log del servidor";
+    if (v === "errorcarga") return "fall\u00f3 la carga por id; revisar log del servidor";
+    if (v === "mapavacio") return "la consulta no devolvi\u00f3 fragmentos";
+    if (v === "mapalimite") return "no encontrado en las primeras 1000 filas; consulta incompleta";
+    if (v === "noexiste") return "no encontrado en el mapa de fragmentos";
+    return "sin diagn\u00f3stico del servidor";
+  }
+  // Los delimitadores se arman por partes para que el servidor no los tome por codigo.
+  var O = "<" + "%", C = "%" + ">";
+  function rx(s, f) { return new RegExp(s, f || "g"); }
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  // Quita tildes y pasa a minusculas, para buscar sin acentos.
+  function norm(s) {
+    s = String(s).toLowerCase();
+    var de = "\u00e1\u00e0\u00e4\u00e2\u00e9\u00e8\u00eb\u00ea\u00ed\u00ec\u00ef\u00ee\u00f3\u00f2\u00f6\u00f4\u00fa\u00f9\u00fc\u00fb\u00f1\u00e7";
+    var a  = "aaaaeeeeiiiioooouuuunc";
+    var o = "", i, j;
+    for (i = 0; i < s.length; i++) { j = de.indexOf(s.charAt(i)); o += j < 0 ? s.charAt(i) : a.charAt(j); }
+    return o;
+  }
+
+  // Mini evaluador SEGURO: solo targetData.X / recipient.X, textos, ==, !=, ===, !==, &&, ||, !, ( )
+  // No usa eval ni Function: el contenido guardado no puede ejecutar codigo aqui.
+  function tokenizar(s) {
+    s = String(s).replace(/^\s+|\s+$/g, "");
+    var re = /\s*(?:('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)|(\d+(?:\.\d+)?)|(===|!==|==|!=|&&|\|\||!|\(|\)))\s*/g;
+    var out = [], pos = 0, m;
+    while (pos < s.length) {
+      re.lastIndex = pos;
+      m = re.exec(s);
+      if (!m || m.index !== pos) throw new Error("token");
+      if (m[1] !== undefined) out.push({ t: "str", v: m[1].slice(1, -1).replace(/\\(.)/g, "$1") });
+      else if (m[2] !== undefined) out.push({ t: "id", v: m[2] });
+      else if (m[3] !== undefined) out.push({ t: "num", v: m[3] });
+      else out.push({ t: "op", v: m[4] });
+      pos = re.lastIndex;
+    }
+    return out;
+  }
+
+  // Solo estas tres variables se omiten al elegir variantes del preview.
+  // Sus valores de muestra se siguen sustituyendo en el HTML por separado.
+  function esContactoMuestra(nombre) {
+    return nombre === "DESCORREOEENNPRINCIPAL" || nombre === "DESNBREENNPRINCIPAL" ||
+      nombre === "DESCELULAREENNPRINCIPAL";
+  }
+
+  function evaluar(cond, perfil) {
+    var tk = tokenizar(cond), i = 0;
+    var OMITIDO = {};
+    // Quitar un predicado no equivale a true: en un OR activaria Consumo.
+    // Se conserva el otro operando en AND/OR y se propaga la omision en NOT/comparaciones.
+    function combinar(a, b, esAnd) {
+      if (a === OMITIDO) return b;
+      if (b === OMITIDO) return a;
+      return esAnd ? a && b : a || b;
+    }
+    function esOp(v) { var t = tk[i]; return !!t && t.t === "op" && t.v === v; }
+    function pOr() { var a = pAnd(); while (esOp("||")) { i++; var b = pAnd(); a = combinar(a, b, false); } return a; }
+    function pAnd() { var a = pNot(); while (esOp("&&")) { i++; var b = pNot(); a = combinar(a, b, true); } return a; }
+    function pNot() {
+      if (esOp("!")) { i++; var a = pNot(); return a === OMITIDO ? OMITIDO : !a; }
+      return pCmp();
+    }
+    function pCmp() {
+      var a = pPrim(), t = tk[i];
+      if (t && t.t === "op" && (t.v === "==" || t.v === "===" || t.v === "!=" || t.v === "!==")) {
+        i++;
+        var b = pPrim();
+        if (a === OMITIDO || b === OMITIDO) return OMITIDO;
+        var eq = String(a) === String(b);
+        return (t.v === "==" || t.v === "===") ? eq : !eq;
+      }
+      return a;
+    }
+    function pPrim() {
+      var t = tk[i++];
+      if (!t) throw new Error("fin");
+      if (t.t === "op" && t.v === "(") {
+        var v = pOr();
+        if (!esOp(")")) throw new Error("paren");
+        i++;
+        return v;
+      }
+      if (t.t === "str" || t.t === "num") return t.v;
+      if (t.t === "id") {
+        var m = /^(?:targetData|recipient)\.(\w+)$/.exec(t.v);
+        if (m) {
+          if (esContactoMuestra(m[1])) return OMITIDO;
+          return perfil[m[1]] === undefined ? "" : perfil[m[1]];
+        }
+        if (t.v === "true") return true;
+        if (t.v === "false") return false;
+        if (t.v === "null") return "";
+      }
+      throw new Error("no soportado");
+    }
+    var r = pOr();
+    if (i !== tk.length) throw new Error("sobra");
+    // Si solo habia condiciones de contacto, mostrar la primera variante.
+    return r === OMITIDO || !!r;
+  }
+
+  function reGrupo() {
+    return rx(O + "\\/\\*\\s*\\[acr-dc-start-group\\([^)]*\\)\\]\\s*\\*\\/" + C +
+      "((?:(?!" + O + "\\/\\*\\s*\\[acr-dc-start-group)[\\s\\S])*?)" +
+      O + "\\/\\*\\s*\\[acr-dc-end-group\\]\\s*\\*\\/" + C);
+  }
+  function reRama() {
+    return rx(O + "\\s*\\}?\\s*(?:else\\s+)?(?:if\\s*\\(([\\s\\S]*?)\\)\\s*)?\\{\\s*" + C +
+      "\\s*" + O + "\\/\\*\\s*\\[acr-dc-start-cond\\(([\\s\\S]*?)\\)\\]\\s*\\*\\/" + C +
+      "([\\s\\S]*?)" + O + "\\/\\*\\s*\\[acr-dc-end-cond\\]\\s*\\*\\/" + C);
+  }
+
+  // Valores de muestra: los tokens de personalizacion se reemplazan por estos valores.
+  // Lo que no este aqui se ve como [CAMPO]. Son datos FICTICIOS.
+  var diccionario = {
+    "firstName": "Ana",
+    "bcpSaludoEnaltaPrivVIEW6": "Estimada Ana",
+    "bcpSoloPrimerNombre": "Ana",
+    "DESNBREENNPRINCIPAL": "MARIA LOPEZ DEMO",
+    "NBRFUNCIONARIO": "PEDRO GOMEZ DEMO",
+    "DESCORREOEENNPRINCIPAL": "ejecutivo@example.com",
+    "DESCORREOFUNCIONARIO": "ejecutivo@example.com",
+    "DESCELULAREENNPRINCIPAL": "987654321",
+    "NUMTELEFONOFUNCIONARIO": "987654321",
+    "TCEA": "45.8",
+    "FECINICIOVIGENCIACAMPANIA": "01/01/1940",
+    "FECFINVIGENCIACAMPANIA": "01/01/1940",
+    "FECFINVIGENCIACAMPANIAL": "01/01/1940",
+    "MTOOFERTASOL": "3,000"
+  };
+
+  // Diccionario traduccion UI
+  var DICCIONARIO_UI = {
+      "CODSUBSEGMENTO": "SEGMENTO",
+      "CODPRODUCTO": "PRODUCTO",
+      "M1N": "CONSUMO",
+      "X1N": "BEX",
+      "TCRCLL": "LATAM Clasica",
+      "TCRORL": "LATAM Oro",
+      "TCRPLL": "LATAM Platinum",
+      "TCRPL1": "LATAM Signature",
+      "TCRBA7": "LATAM Sapphire",
+      "AMXCLL": "Amex Clasica",
+      "AMXGLL": "Amex Oro",
+      "AMXPLL": "Amex Platinum",
+      "AMXGRE": "Amex Black",
+      "TCRLY5": "Qore Clasica",
+      "TCRLY4": "Qore Platinum",
+      "TCRLY3": "Qore Oro",
+      "TCRLY2": "Qore Signature",
+      "TCRLY1": "Qore Infinite"
+  };
+
+  // Funcion auxiliar para obtener la etiqueta visible
+  function traducirUI(clave) {
+      return DICCIONARIO_UI[clave] || clave;
+  }
+  function valorMuestra(k) {
+    var v = diccionario[k];
+    return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
+  }
+
+  // opciones: { todas:bool, muestra:bool }
+  // devuelve { html, elegidas:[{grupo,label}], noEval, noEvalTextos:[], includes:[], sinValor:[] }
+  function podar(src, perfil, opciones) {
+    opciones = opciones || {};
+    var todas = !!opciones.todas;
+    var conMuestra = opciones.muestra !== false;
+    var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [];
+    var nGrupo = 0, guard = 0, out = src, prev;
+    function anota(lista, v) { if (lista.indexOf(v) < 0) lista.push(v); }
+    do {
+      prev = out;
+      out = out.replace(reGrupo(), function (m, body) {
+        var ramas = [], r = reRama(), mm;
+        while ((mm = r.exec(body))) {
+          var partes = mm[2].split(",");
+          ramas.push({
+            cond: mm[1],
+            label: partes.slice(0, Math.max(1, partes.length - 2)).join(","),
+            html: mm[3]
+          });
+        }
+        if (!ramas.length) return m;
+        nGrupo++;
+        var k, pick = -1;
+        if (todas) {
+          var acc = "";
+          for (k = 0; k < ramas.length; k++) {
+            acc += "<div style='font:11px Arial,sans-serif;background:#eef2ff;color:#4338ca;padding:2px 8px;'>RAMA: " +
+                   esc(ramas[k].label) + "</div>" + ramas[k].html;
+          }
+          elegidas.push({ grupo: nGrupo, label: "todas", todas: true });
+          return acc;
+        }
+        for (k = 0; k < ramas.length; k++) {
+          if (ramas[k].cond === undefined) { pick = k; break; }
+          try {
+            if (evaluar(ramas[k].cond, perfil)) { pick = k; break; }
+          } catch (e) { noEval++; anota(noEvalTextos, String(ramas[k].cond).replace(/\s+/g, " ")); }
+        }
+        if (pick < 0) { elegidas.push({ grupo: nGrupo, label: "", sin: true }); return ""; }
+        elegidas.push({ grupo: nGrupo, label: ramas[pick].label });
+        return ramas[pick].html;
+      });
+    } while (out !== prev && ++guard < 20);
+
+    // Limpieza del codigo de Campaign que queda
+    out = out.replace(rx(O + "\\/\\*[\\s\\S]*?\\*\\/" + C), "");
+    out = out.replace(rx(O + "@\\s*include\\s+view\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
+      function (m, n) {
+        if (valorMuestra(n) === null) anota(sinValor, n);
+        var x = conMuestra ? valorMuestra(n) : null;
+        return x !== null ? x : "[" + esc(n) + "]";
+      });
+    out = out.replace(rx(O + "@\\s*include\\s+fragment\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
+      function (m, n) {
+        var motivo = frgMotivo(n);
+        anota(includes, n + " - " + motivo);
+        return "<div style='font:11px Arial,sans-serif;background:#fef3c7;color:#92400e;padding:6px 8px;text-align:center;'>[fragmento " +
+               esc(n) + " no resuelto: " + esc(motivo) + "]</div>";
+      });
+    out = out.replace(rx(O + "=([\\s\\S]*?)" + C),
+      function (m, e) {
+        var t = /(?:targetData|recipient)\.(\w+)/.exec(e) || /(\b[a-zA-Z_]\w*\b)/.exec(e);
+        var key = t ? t[1] : null;
+        if (key && valorMuestra(key) === null) anota(sinValor, key);
+        var x = (conMuestra && key) ? valorMuestra(key) : null;
+        return x !== null ? x : "[" + (key || "...") + "]";
+      });
+    out = out.replace(rx(O + "[\\s\\S]*?" + C), "");
+    return { html: out, elegidas: elegidas, noEval: noEval, noEvalTextos: noEvalTextos,
+             includes: includes, sinValor: sinValor };
+  }
+
+  // Variables usadas en las condiciones y los valores con que se comparan
+  function detectar(src) {
+    var conds = [], m;
+    var r = rx(O + "\\s*\\}?\\s*(?:else\\s+)?if\\s*\\(([\\s\\S]*?)\\)\\s*\\{\\s*" + C +
+               "\\s*" + O + "\\/\\*\\s*\\[acr-dc-start-cond");
+    while ((m = r.exec(src))) conds.push(m[1]);
+    var vars = {}, orden = [], omitidas = [], k, mm;
+    for (k = 0; k < conds.length; k++) {
+      var rv = /(?:targetData|recipient)\.(\w+)/g;
+      while ((mm = rv.exec(conds[k]))) {
+        if (esContactoMuestra(mm[1])) {
+          if (omitidas.indexOf(mm[1]) < 0) omitidas.push(mm[1]);
+          continue;
+        }
+        if (!vars[mm[1]]) { vars[mm[1]] = { lits: [] }; orden.push(mm[1]); }
+      }
+      var rl = /(?:targetData|recipient)\.(\w+)\s*(?:===?|!==?)\s*(?:'([^']*)'|"([^"]*)")/g;
+      while ((mm = rl.exec(conds[k]))) {
+        if (esContactoMuestra(mm[1])) continue;
+        var lit = mm[2] !== undefined ? mm[2] : mm[3];
+        if (vars[mm[1]].lits.indexOf(lit) < 0) vars[mm[1]].lits.push(lit);
+      }
+    }
+    // tipo: "valores" si se compara con textos no vacios; "presencia" si solo con ''
+    for (k = 0; k < orden.length; k++) {
+      var lits = vars[orden[k]].lits, reales = [];
+      for (var j = 0; j < lits.length; j++) if (lits[j] !== "") reales.push(lits[j]);
+      vars[orden[k]].reales = reales;
+      vars[orden[k]].tipo = reales.length ? "valores" : "presencia";
+    }
+    return { orden: orden, vars: vars, n: conds.length, omitidas: omitidas };
+  }
+
+  // Agrupa banderas de presencia que se parecen (prefijo largo, o prefijo + sufijo comunes),
+  // p.ej. DESCORREOEENNPRINCIPAL / DESNBREENNPRINCIPAL / DESCELULAREENNPRINCIPAL.
+  // Devuelve [{ prefijo, sufijo, etiqueta, nombres:[] }]; las sueltas van en grupos de uno.
+  function comunIni(a, b) {
+    var n = Math.min(a.length, b.length), i = 0;
+    while (i < n && a.charAt(i) === b.charAt(i)) i++;
+    return a.slice(0, i);
+  }
+  function comunFin(a, b) {
+    var n = Math.min(a.length, b.length), i = 0;
+    while (i < n && a.charAt(a.length - 1 - i) === b.charAt(b.length - 1 - i)) i++;
+    return i ? a.slice(a.length - i) : "";
+  }
+  function parecidos(a, b) {
+    var p = comunIni(a, b).length, sf = comunFin(a, b).length;
+    return p >= 4 || (p >= 3 && sf >= 6);
+  }
+  // URL a la que navega el buscador al elegir un template.
+  function urlTemplate(id) { return "?frgId=" + encodeURIComponent(id); }
+
+  function agrupar(nombres) {
+    var usados = {}, salida = [], i, j;
+    for (i = 0; i < nombres.length; i++) {
+      if (usados[nombres[i]]) continue;
+      usados[nombres[i]] = 1;
+      var grupo = [nombres[i]];
+      for (j = i + 1; j < nombres.length; j++) {
+        if (usados[nombres[j]]) continue;
+        if (parecidos(nombres[i], nombres[j])) { usados[nombres[j]] = 1; grupo.push(nombres[j]); }
+      }
+      var pre = grupo[0], suf = grupo[0];
+      for (j = 1; j < grupo.length; j++) { pre = comunIni(pre, grupo[j]); suf = comunFin(suf, grupo[j]); }
+      if (grupo.length < 2) { pre = ""; suf = ""; }
+      salida.push({
+        prefijo: pre,
+        sufijo: suf,
+        nombres: grupo,
+        etiqueta: grupo.length < 2 ? grupo[0]
+          : (pre + "\u2026" + (suf.length >= 4 ? suf : ""))
+      });
+    }
+    return salida;
+  }
+  // END-PODA
+
+  // ---------------- Elementos ----------------
+  var $ = function (id) { return document.getElementById(id); };
+  var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
+  var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
+  var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
+  var elVista = $("vista"), elMarco = $("marco"), elCinta = $("cinta"), elCintaTxt = $("cintaTxt");
+  var elModal = $("modal"), elModalC = $("modalC"), elModalOk = $("modalOk");
+  var bWf = $("workfront");
+
+  // ---------------- Estado ----------------
+  var TEMPLATES = [], actual = elCombo.getAttribute("data-sel") || "";
+  var perfil = {}, det = null, ultimo = null;
+  var vista = { w: 700, z: 100, muestra: true, panel: true };
+  var ALTO_VISTA = 3000;   // px; alto de respaldo si no se puede medir (ver medirVista)
+  var observador = null;   // ResizeObserver sobre el body del preview, si el navegador lo trae
+  var ALTO_MAX = 30000;    // px; tope duro del alto medido
+  var altoMedido = 0;      // ultimo alto aplicado, para no remedir en bucle
+  var original = elVista ? decodeURIComponent(elVista.getAttribute("data-html") || "") : "";
+
+  function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
+  function lee(k) { try { return localStorage.getItem("prevTpl." + k); } catch (e) { return null; } }
+
+  (function cargarTemplates() {
+    var lista = (elCombo.getAttribute("data-frags") || "").split(",");
+    for (var i = 0; i < lista.length; i++) {
+      if (!lista[i]) continue;
+      var p = lista[i].split("|");
+      var id = decodeURIComponent(p[0]), nom = decodeURIComponent(p[1] || "");
+      TEMPLATES.push({ id: id, nom: nom, k: norm(nom) });
+      if (id === actual) { elBuscar.value = nom; elComboId.textContent = id; }
+    }
+  })();
+
+  // Traza de fragmentos del servidor: llena FRG_VIA y deja aparte los que si se
+  // resolvieron, con el camino que los trajo, para verlos en el panel Detalle.
+  var FRG_OK = [];
+  (function cargarFrgVia() {
+    if (!elVista) return;
+    var CAMINO = { mapa: "mapa de nombres + carga por id" };
+    var lista = (elVista.getAttribute("data-frg") || "").split(",");
+    for (var i = 0; i < lista.length; i++) {
+      if (!lista[i]) continue;
+      var p = lista[i].split("|");
+      var n = decodeURIComponent(p[0]), via = p[1] || "";
+      FRG_VIA[n] = via;
+      if (CAMINO[via]) FRG_OK.push(n + " - " + CAMINO[via]);
+    }
+  })();
+
+  // ---------------- URL ----------------
+  function leerURL() {
+    var q = location.search.replace(/^\?/, "").split("&"), i, kv, k, v;
+    for (i = 0; i < q.length; i++) {
+      if (!q[i]) continue;
+      kv = q[i].split("=");
+      k = decodeURIComponent(kv[0]); v = decodeURIComponent((kv[1] || "").replace(/\+/g, " "));
+      if (k === "w") { if (v === "375" || v === "700") vista.w = parseInt(v, 10); }
+      else if (k === "z") { var z = parseInt(v, 10); if (z >= 50 && z <= 100) vista.z = z; }
+      else if (k === "muestra") vista.muestra = (v !== "0");
+      else if (k.indexOf("v.") === 0 && !esContactoMuestra(k.slice(2))) perfil[k.slice(2)] = v;
+    }
+  }
+  function escribirURL() {
+    if (!actual) return;
+    var q = ["frgId=" + encodeURIComponent(actual)], k;
+    for (k = 0; k < det.orden.length; k++) {
+      var n = det.orden[k];
+      q.push("v." + encodeURIComponent(n) + "=" + encodeURIComponent(perfil[n] === undefined ? "" : perfil[n]));
+    }
+    if (!vista.muestra) q.push("muestra=0");
+    if (vista.w !== 700) q.push("w=" + vista.w);
+    if (vista.z !== 100) q.push("z=" + vista.z);
+    try { history.replaceState(null, "", location.pathname + "?" + q.join("&")); } catch (e) {}
+  }
+
+  // ---------------- Combobox ----------------
+  var filtrados = [], iActivo = -1, abierto = false;
+  function recientes() {
+    var r = (lee("recientes") || "").split(",").filter(function (x) { return !!x; });
+    var out = [];
+    for (var i = 0; i < r.length; i++) {
+      for (var j = 0; j < TEMPLATES.length; j++) if (TEMPLATES[j].id === r[i]) { out.push(TEMPLATES[j]); break; }
+    }
+    return out.slice(0, 5);
+  }
+  function anotarReciente(id) {
+    var r = (lee("recientes") || "").split(",").filter(function (x) { return x && x !== id; });
+    r.unshift(id);
+    guarda("recientes", r.slice(0, 5).join(","));
+  }
+  function filtrar(q) {
+    q = norm(q).replace(/^\s+|\s+$/g, "");
+    if (!q) return { titulo: recientes().length ? "Recientes" : "Todos", items: recientes().length ? recientes() : TEMPLATES.slice(0, 50) };
+    var partes = q.split(/\s+/), out = [], i, j, ok;
+    for (i = 0; i < TEMPLATES.length; i++) {
+      ok = true;
+      for (j = 0; j < partes.length; j++) {
+        if (TEMPLATES[i].k.indexOf(partes[j]) < 0 && TEMPLATES[i].id.indexOf(partes[j]) < 0) { ok = false; break; }
+      }
+      if (ok) out.push(TEMPLATES[i]);
+      if (out.length >= 80) break;
+    }
+    return { titulo: out.length + " resultado" + (out.length === 1 ? "" : "s"), items: out };
+  }
+  function resaltar(nodo, texto, q) {
+    q = norm(q).replace(/^\s+|\s+$/g, "").split(/\s+/)[0];
+    var i = q ? norm(texto).indexOf(q) : -1;
+    if (i < 0) { nodo.textContent = texto; return; }
+    nodo.appendChild(document.createTextNode(texto.slice(0, i)));
+    var b = document.createElement("span");
+    b.className = "combo__marca";
+    b.textContent = texto.slice(i, i + q.length);
+    nodo.appendChild(b);
+    nodo.appendChild(document.createTextNode(texto.slice(i + q.length)));
+  }
+  function pintarLista() {
+    var r = filtrar(elBuscar.value);
+    filtrados = r.items; iActivo = -1;
+    elLista.textContent = "";
+    var t = document.createElement("div");
+    t.className = "combo__gt";
+    t.textContent = r.titulo;
+    elLista.appendChild(t);
+    if (!filtrados.length) {
+      var v = document.createElement("div");
+      v.className = "combo__vacio";
+      v.textContent = "Sin resultados. Prueba con menos palabras o con el id.";
+      elLista.appendChild(v);
+      return;
+    }
+    for (var i = 0; i < filtrados.length; i++) {
+      (function (tpl, idx) {
+        var it = document.createElement("div");
+        it.className = "combo__item";
+        it.id = "opt" + idx;
+        it.setAttribute("role", "option");
+        it.setAttribute("aria-selected", tpl.id === actual ? "true" : "false");
+        it.title = tpl.nom;
+        var n = document.createElement("span");
+        n.className = "combo__nom";
+        resaltar(n, tpl.nom, elBuscar.value);
+        var d = document.createElement("span");
+        d.className = "combo__id";
+        d.textContent = tpl.id;
+        it.appendChild(n); it.appendChild(d);
+        it.onmousedown = function (ev) { ev.preventDefault(); ir(tpl.id); };
+        elLista.appendChild(it);
+      })(filtrados[i], i);
+    }
+  }
+  function marcarActivo(n) {
+    var nodos = elLista.querySelectorAll(".combo__item"), i;
+    for (i = 0; i < nodos.length; i++) nodos[i].className = "combo__item";
+    if (n >= 0 && nodos[n]) {
+      nodos[n].className = "combo__item combo__item--activo";
+      elBuscar.setAttribute("aria-activedescendant", nodos[n].id);
+      if (nodos[n].scrollIntoView) nodos[n].scrollIntoView({ block: "nearest" });
+    } else {
+      elBuscar.removeAttribute("aria-activedescendant");
+    }
+  }
+  function abrir() {
+    abierto = true;
+    elCombo.className = "combo combo--abierto";
+    elBuscar.setAttribute("aria-expanded", "true");
+    pintarLista();
+  }
+  function cerrar() {
+    abierto = false;
+    elCombo.className = "combo";
+    elBuscar.setAttribute("aria-expanded", "false");
+    elBuscar.removeAttribute("aria-activedescendant");
+    var t = null, i;
+    for (i = 0; i < TEMPLATES.length; i++) if (TEMPLATES[i].id === actual) t = TEMPLATES[i];
+    elBuscar.value = t ? t.nom : "";
+  }
+  function ir(id) {
+    anotarReciente(id);
+    location.href = location.pathname + urlTemplate(id);
+  }
+  elBuscar.onfocus = abrir;
+  elBuscar.oninput = function () { if (!abierto) abrir(); else pintarLista(); };
+  elBuscar.onblur = function () { setTimeout(cerrar, 120); };
+  elBuscar.onkeydown = function (ev) {
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      if (!abierto) { abrir(); return; }
+      iActivo += (ev.key === "ArrowDown" ? 1 : -1);
+      if (iActivo < 0) iActivo = filtrados.length - 1;
+      if (iActivo >= filtrados.length) iActivo = 0;
+      marcarActivo(iActivo);
+    } else if (ev.key === "Enter") {
+      if (abierto && filtrados.length) { ev.preventDefault(); ir(filtrados[iActivo >= 0 ? iActivo : 0].id); }
+    } else if (ev.key === "Escape") {
+      if (abierto) { ev.preventDefault(); elBuscar.blur(); }
+    }
+  };
+
+  // ---------------- Panel de escenario ----------------
+  var ETIQ_VACIO = "(vac\u00edo)", ETIQ_OTRO = "(otro valor)", VAL_OTRO = "otro";
+
+  function valorPorDefecto(v) { return v.reales.length ? v.reales[0] : VAL_OTRO; }
+
+  // Para variables de tipo "valores" el escenario solo puede ser uno de los valores reales.
+  function normalizarPerfil() {
+    for (var i = 0; i < det.orden.length; i++) {
+      var n = det.orden[i], v = det.vars[n];
+      if (v.tipo !== "valores") continue;
+      var ok = false;
+      for (var j = 0; j < v.reales.length; j++) if (perfil[n] === v.reales[j]) ok = true;
+      if (!ok) perfil[n] = valorPorDefecto(v);
+    }
+  }
+
+  function pintarEscenario() {
+    elVars.textContent = "";
+    if (det.omitidas.length) {
+      var nota = document.createElement("div");
+      nota.className = "panel__vacio";
+      nota.textContent = "Vista visual: los datos de contacto no condicionan las variantes. Se muestran como datos ficticios en modo muestra.";
+      elVars.appendChild(nota);
+    }
+    if (!det.orden.length) {
+      var p = document.createElement("div");
+      p.className = "panel__vacio";
+      p.textContent = det.omitidas.length ? "Sin otras variables para elegir en esta vista." : "Este template no tiene contenido condicional.";
+      elVars.appendChild(p);
+      elPanelN.textContent = "sin variables";
+      return;
+    }
+    elPanelN.textContent = det.orden.length + " variable" + (det.orden.length === 1 ? "" : "s");
+
+    var valores = [], presencia = [], i;
+    for (i = 0; i < det.orden.length; i++) {
+      (det.vars[det.orden[i]].tipo === "valores" ? valores : presencia).push(det.orden[i]);
+    }
+    for (i = 0; i < valores.length; i++) elVars.appendChild(cajaValores(valores[i]));
+    var grupos = agrupar(presencia);
+    for (i = 0; i < grupos.length; i++) elVars.appendChild(cajaPresencia(grupos[i]));
+  }
+
+  function cabecera(nombre, tipo) {
+    var c = document.createElement("div");
+    c.className = "vars__cab";
+    var n = document.createElement("span");
+    n.className = "vars__nom";
+    n.textContent = traducirUI(nombre);
+    n.title = nombre;
+    var t = document.createElement("span");
+    t.className = "vars__tipo";
+    t.textContent = tipo;
+    c.appendChild(n); c.appendChild(t);
+    return c;
+  }
+
+  function cajaValores(nombre) {
+    var v = det.vars[nombre], g = document.createElement("div");
+    g.className = "vars__g";
+    g.appendChild(cabecera(nombre, "valores"));
+    var seg = document.createElement("div");
+    seg.className = "vars__seg" + (v.reales.length === 1 ? " vars__seg--uno" : "");
+    seg.setAttribute("role", "group");
+    seg.setAttribute("aria-label", nombre);
+    // Solo los valores que el template compara de verdad. "(otro valor)" y "(vacio)" caian
+    // siempre en la rama por defecto, que suele estar vacia, y se veia como si no hubiera nada.
+    var ops = [], i;
+    for (i = 0; i < v.reales.length; i++) ops.push([v.reales[i], traducirUI(v.reales[i])]);
+    for (i = 0; i < ops.length; i++) {
+      (function (val, txt) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = txt;
+        b.title = val;
+        b.setAttribute("aria-pressed", perfil[nombre] === val ? "true" : "false");
+        b.onclick = function () { perfil[nombre] = val; pintarEscenario(); pintar(); };
+        seg.appendChild(b);
+      })(ops[i][0], ops[i][1]);
+    }
+    g.appendChild(seg);
+    return g;
+  }
+
+  function interruptor(nombre, esGrupo) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "vars__sw" + (esGrupo ? " vars__sw--todos" : "");
+    b.setAttribute("role", "switch");
+    var p = document.createElement("span"); p.className = "sw__p";
+    var n = document.createElement("span"); n.className = "sw__n";
+    n.textContent = nombre; b.title = nombre;
+    var e = document.createElement("span"); e.className = "sw__e";
+    b.appendChild(p); b.appendChild(n); b.appendChild(e);
+    b.actualizar = function (estado) {
+      b.setAttribute("aria-checked", estado);
+      e.textContent = estado === "true" ? "con dato" : (estado === "mixed" ? "parcial" : ETIQ_VACIO);
+    };
+    return b;
+  }
+
+  function cajaPresencia(grupo) {
+    var g = document.createElement("div"), i;
+    g.className = "vars__g";
+    if (grupo.nombres.length === 1) {
+      g.appendChild(cabecera(grupo.nombres[0], "presencia"));
+      var uno = interruptor("estado", false);
+      uno.actualizar(perfil[grupo.nombres[0]] === "" ? "false" : "true");
+      uno.onclick = function () {
+        perfil[grupo.nombres[0]] = (perfil[grupo.nombres[0]] === "" ? VAL_OTRO : "");
+        pintarEscenario(); pintar();
+      };
+      g.appendChild(uno);
+      return g;
+    }
+    var conDato = 0;
+    for (i = 0; i < grupo.nombres.length; i++) if (perfil[grupo.nombres[i]] !== "") conDato++;
+    g.appendChild(cabecera(grupo.etiqueta, grupo.nombres.length + " banderas \u00b7 " + conDato + "/" + grupo.nombres.length + " con dato"));
+    var todos = interruptor("todos", true);
+    todos.actualizar(conDato === grupo.nombres.length ? "true" : (conDato === 0 ? "false" : "mixed"));
+    todos.onclick = function () {
+      var nuevo = (conDato === grupo.nombres.length) ? "" : VAL_OTRO;
+      for (var j = 0; j < grupo.nombres.length; j++) perfil[grupo.nombres[j]] = nuevo;
+      pintarEscenario(); pintar();
+    };
+    g.appendChild(todos);
+    for (i = 0; i < grupo.nombres.length; i++) {
+      (function (nombre) {
+        var sw = interruptor(nombre, false);
+        sw.actualizar(perfil[nombre] === "" ? "false" : "true");
+        sw.onclick = function () {
+          perfil[nombre] = (perfil[nombre] === "" ? VAL_OTRO : "");
+          pintarEscenario(); pintar();
+        };
+        g.appendChild(sw);
+      })(grupo.nombres[i]);
+    }
+    return g;
+  }
+
+  function pintarRamas(elegidas) {
+    elRamas.textContent = "";
+    if (!det.n) return;
+    var t = document.createElement("div");
+    t.className = "ramas__t";
+    t.textContent = "Ramas activas";
+    elRamas.appendChild(t);
+    if (!elegidas.length) {
+      var v = document.createElement("div");
+      v.className = "panel__vacio";
+      v.textContent = "Ning\u00fan grupo condicional en la vista.";
+      elRamas.appendChild(v);
+    }
+    for (var i = 0; i < elegidas.length; i++) {
+      var f = document.createElement("div");
+      f.className = "ramas__f";
+      var g = document.createElement("span");
+      g.className = "ramas__g";
+      g.textContent = "Grupo " + elegidas[i].grupo + " \u2192";
+      var c = document.createElement("span");
+      c.className = "ramas__chip" + (elegidas[i].sin ? " ramas__chip--sin" : "");
+      c.textContent = elegidas[i].sin ? "sin rama activa" : elegidas[i].label;
+      c.title = c.textContent;
+      f.appendChild(g); f.appendChild(c);
+      elRamas.appendChild(f);
+    }
+  }
+
+  // ---------------- Avisos y detalle ----------------
+  var detalleAbierto = false;
+  function pintarAvisos(r) {
+    elAvisos.textContent = "";
+    var partes = [];
+    if (r.noEval) partes.push(r.noEval + " condici\u00f3n(es) no evaluable(s): se omiti\u00f3 esa rama.");
+    if (r.includes.length) partes.push(r.includes.length + " fragmento(s) no resuelto(s).");
+    // La barra tambien sale cuando todo fue bien pero hubo fragmentos: es la
+    // unica forma de abrir el Detalle y ver por que camino los trajo el servidor.
+    if (!partes.length && !r.sinValor.length && !FRG_OK.length) { elAvisos.hidden = true; cerrarDetalle(); return; }
+    elAvisos.hidden = false;
+    elAvisos.className = "avisos";
+    var s = document.createElement("span");
+    var suave = r.sinValor.length
+      ? r.sinValor.length + " token(s) sin valor de muestra."
+      : FRG_OK.length + " fragmento(s) resuelto(s) en el servidor.";
+    s.textContent = partes.length ? partes.join(" \u00b7 ") : suave;
+    elAvisos.appendChild(s);
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "avisos__b";
+    b.textContent = detalleAbierto ? "Ocultar detalle" : "Ver detalle";
+    b.onclick = function () { detalleAbierto = !detalleAbierto; pintarDetalle(ultimo); pintarAvisos(ultimo); };
+    elAvisos.appendChild(b);
+  }
+  function cerrarDetalle() { detalleAbierto = false; elDetalle.className = "detalle"; elDetalle.textContent = ""; }
+  function columna(titulo, items, vacio) {
+    var c = document.createElement("div");
+    c.className = "detalle__col";
+    var t = document.createElement("div");
+    t.className = "detalle__t";
+    t.textContent = titulo + " (" + items.length + ")";
+    c.appendChild(t);
+    if (!items.length) {
+      var v = document.createElement("div");
+      v.textContent = vacio;
+      c.appendChild(v);
+      return c;
+    }
+    var ul = document.createElement("ul");
+    for (var i = 0; i < items.length; i++) {
+      var li = document.createElement("li");
+      li.className = "mono";
+      li.textContent = items[i];
+      ul.appendChild(li);
+    }
+    c.appendChild(ul);
+    return c;
+  }
+  function pintarDetalle(r) {
+    elDetalle.textContent = "";
+    if (!detalleAbierto || !r) { elDetalle.className = "detalle"; return; }
+    elDetalle.className = "detalle detalle--abierto";
+    elDetalle.appendChild(columna("Condiciones no evaluables", r.noEvalTextos, "ninguna"));
+    elDetalle.appendChild(columna("Fragmentos no resueltos", r.includes, "ninguno"));
+    elDetalle.appendChild(columna("Fragmentos resueltos", FRG_OK, "ninguno"));
+    elDetalle.appendChild(columna("Tokens sin valor de muestra", r.sinValor, "ninguno"));
+  }
+
+  // ---------------- Pintar ----------------
+  function aplicarVista() {
+    if (!elVista) return;
+    elVista.setAttribute("width", vista.w);
+    elMarco.style.width = vista.w + "px";
+    elMarco.style.transform = vista.z === 100 ? "" : "scale(" + (vista.z / 100) + ")";
+    elMarco.className = "marco" + (vista.muestra ? " marco--muestra" : "");
+    $("escritorio").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
+    $("movil").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
+    $("zval").textContent = vista.z + "%";
+    elCintaTxt.textContent = vista.muestra ? "muestra" : "[CAMPOS]";
+    elCinta.firstChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
+    medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
+    ajustarMargen();
+  }
+  // scale() no achica la caja en el layout: sin esto, con zoom < 100 queda un hueco debajo.
+  function ajustarMargen() {
+    if (!elMarco) return;
+    elMarco.style.marginBottom = vista.z === 100 ? "" : -Math.round(elMarco.offsetHeight * (1 - vista.z / 100)) + "px";
+  }
+  // El alto lo pone el contenido y el scroll lo hace .lienzo, no el iframe.
+  // Se puede leer el alto porque el iframe lleva sandbox="allow-same-origin" (ver el comentario
+  // del iframe: nunca con el permiso de scripts). Si no se mide, queda ALTO_VISTA de respaldo.
+  // Sin margen extra y solo si cambia de verdad: un correo con height:100% mide lo que mide el
+  // iframe, y con el ResizeObserver cada ajuste dispararia el siguiente y creceria sin parar.
+  function medirVista() {
+    if (!elVista) return;
+    try {
+      var d = elVista.contentDocument;
+      if (d && d.body) {
+        var h = Math.max(d.body.scrollHeight, d.documentElement ? d.documentElement.scrollHeight : 0);
+        h = Math.min(Math.max(h, 200), ALTO_MAX);
+        if (h > 0 && Math.abs(h - altoMedido) > 2) {
+          altoMedido = h;
+          elVista.style.height = h + "px";
+        }
+      }
+    } catch (e) {}
+    ajustarMargen();
+  }
+  // Las imagenes del CDN llegan despues del load y estiran el correo. Nada de timers fijos:
+  // se remide con el load de cada imagen y, si existe, con un ResizeObserver sobre el body.
+  function seguirVista() {
+    medirVista();
+    try {
+      var d = elVista.contentDocument;
+      if (!d || !d.body) return;
+      var imgs = d.getElementsByTagName("img");
+      for (var i = 0; i < imgs.length; i++) {
+        if (imgs[i].complete) continue;
+        imgs[i].onload = medirVista;
+        imgs[i].onerror = medirVista;
+      }
+      if (typeof ResizeObserver === "function") {
+        if (observador) { try { observador.disconnect(); } catch (e1) {} }
+        observador = new ResizeObserver(medirVista);
+        observador.observe(d.body);
+      }
+    } catch (e) {}
+  }
+  function pintar() {
+    if (!elVista) return;
+    var r = podar(original, perfil, { muestra: vista.muestra });
+    ultimo = r;
+    altoMedido = 0;                            // contenido nuevo: se vuelve a medir
+    elVista.style.height = ALTO_VISTA + "px";   // respaldo hasta que cargue y se pueda medir
+    elVista.srcdoc = r.html;
+    var txt = r.elegidas.length ? r.elegidas.length + " grupo(s) condicional(es)" : "guardado en Campaign";
+    elInfo.textContent = txt;
+    elInfo.title = txt;
+    pintarRamas(r.elegidas);
+    pintarAvisos(r);
+    pintarDetalle(r);
+    aplicarVista();
+    escribirURL();
+  }
+
+  // ---------------- Acciones ----------------
+  if (elVista) {
+    det = detectar(original);
+    leerURL();
+    for (var q = 0; q < det.orden.length; q++) {
+      var nq = det.orden[q];
+      if (perfil[nq] === undefined) perfil[nq] = valorPorDefecto(det.vars[nq]);
+    }
+    if (lee("muestra") === "0" && location.search.indexOf("muestra=") < 0) vista.muestra = false;
+    normalizarPerfil();
+    pintarEscenario();
+    pintar();
+
+    $("escritorio").onclick = function () { vista.w = 700; pintar(); };
+    $("movil").onclick = function () { vista.w = 375; pintar(); };
+    $("zmas").onclick = function () { vista.z = Math.min(100, vista.z + 10); pintar(); };
+    $("zmenos").onclick = function () { vista.z = Math.max(50, vista.z - 10); pintar(); };
+    $("modoMuestra").onclick = function () {
+      vista.muestra = !vista.muestra;
+      guarda("muestra", vista.muestra ? "1" : "0");
+      pintar();
+    };
+    $("restablecer").onclick = function () {
+      for (var i = 0; i < det.orden.length; i++) perfil[det.orden[i]] = valorPorDefecto(det.vars[det.orden[i]]);
+      pintarEscenario();
+      pintar();
+    };
+    $("cerrarPanel").onclick = function () {
+      vista.panel = false;
+      elPanel.hidden = true;
+      aplicarVista();
+    };
+    $("descargar").onclick = function () {
+      var url = URL.createObjectURL(new Blob([ultimo.html], { type: "text/html" }));
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = nombreArchivo() + ".html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+    };
+    $("enlace").onclick = function () {
+      var b = $("enlace"), previo = b.textContent;
+      function fin(ok) {
+        b.textContent = ok ? "Enlace copiado" : "Copia manual: mira la barra de direcciones";
+        setTimeout(function () { b.textContent = previo; }, 2500);
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(location.href).then(function () { fin(true); }, function () { fin(false); });
+        } else { fin(false); }
+      } catch (e) { fin(false); }
+    };
+    window.onresize = aplicarVista;
+    elVista.onload = seguirVista;
+    document.onkeydown = function (ev) {
+      if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
+      if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
+      else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
+      else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
+      else if (ev.key === "Escape" && elModal.className.indexOf("abierto") > 0) cerrarModal();
+    };
+  }
+
+  // Nombre de archivo a partir del nombre del template: minusculas, sin tildes,
+  // espacios y simbolos -> guiones. "BCP - Tarjeta Oro" -> "bcp-tarjeta-oro".
+  function nombreArchivo() {
+    var slug = norm(nombreActual()).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+    return slug || ("template-" + (elVista && elVista.getAttribute("data-id") || "preview"));
+  }
+
+  // ---------------- Descargar PNG (escritorio + movil) ----------------
+  // Sin dependencias: renderiza ultimo.html en iframes ocultos de 700 y 375 px
+  // (para que apliquen los media queries), incrusta las imagenes como data URL,
+  // lo mete en un SVG <foreignObject> y lo dibuja en un canvas.
+  // Mismo sandbox que la vista: allow-same-origin y NADA mas.
+  var bPng = $("descargarPng");
+  var bPdf = $("descargarPdf");
+  if (bPng && bPdf && elVista) {
+    var PNG_ANCHOS = [{ w: 700, n: "escritorio" }, { w: 375, n: "movil" }];
+    var PNG_MAX_LADO = 16000; // px; limite seguro de canvas
+    var pngCache = {}, pngFallidas = [];
+    var RE_URL = /url\((['"]?)(.*?)\1\)/g;
+    // Dominios sin CORS: se piden por el proxy de Campaign (mismo origen), que las
+    // descarga desde el servidor y devuelve un data URL. Debe coincidir con la
+    // lista PERMITIDOS de /cus/imgProxy.jssp.
+    var PNG_PROXY = "/cus/imgProxy.jssp?u=";
+    var PNG_PROXY_HOSTS = /^https:\/\/(bcp-mid-stage13-res\.adobe-campaign\.com|cdn\.storage\.flexigon\.io)\//i;
+
+    var esperarImagenes = function (d, ms) {
+      return new Promise(function (ok) {
+        var imgs = d.images, pend = 0, fin = false, i;
+        function uno() { if (--pend <= 0 && !fin) { fin = true; ok(); } }
+        for (i = 0; i < imgs.length; i++) {
+          if (imgs[i].complete) continue;
+          pend++;
+          imgs[i].addEventListener("load", uno);
+          imgs[i].addEventListener("error", uno);
+        }
+        if (!pend) { fin = true; ok(); return; }
+        setTimeout(function () { if (!fin) { fin = true; ok(); } }, ms);
+      });
+    };
+
+    var renderEn = function (html, ancho) {
+      return new Promise(function (ok, ko) {
+        var f = document.createElement("iframe");
+        f.setAttribute("sandbox", "allow-same-origin");
+        f.setAttribute("aria-hidden", "true");
+        f.tabIndex = -1;
+        f.style.cssText = "position:fixed;left:0;top:0;border:0;opacity:0;pointer-events:none;z-index:-1;" +
+          "width:" + ancho + "px;height:800px;";
+        f.onload = function () {
+          var d = f.contentDocument;
+          if (!d || !d.body) { f.remove(); ko(new Error("no se pudo leer el render")); return; }
+          for (var i = 0; i < d.images.length; i++) d.images[i].loading = "eager";
+          esperarImagenes(d, 10000).then(function () { ok({ f: f, d: d }); });
+        };
+        f.srcdoc = html;              // antes de insertar: evita el load de about:blank
+        document.body.appendChild(f);
+      });
+    };
+
+    // Un SVG dibujado como imagen no carga nada externo: todo tiene que ir como data URL.
+    var aDataURL = function (url) {
+      if (!url || /^data:/i.test(url)) return Promise.resolve(url);
+      if (!pngCache[url] && PNG_PROXY_HOSTS.test(url)) {
+        pngCache[url] = fetch(PNG_PROXY + encodeURIComponent(url), { credentials: "same-origin" })
+          .then(function (res) { if (!res.ok) throw new Error("proxy HTTP " + res.status); return res.text(); })
+          .then(function (t) {
+            t = String(t).replace(/^\s+|\s+$/g, "");
+            if (!/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+$/.test(t)) throw new Error("proxy: respuesta no valida");
+            return t;
+          });
+      }
+      if (!pngCache[url]) {
+        pngCache[url] = fetch(url, { mode: "cors", credentials: "omit" })
+          .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.blob(); })
+          .then(function (b) {
+            return new Promise(function (ok, ko) {
+              var fr = new FileReader();
+              fr.onload = function () { ok(fr.result); };
+              fr.onerror = function () { ko(fr.error); };
+              fr.readAsDataURL(b);
+            });
+          });
+      }
+      return pngCache[url].catch(function () {
+        if (pngFallidas.indexOf(url) < 0) pngFallidas.push(url);
+        return "";
+      });
+    };
+
+    var incrustar = function (d) {
+      var tareas = [], i;
+      for (i = 0; i < d.images.length; i++) (function (img) {
+        var src = img.currentSrc || img.src;
+        img.removeAttribute("srcset");
+        tareas.push(aDataURL(src).then(function (du) { if (du) img.src = du; }));
+      })(d.images[i]);
+      var conFondo = d.querySelectorAll("[background],[style*='url(']");
+      for (i = 0; i < conFondo.length; i++) (function (el) {
+        var bg = el.getAttribute("background");
+        if (bg) tareas.push(aDataURL(new URL(bg, d.baseURI).href).then(function (du) {
+          if (du) el.setAttribute("background", du);
+        }));
+        var st = el.getAttribute("style");
+        if (st && st.indexOf("url(") >= 0) {
+          var urls = [], m;
+          RE_URL.lastIndex = 0;
+          while ((m = RE_URL.exec(st))) urls.push(new URL(m[2], d.baseURI).href);
+          tareas.push(Promise.all(urls.map(aDataURL)).then(function (dus) {
+            var k = 0;
+            el.setAttribute("style", st.replace(RE_URL, function (todo) {
+              var du = dus[k++];
+              return du ? 'url("' + du + '")' : todo;
+            }));
+          }));
+        }
+      })(conFondo[i]);
+      // Los comentarios de Outlook (<!--[if mso]>) pueden romper el XML del SVG.
+      var tw = d.createTreeWalker(d.documentElement, NodeFilter.SHOW_COMMENT, null, false), coms = [];
+      while (tw.nextNode()) coms.push(tw.currentNode);
+      for (i = 0; i < coms.length; i++) coms[i].parentNode.removeChild(coms[i]);
+      return Promise.all(tareas);
+    };
+
+    // Recorte al correo, sin el fondo gris de los costados ni de arriba/abajo.
+    // Correos de Email Designer: union de sus bloques .structure__table.
+    // Otros correos: el elemento mas grande, centrado, mas angosto que la vista y
+    // que ocupe al menos la mitad del alto. Si no hay nada, la vista completa.
+    var recorteCorreo = function (d, ancho, h) {
+      var todo = { x: 0, y: 0, w: ancho, h: h }, i, b;
+      function ajusta(x1, y1, x2, y2) {
+        x1 = Math.max(0, Math.floor(x1)); y1 = Math.max(0, Math.floor(y1));
+        x2 = Math.min(ancho, Math.ceil(x2)); y2 = Math.min(h, Math.ceil(y2));
+        return (x2 - x1 < 100 || y2 - y1 < 100) ? todo : { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+      }
+      try {
+        var bloques = d.body.querySelectorAll(".structure__table");
+        if (bloques.length) {
+          var x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+          for (i = 0; i < bloques.length; i++) {
+            b = bloques[i].getBoundingClientRect();
+            if (!b.width || !b.height) continue;
+            x1 = Math.min(x1, b.left); y1 = Math.min(y1, b.top);
+            x2 = Math.max(x2, b.right); y2 = Math.max(y2, b.bottom);
+          }
+          if (x1 < x2 && y1 < y2) return ajusta(x1, y1, x2, y2);
+        }
+        var mejor = null, area = 0, els = d.body.querySelectorAll("table, div, center");
+        for (i = 0; i < els.length; i++) {
+          b = els[i].getBoundingClientRect();
+          if (b.width >= ancho - 4 || b.width < 280 || b.height < h * 0.5) continue;
+          if (Math.abs((b.left + b.width / 2) - ancho / 2) > 6) continue;
+          if (b.width * b.height > area) { area = b.width * b.height; mejor = b; }
+        }
+        return mejor ? ajusta(mejor.left, mejor.top, mejor.right, mejor.bottom) : todo;
+      } catch (e) { return todo; }
+    };
+
+    var capturar = function (r, ancho) {
+      return incrustar(r.d).then(function () {
+        return esperarImagenes(r.d, 5000);
+      }).then(function () {
+        var d = r.d;
+        var h = Math.min(Math.max(d.body.scrollHeight, d.documentElement.scrollHeight, 200), ALTO_MAX);
+        var rec = recorteCorreo(d, ancho, h);
+        var xhtml = new XMLSerializer().serializeToString(d.documentElement);
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + ancho + '" height="' + h + '">' +
+          '<foreignObject x="0" y="0" width="100%" height="100%">' + xhtml + '</foreignObject></svg>';
+        return new Promise(function (ok, ko) {
+          var img = new Image();
+          img.onload = function () {
+            var esc = Math.min(2, PNG_MAX_LADO / h);
+            var c = document.createElement("canvas");
+            c.width = Math.round(ancho * esc);
+            c.height = Math.round(h * esc);
+            var ctx = c.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, c.width, c.height);
+            ctx.setTransform(esc, 0, 0, esc, 0, 0);
+            ctx.drawImage(img, 0, 0, ancho, h);
+            c.cssW = ancho; c.cssH = h;
+            if (rec.x === 0 && rec.y === 0 && rec.w === ancho && rec.h === h) { ok(c); return; }
+            // Recorta al bloque del correo: fuera quedan los bordes grises del fondo.
+            var c2 = document.createElement("canvas");
+            c2.width = Math.round(rec.w * esc);
+            c2.height = Math.round(rec.h * esc);
+            c2.getContext("2d").drawImage(c, Math.round(rec.x * esc), Math.round(rec.y * esc),
+              c2.width, c2.height, 0, 0, c2.width, c2.height);
+            c2.cssW = rec.w; c2.cssH = rec.h;
+            ok(c2);
+          };
+          img.onerror = function () { ko(new Error("el navegador no pudo dibujar el SVG")); };
+          img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+        });
+      });
+    };
+
+    var bajarCanvas = function (canvas, nombre) {
+      return new Promise(function (ok, ko) {
+        try {
+          canvas.toBlob(function (blob) {
+            if (!blob) { ko(new Error("canvas vac\u00edo")); return; }
+            var url = URL.createObjectURL(blob), a = document.createElement("a");
+            a.href = url; a.download = nombre;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+            ok();
+          }, "image/png");
+        } catch (e) { ko(e); }
+      });
+    };
+
+    // Genera las capturas de escritorio y movil: [{ n, w, canvas }].
+    var generarCapturas = function (boton) {
+      var html = ultimo.html, salida = [], cadena = Promise.resolve();
+      pngFallidas = [];
+      PNG_ANCHOS.forEach(function (v) {
+        cadena = cadena.then(function () {
+          boton.textContent = "Generando " + v.n + "\u2026";
+          return renderEn(html, v.w).then(function (r) {
+            return capturar(r, v.w).then(function (c) {
+              r.f.remove();
+              salida.push({ n: v.n, w: v.w, canvas: c });
+            }, function (e) { r.f.remove(); throw e; });
+          });
+        });
+      });
+      return cadena.then(function () { return salida; });
+    };
+
+    var avisoImagenes = function () {
+      return pngFallidas.length
+        ? " \u00b7 " + pngFallidas.length + " imagen(es) no se pudieron traer y quedaron en blanco."
+        : "";
+    };
+
+    var errorCaptura = function (e) {
+      var seg = e && e.name === "SecurityError";
+      avisoWf(false, seg ? "Este navegador no deja exportar la imagen (Safari). Usa Chrome o Edge."
+                         : "No se pudo generar el archivo. ",
+              seg ? "" : String(e && e.message || e));
+    };
+
+    var conBoton = function (boton, trabajo) {
+      if (!ultimo || boton.disabled) return;
+      var previo = boton.textContent;
+      bPng.disabled = true; bPdf.disabled = true;
+      trabajo().then(null, errorCaptura).then(function () {
+        bPng.disabled = false; bPdf.disabled = false; boton.textContent = previo;
+      });
+    };
+
+    bPng.onclick = function () {
+      conBoton(bPng, function () {
+        return generarCapturas(bPng).then(function (caps) {
+          var cadena = Promise.resolve();
+          caps.forEach(function (cap) {
+            cadena = cadena.then(function () {
+              return bajarCanvas(cap.canvas, nombreArchivo() + "-" + cap.n + ".png");
+            });
+          });
+          return cadena;
+        }).then(function () {
+          avisoWf(true, "PNG descargados: escritorio y m\u00f3vil." + avisoImagenes());
+        });
+      });
+    };
+
+    // PDF armado a mano, sin librerias: una pagina por captura, cada una del
+    // tamano exacto del correo (1 px = 0.75 pt), con la imagen en JPEG (DCTDecode).
+    var pdfDesdeCapturas = function (caps) {
+      var partes = [], largo = 0, offs = [];
+      function bytes(txt) {
+        var a = new Uint8Array(txt.length);
+        for (var i = 0; i < txt.length; i++) a[i] = txt.charCodeAt(i) & 255;
+        return a;
+      }
+      function add(x) { var a = typeof x === "string" ? bytes(x) : x; partes.push(a); largo += a.length; }
+      function obj(n, dic, flujo) {
+        offs[n] = largo;
+        add(n + " 0 obj\n" + dic + "\n");
+        if (flujo) { add("stream\n"); add(flujo); add("\nendstream\n"); }
+        add("endobj\n");
+      }
+      function jpeg(canvas) {
+        var bin = atob(canvas.toDataURL("image/jpeg", 0.92).split(",")[1]);
+        var a = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+        return a;
+      }
+      function pt(v) { return Math.round(v * 0.75 * 100) / 100; }
+      var kids = [], k;
+      for (k = 0; k < caps.length; k++) kids.push((3 + k * 3) + " 0 R");
+      add("%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n");
+      obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+      obj(2, "<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + caps.length + " >>");
+      for (k = 0; k < caps.length; k++) {
+        var c = caps[k].canvas, base = 3 + k * 3;
+        var W = pt(c.cssW || c.width), H = pt(c.cssH || c.height);
+        var img = jpeg(c);
+        var dibujo = "q " + W + " 0 0 " + H + " 0 0 cm /Im0 Do Q";
+        obj(base, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + W + " " + H + "] " +
+          "/Resources << /XObject << /Im0 " + (base + 2) + " 0 R >> >> /Contents " + (base + 1) + " 0 R >>");
+        obj(base + 1, "<< /Length " + dibujo.length + " >>", bytes(dibujo));
+        obj(base + 2, "<< /Type /XObject /Subtype /Image /Width " + c.width + " /Height " + c.height +
+          " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + img.length + " >>", img);
+      }
+      var total = 3 + caps.length * 3, xref = largo, tabla = "xref\n0 " + total + "\n0000000000 65535 f \n";
+      for (k = 1; k < total; k++) tabla += ("0000000000" + offs[k]).slice(-10) + " 00000 n \n";
+      add(tabla);
+      add("trailer\n<< /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+      return new Blob(partes, { type: "application/pdf" });
+    };
+
+    bPdf.onclick = function () {
+      conBoton(bPdf, function () {
+        return generarCapturas(bPdf).then(function (caps) {
+          bPdf.textContent = "Armando PDF\u2026";
+          var url = URL.createObjectURL(pdfDesdeCapturas(caps)), a = document.createElement("a");
+          a.href = url; a.download = nombreArchivo() + ".pdf";
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+          avisoWf(true, "PDF descargado: p\u00e1gina 1 escritorio, p\u00e1gina 2 m\u00f3vil." + avisoImagenes());
+        });
+      });
+    };
+  }
+
+  // ---------------- Workfront ----------------
+  // Unica llamada de red de la pagina. Siempre pasa por el dialogo.
+  var focoPrevio = null;
+  function fila(k, v, mono) {
+    var f = document.createElement("div");
+    f.className = "modal__f";
+    var a = document.createElement("div");
+    a.className = "modal__k";
+    a.textContent = k;
+    var b = document.createElement("div");
+    b.className = "modal__v" + (mono ? " mono" : "");
+    b.textContent = v;
+    f.appendChild(a); f.appendChild(b);
+    return f;
+  }
+  function resumenEscenario() {
+    var p = [], i;
+    for (i = 0; i < det.orden.length; i++) {
+      var n = det.orden[i], v = perfil[n];
+      p.push(n + "=" + (v === "" ? ETIQ_VACIO : (v === VAL_OTRO ? "con dato" : v)));
+    }
+    return p.length ? p.join(" \u00b7 ") : "sin variables";
+  }
+  function resumenRamas() {
+    var p = [], i;
+    for (i = 0; i < ultimo.elegidas.length; i++) {
+      var e = ultimo.elegidas[i];
+      p.push("Grupo " + e.grupo + " \u2192 " + (e.sin ? "sin rama activa" : e.label));
+    }
+    return p.length ? p.join("; ") : "sin grupos condicionales";
+  }
+  function nombreActual() {
+    for (var i = 0; i < TEMPLATES.length; i++) if (TEMPLATES[i].id === actual) return TEMPLATES[i].nom;
+    return "";
+  }
+  function cerrarModal() {
+    elModal.className = "modal";
+    if (focoPrevio && focoPrevio.focus) focoPrevio.focus();
+  }
+  function abrirModal() {
+    focoPrevio = document.activeElement;
+    elModalC.textContent = "";
+    elModalC.appendChild(fila("Template", nombreActual() + "  (" + actual + ")"));
+    elModalC.appendChild(fila("Escenario", resumenEscenario(), true));
+    elModalC.appendChild(fila("Ramas", resumenRamas(), true));
+    elModalC.appendChild(fila("Vista", (vista.w === 700 ? "Escritorio 700 px" : "M\u00f3vil 375 px") + " \u00b7 " + vista.z + "%"));
+    elModalC.appendChild(fila("Destino", WORKFRONT_URL, true));
+    var n = document.createElement("div");
+    n.className = "modal__nota";
+    n.textContent = vista.muestra
+      ? "\u25C6 El HTML que se env\u00eda lleva valores de muestra (S/3,000, 45.8%, MARIA LOPEZ DEMO) y [CAMPO] donde no hay valor. No son datos reales del cliente."
+      : "\u25C7 El HTML que se env\u00eda lleva los tokens sin reemplazar ([CAMPO]).";
+    elModalC.appendChild(n);
+    elModalOk.disabled = false;
+    elModalOk.textContent = "Enviar ahora";
+    elModal.className = "modal modal--abierto";
+    elModalOk.focus();
+  }
+  function avisoWf(ok, texto, detalle) {
+    elAvisos.hidden = false;
+    elAvisos.className = "avisos" + (ok ? "" : " avisos--error");
+    elAvisos.textContent = "";
+    var s = document.createElement("span");
+    s.textContent = texto;
+    elAvisos.appendChild(s);
+    if (detalle) {
+      var d = document.createElement("span");
+      d.className = "mono";
+      d.textContent = detalle;
+      elAvisos.appendChild(d);
+    }
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "avisos__b";
+    b.textContent = "Cerrar";
+    b.onclick = function () { pintarAvisos(ultimo); };
+    elAvisos.appendChild(b);
+  }
+  function estadoWf(txt, dis) { bWf.textContent = txt; bWf.disabled = !!dis; }
+
+  if (bWf) {
+    if (!WORKFRONT_URL) {
+      estadoWf("Workfront no configurado", true);
+      bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y subelo a mano.";
+    }
+    bWf.onclick = function () {
+      if (!WORKFRONT_URL) return;
+      abrirModal();
+    };
+    $("modalX").onclick = cerrarModal;
+    $("modalCancel").onclick = cerrarModal;
+    elModal.onmousedown = function (ev) { if (ev.target === elModal) cerrarModal(); };
+    elModalOk.onclick = function () {
+      if (!WORKFRONT_URL) return;
+      elModalOk.disabled = true;
+      elModalOk.textContent = "Enviando\u2026";
+      estadoWf("Enviando\u2026", true);
+    var credencialesBase64 = btoa(WORKFRONT_USER + ":" + WORKFRONT_PASS);
+      var payload = [
+        {
+          "ca": null,
+          "qs": [],
+          "url": WORKFRONT_URL,
+          "data": JSON.stringify({
+            templateId: elVista.getAttribute("data-id") || "",
+            nombreTemplate: nombreActual(),
+            htmlFinal: ultimo.html,
+            fechaEnvio: new Date().toISOString()
+          }),
+          "gzip": true,
+          "method": "post",
+          "headers": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json",
+              "Authorization": "Basic " + credencialesBase64
+            }
+          ],
+          "timeout": null,
+          "useMtls": false,
+          "authPass": WORKFRONT_PASS,
+          "authUser": WORKFRONT_USER,
+          "bodyType": "raw",
+          "retryCount": null,
+          "contentType": "application/json",
+          "shareCookies": false,
+          "parseResponse": false,
+          "followRedirect": true,
+          "useQuerystring": false,
+          "followAllRedirects": false,
+          "rejectUnauthorized": true
+        }
+      ];
+
+      fetch(WORKFRONT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "Basic " + credencialesBase64
+        },
+        body: JSON.stringify(payload)
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          cerrarModal();
+          estadoWf("\u2713 Enviado", false);
+          avisoWf(true, "Enviado a Workfront \u00b7 HTTP " + res.status + " \u00b7 " + nombreActual() + " (" + actual + ")");
+          setTimeout(function () { estadoWf("Enviar a Workfront \u2197", false); }, 5000);
+        })
+        .catch(function (err) {
+          cerrarModal();
+          estadoWf("\u27f3 Reintentar Workfront", false);
+          avisoWf(false, "No se pudo enviar. Si fue un bloqueo del navegador (CORS), el env\u00edo pudo llegar igual: revisa en Workfront antes de reintentar. ", String(err && err.message || err));
+        });
+    };
+  }
+})();
+</script>
+</body>
+</html>
