@@ -276,6 +276,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .barra__wf { font:inherit; font-size:var(--fs-sm); font-weight:600; padding:5px 12px; border:0;
              border-radius:var(--radius-btn); background:var(--wf-bg); color:#fff; cursor:pointer; white-space:nowrap; }
 .barra__wf:hover { background:var(--wf-hover); }
+.menu { position:relative; flex:none; }
+.menu__lista { position:absolute; right:0; top:calc(100% + 4px); z-index:45; min-width:290px; padding:4px;
+               background:#fff; border:1px solid var(--frame-border); border-radius:6px;
+               box-shadow:0 10px 30px rgba(15,23,42,.25); }
+.menu__lista[hidden] { display:none; }
+.menu__lista button { display:block; width:100%; text-align:left; font:inherit; font-size:var(--fs-sm); font-weight:600;
+                      color:var(--text); background:none; border:0; border-radius:4px; padding:6px 10px; cursor:pointer; }
+.menu__lista button:hover, .menu__lista button:focus-visible { background:var(--vars-bg); outline:none; }
+.menu__lista button:disabled { opacity:.45; cursor:not-allowed; }
+.menu__lista small { display:block; font-size:var(--fs-xs); font-weight:400; color:var(--text-muted); }
 .barra__wf:disabled { background:#475569; color:rgba(255,255,255,.6); cursor:not-allowed; }
 
 /* ---------- combobox ---------- */
@@ -478,9 +488,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <output id="zval" for="zmenos zmas">100%</output>
       <button type="button" class="barra__btn" id="zmas" aria-label="Acercar">+</button>
     </div>
-    <button type="button" class="barra__btn" id="descargar">Descargar .html</button>
-    <button type="button" class="barra__btn" id="descargarPng" title="Descarga dos PNG: escritorio 700 px y m&oacute;vil 375 px">Descargar PNG</button>
-    <button type="button" class="barra__btn" id="descargarPdf" title="Un PDF con dos p&aacute;ginas: escritorio y m&oacute;vil">Descargar PDF</button>
+    <div class="menu" id="menuDesc">
+      <button type="button" class="barra__btn" id="bDescargar" aria-haspopup="menu" aria-expanded="false"
+              aria-controls="menuDescL">Descargar &#x25BE;</button>
+      <div class="menu__lista" id="menuDescL" role="menu" aria-labelledby="bDescargar" hidden>
+        <button type="button" role="menuitem" id="descargar">Correo .html<small>El HTML tal como se ve</small></button>
+        <button type="button" role="menuitem" id="descargarPng">Im&aacute;genes PNG<small>Dos archivos: escritorio 700 px y m&oacute;vil 375 px</small></button>
+        <button type="button" role="menuitem" id="descargarPdf">PDF<small>Dos p&aacute;ginas: escritorio y m&oacute;vil</small></button>
+      </div>
+    </div>
     <button type="button" class="barra__btn" id="enlace">Copiar enlace</button>
     <span class="barra__sep" aria-hidden="true"></span>
     <button type="button" class="barra__wf" id="workfront">Enviar a Workfront &#x2197;</button>
@@ -1756,6 +1772,43 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return slug || ("template-" + (elVista && elVista.getAttribute("data-id") || "preview"));
   }
 
+  // ---------------- Menu Descargar (.html, PNG, PDF) ----------------
+  var bDesc = $("bDescargar"), elMenuDesc = $("menuDescL");
+  function itemsMenu() { return elMenuDesc.querySelectorAll("button"); }
+  function abrirMenu() {
+    elMenuDesc.hidden = false;
+    bDesc.setAttribute("aria-expanded", "true");
+    var it = itemsMenu();
+    for (var i = 0; i < it.length; i++) if (!it[i].disabled) { it[i].focus(); break; }
+  }
+  function cerrarMenu(devolverFoco) {
+    if (elMenuDesc.hidden) return;
+    elMenuDesc.hidden = true;
+    bDesc.setAttribute("aria-expanded", "false");
+    if (devolverFoco) bDesc.focus();
+  }
+  if (!elVista) bDesc.disabled = true;
+  bDesc.onclick = function () { if (elMenuDesc.hidden) abrirMenu(); else cerrarMenu(false); };
+  // Elegir una opcion cierra el menu; el onclick de la opcion corre antes (burbujeo).
+  elMenuDesc.addEventListener("click", function () { cerrarMenu(false); });
+  document.addEventListener("mousedown", function (ev) {
+    if (!elMenuDesc.hidden && !$("menuDesc").contains(ev.target)) cerrarMenu(false);
+  });
+  // Un clic dentro del correo (iframe) no llega a este documento, pero le quita el foco a la ventana.
+  window.addEventListener("blur", function () { cerrarMenu(false); });
+  $("menuDesc").addEventListener("keydown", function (ev) {
+    if (elMenuDesc.hidden) return;
+    if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); cerrarMenu(true); return; }
+    if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+    ev.preventDefault();
+    var it = itemsMenu(), i, pos = -1;
+    for (i = 0; i < it.length; i++) if (it[i] === document.activeElement) pos = i;
+    for (i = 1; i <= it.length; i++) {
+      var n = (pos + (ev.key === "ArrowDown" ? i : -i) + it.length * 2) % it.length;
+      if (!it[n].disabled) { it[n].focus(); break; }
+    }
+  });
+
   // ---------------- Descargar PNG (escritorio + movil) ----------------
   // Sin dependencias: renderiza ultimo.html en iframes ocultos de 700 y 375 px
   // (para que apliquen los media queries), incrusta las imagenes como data URL,
@@ -1966,7 +2019,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pngFallidas = [];
       PNG_ANCHOS.forEach(function (v) {
         cadena = cadena.then(function () {
-          boton.textContent = "Generando " + v.n + "\u2026";
+          bDesc.textContent = "Generando " + v.n + "\u2026";
           return renderEn(html, v.w).then(function (r) {
             return capturar(r, v.w).then(function (c) {
               r.f.remove();
@@ -1993,10 +2046,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
     var conBoton = function (boton, trabajo) {
       if (!ultimo || boton.disabled) return;
-      var previo = boton.textContent;
-      bPng.disabled = true; bPdf.disabled = true;
+      var previo = bDesc.textContent;
+      bPng.disabled = true; bPdf.disabled = true; bDesc.disabled = true;
       trabajo().then(null, errorCaptura).then(function () {
-        bPng.disabled = false; bPdf.disabled = false; boton.textContent = previo;
+        bPng.disabled = false; bPdf.disabled = false; bDesc.disabled = false; bDesc.textContent = previo;
       });
     };
 
@@ -2065,7 +2118,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     bPdf.onclick = function () {
       conBoton(bPdf, function () {
         return generarCapturas(bPdf).then(function (caps) {
-          bPdf.textContent = "Armando PDF\u2026";
+          bDesc.textContent = "Armando PDF\u2026";
           var url = URL.createObjectURL(pdfDesdeCapturas(caps)), a = document.createElement("a");
           a.href = url; a.download = nombreArchivo() + ".pdf";
           document.body.appendChild(a); a.click(); a.remove();
