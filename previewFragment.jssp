@@ -322,6 +322,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           border-bottom:1px solid rgba(146,64,14,.22); }
 .avisos:empty, .avisos[hidden] { display:none; }
 .avisos--error { background:var(--err-bg); color:var(--err-fg); border-bottom-color:rgba(153,27,27,.22); }
+.lienzo__cinta .avisos { background:none; border:0; padding:0 0 0 10px; border-left:1px solid rgba(146,64,14,.3); gap:6px; }
+.lienzo__cinta .avisos--error { background:var(--err-bg); color:var(--err-fg); padding:2px 8px; border:0; border-radius:4px; }
+.lienzo__cinta .avisos button { margin-left:0; }
 .avisos__b { font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
              border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
 .detalle { flex:none; display:none; gap:24px; flex-wrap:wrap; padding:10px 12px; background:#fff;
@@ -396,7 +399,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
          transform-origin:top center; display:flex; flex-direction:column; flex:none; }
 .marco--muestra { border-top:3px solid var(--muestra-borde); }
 .lienzo__cinta { position:sticky; top:-16px; z-index:5; align-self:stretch; margin:-16px -16px 16px;
-                 display:flex; align-items:center; gap:8px; padding:6px 16px; font-size:var(--fs-xs);
+                 display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px; font-size:var(--fs-xs);
                  background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
 .lienzo__cinta b { font-weight:700; }
 .lienzo__cinta button { margin-left:auto; font:inherit; font-size:var(--fs-xs); background:#fff; color:inherit; white-space:nowrap;
@@ -765,8 +768,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function hayEditados() { for (var k in editados) if (editados.hasOwnProperty(k)) return true; return false; }
   // Marcas de texto para ubicar cada fecha en la vista; nunca llegan a ultimo.html.
   var MK_A = "\u27E6", MK_B = "\u27E7", MK_FIN = "\u27E6/\u27E7";
+  // Valores que dependen del escenario: PLASTICO es la tarjeta del PRODUCTO elegido en el panel.
+  function valorDinamico(k) {
+    if (k === "PLASTICO") {
+      var c = perfil.CODPRODUCTO;
+      if (c && c !== VAL_OTRO) return traducirUI(c);
+    }
+    return undefined;
+  }
   function valorMuestra(k) {
-    var v = editados.hasOwnProperty(k) ? editados[k] : diccionario[k];
+    var din = valorDinamico(k);
+    var v = editados.hasOwnProperty(k) ? editados[k] : (din !== undefined ? din : diccionario[k]);
     return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
   }
 
@@ -930,6 +942,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var $ = function (id) { return document.getElementById(id); };
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
   var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
+  // Con un template cargado, los avisos van dentro de la cinta de muestra: una sola franja amarilla.
+  if ($("cinta") && $("editarFechas")) $("cinta").insertBefore(elAvisos, $("editarFechas"));
   var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
   var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
   var elAbrirPanel = $("abrirPanel"), elAbrirPanelN = $("abrirPanelN"), elCerrarPanel = $("cerrarPanel");
