@@ -241,12 +241,14 @@ var datosFrg = vias.join(",");
   --text:#1e293b; --text-muted:#64748b; --linea:#e2e8f0;
   --warn-bg:#fef3c7; --warn-fg:#92400e; --muestra-borde:#d97706;
   --err-bg:#fee2e2; --err-fg:#991b1b;
+  --hover-bg:#f8fafc; --marca-bg:#fde68a; --foco-fecha-bg:#fffbeb; --sw-off:#cbd5e1; --wf-disabled:#475569;
   --wf-bg:#0284c7; --wf-hover:#0369a1; --wf-ok:#16a34a; --wf-err:#dc2626;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --fs-xs:11px; --fs-sm:12px; --fs-md:13px;
   --radius-field:4px; --radius-btn:5px; --radius-chip:3px;
   --gap:8px; --pad-bar:8px 12px; --panel-w:308px;
+  --ease-out:cubic-bezier(0.23,1,0.32,1);
 }
 * { box-sizing:border-box; }
 body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg); color:var(--text);
@@ -280,13 +282,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .menu__lista { position:absolute; right:0; top:calc(100% + 4px); z-index:45; min-width:290px; padding:4px;
                background:#fff; border:1px solid var(--frame-border); border-radius:6px;
                box-shadow:0 10px 30px rgba(15,23,42,.25); }
+.menu__lista:not([hidden]) { transform-origin:top right; animation:entra-menu 150ms var(--ease-out); }
 .menu__lista[hidden] { display:none; }
 .menu__lista button { display:block; width:100%; text-align:left; font:inherit; font-size:var(--fs-sm); font-weight:600;
                       color:var(--text); background:none; border:0; border-radius:4px; padding:6px 10px; cursor:pointer; }
 .menu__lista button:hover, .menu__lista button:focus-visible { background:var(--vars-bg); outline:none; }
 .menu__lista button:disabled { opacity:.45; cursor:not-allowed; }
 .menu__lista small { display:block; font-size:var(--fs-xs); font-weight:400; color:var(--text-muted); }
-.barra__wf:disabled { background:#475569; color:rgba(255,255,255,.6); cursor:not-allowed; }
+.barra__wf:disabled { background:var(--wf-disabled); color:rgba(255,255,255,.6); cursor:not-allowed; }
 
 /* ---------- combobox ---------- */
 .combo { position:relative; flex:1 1 280px; min-width:180px; max-width:420px; }
@@ -304,17 +307,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .combo__gt { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted);
              padding:6px 8px 3px; font-weight:700; }
 .combo__item { display:flex; align-items:baseline; gap:8px; padding:5px 8px; border-radius:var(--radius-field); cursor:pointer; }
-.combo__item:hover { background:#f8fafc; }
+.combo__item:hover { background:var(--hover-bg); }
 .combo__item--activo { background:var(--vars-bg); box-shadow:inset 0 0 0 1px var(--vars-border); }
 .combo__nom { flex:1; min-width:0; font-size:var(--fs-sm); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .combo__item .combo__id { color:var(--text-muted); }
-.combo__marca { background:#fde68a; border-radius:2px; }
+.combo__marca { background:var(--marca-bg); border-radius:2px; }
 .combo__vacio { padding:10px 8px; font-size:var(--fs-sm); color:var(--text-muted); }
 .combo__vacio b { color:var(--text); }
 .combo__acc { display:flex; gap:6px; margin-top:8px; }
 .combo__acc button { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
                      border-radius:var(--radius-chip); padding:3px 8px; cursor:pointer; color:var(--text); }
-.combo__acc button:hover { background:#f8fafc; }
+.combo__acc button:hover { background:var(--hover-bg); }
 
 /* ---------- avisos ---------- */
 .avisos { display:flex; align-items:center; gap:var(--gap); flex-wrap:wrap; flex:none;
@@ -345,7 +348,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .panel__n { font-size:var(--fs-xs); color:var(--text-muted); }
 .panel__b { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
             border-radius:var(--radius-chip); padding:2px 7px; cursor:pointer; color:var(--text-muted); }
-.panel__b:hover { background:#f8fafc; color:var(--text); }
+.panel__b:hover { background:var(--hover-bg); color:var(--text); }
 .panel__abrir { flex:none; width:28px; display:flex; flex-direction:column; align-items:center; gap:8px;
                 padding:10px 0; font:inherit; font-size:var(--fs-sm); color:var(--vars-label);
                 background:var(--panel-bg); border:0; border-right:1px solid var(--linea); cursor:pointer; }
@@ -366,22 +369,23 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .vars__seg button { font:inherit; font-size:var(--fs-xs); padding:4px 6px; border:1px solid var(--vars-border);
                     background:#fff; color:var(--text); border-radius:var(--radius-chip); cursor:pointer;
                     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vars__seg button:hover { background:#f8fafc; }
+.vars__seg button:hover { background:var(--hover-bg); }
 .vars__seg button[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
 .vars__sw { display:flex; align-items:center; gap:6px; width:100%; font:inherit; font-size:var(--fs-xs);
             background:#fff; border:1px solid var(--vars-border); border-radius:var(--radius-chip);
             padding:4px 6px; cursor:pointer; color:var(--text); text-align:left; }
 .vars__sw + .vars__sw { margin-top:4px; }
-.vars__sw:hover { background:#f8fafc; }
+.vars__sw:hover { background:var(--hover-bg); }
 .vars__sw .sw__n { flex:1; min-width:0; font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .vars__sw .sw__e { flex:none; font-weight:600; }
-.vars__sw .sw__p { flex:none; width:26px; height:14px; border-radius:7px; background:#cbd5e1; position:relative; }
+.vars__sw .sw__p { flex:none; width:26px; height:14px; border-radius:7px; background:var(--sw-off); position:relative; }
 .vars__sw .sw__p::after { content:""; position:absolute; top:2px; left:2px; width:10px; height:10px;
-                          border-radius:50%; background:#fff; }
+                          border-radius:50%; background:#fff; transition:transform 150ms var(--ease-out); }
+.vars__sw .sw__p { transition:background-color 150ms ease, opacity 150ms ease; }
 .vars__sw[aria-checked="true"] .sw__p { background:var(--acento); }
-.vars__sw[aria-checked="true"] .sw__p::after { left:14px; }
+.vars__sw[aria-checked="true"] .sw__p::after { transform:translateX(12px); }
 .vars__sw[aria-checked="mixed"] .sw__p { background:var(--acento); opacity:.55; }
-.vars__sw[aria-checked="mixed"] .sw__p::after { left:8px; }
+.vars__sw[aria-checked="mixed"] .sw__p::after { transform:translateX(6px); }
 .vars__sw--todos { background:transparent; border-style:dashed; margin-bottom:4px; }
 
 .ramas { border-top:1px solid var(--linea); margin-top:12px; padding-top:10px; }
@@ -412,12 +416,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .fechas { position:fixed; right:16px; bottom:16px; width:340px; max-width:calc(100vw - 32px); max-height:72vh;
           overflow:auto; background:#fff; border:1px solid var(--frame-border); border-top:3px solid var(--muestra-borde);
           border-radius:8px; box-shadow:0 12px 32px rgba(15,23,42,.25); z-index:35; font-size:var(--fs-sm); }
+.fechas:not([hidden]) { transform-origin:bottom right; animation:entra-fechas 180ms var(--ease-out); }
 .fechas[hidden] { display:none; }
 .fechas__cab { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--linea); }
 .fechas__cab h2 { margin:0; font-size:var(--fs-md); font-weight:700; flex:1; }
 .fechas__intro { margin:0; padding:8px 12px; font-size:var(--fs-xs); color:var(--text-muted); border-bottom:1px solid var(--linea); }
 .fechas__f { padding:10px 12px; border-bottom:1px solid var(--linea); }
-.fechas__f--foco { background:#fffbeb; }
+.fechas__f--foco { background:var(--foco-fecha-bg); }
 .fechas__t { display:flex; align-items:center; gap:6px; font-weight:600; }
 .fechas__num { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
                border-radius:9px; background:var(--muestra-borde); color:#fff; font-size:11px; font-weight:700; }
@@ -428,7 +433,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .fechas__f input:focus { outline:2px solid var(--acento); outline-offset:1px; }
 .fechas__donde { margin-top:6px; font-size:var(--fs-xs); color:var(--text-muted); }
 .fechas__ctx { display:block; margin-top:3px; padding:4px 6px; border-radius:4px; background:var(--canvas-bg); color:var(--text); }
-.fechas__ctx mark { background:#fde68a; color:inherit; padding:0 1px; }
+.fechas__ctx mark { background:var(--marca-bg); color:inherit; padding:0 1px; }
 .fechas__vacio { padding:12px; font-size:var(--fs-sm); color:var(--text-muted); }
 .fechas__pie { display:flex; align-items:center; gap:8px; padding:10px 12px; }
 .fechas__pie span { flex:1; font-size:var(--fs-xs); color:var(--text-muted); }
@@ -439,7 +444,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* ---------- modal Workfront ---------- */
 .modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none;
          align-items:center; justify-content:center; padding:20px; z-index:60; }
-.modal--abierto { display:flex; }
+.modal--abierto { display:flex; animation:funde 200ms ease; }
+.modal--abierto .modal__caja { animation:entra-modal 200ms var(--ease-out); }
 .modal__caja { background:#fff; border-radius:8px; width:520px; max-width:100%; max-height:90vh; overflow:auto;
                box-shadow:0 20px 50px rgba(15,23,42,.35); }
 .modal__cab { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--linea); }
@@ -455,6 +461,33 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .modal__cancel { background:#fff; border:1px solid var(--frame-border); color:var(--text); }
 .modal__ok { background:var(--wf-bg); border:1px solid var(--wf-bg); color:#fff; font-weight:600; }
 .modal__ok:disabled { opacity:.6; cursor:not-allowed; }
+
+/* ---------- movimiento ----------
+   Solo transform y opacity (mas el color del hover). Respuesta al clic y entrada de menu, fechas y modal;
+   la salida es instantanea. La lista del combo, el zoom y el cambio escritorio/movil van sin animacion
+   a proposito: se usan en rafagas o con teclado y cualquier animacion se sentiria como retraso. */
+.barra__btn, .barra__wf, .panel__b, .avisos__b, .combo__acc button, .menu__lista button,
+.vars__seg button, .vars__sw, .lienzo__cinta button, .fechas__pie button, .modal__pie button, .modal__x {
+  transition:background-color 120ms ease, color 120ms ease, transform 120ms var(--ease-out); }
+.combo__item, .panel__abrir { transition:background-color 120ms ease; }
+.barra__btn:active:not(:disabled), .barra__wf:active:not(:disabled), .panel__b:active, .avisos__b:active,
+.combo__acc button:active, .vars__seg button:active, .vars__sw:active, .lienzo__cinta button:active:not(:disabled),
+.fechas__pie button:active, .modal__pie button:active:not(:disabled), .modal__x:active { transform:scale(0.97); }
+.menu__lista button:active:not(:disabled) { transform:scale(0.98); }
+/* Cambio de texto en un boton (Copiar enlace, Workfront): el texto nuevo se enfoca desde un leve blur. */
+.cambia { animation:resuelve 180ms var(--ease-out); }
+@keyframes entra-menu { from { opacity:0; transform:scale(0.97) translateY(-2px); } }
+@keyframes entra-fechas { from { opacity:0; transform:translateY(8px); } }
+@keyframes entra-modal { from { opacity:0; transform:scale(0.96); } }
+@keyframes funde { from { opacity:0; } }
+@keyframes resuelve { from { opacity:.6; filter:blur(2px); } }
+@media (prefers-reduced-motion:reduce) {
+  .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja { animation:funde 150ms ease; }
+  .vars__sw .sw__p::after { transition:none; }
+  .barra__btn:active, .barra__wf:active, .panel__b:active, .avisos__b:active, .combo__acc button:active,
+  .vars__seg button:active, .vars__sw:active, .lienzo__cinta button:active, .fechas__pie button:active,
+  .modal__pie button:active, .modal__x:active, .menu__lista button:active { transform:none; }
+}
 
 @media (max-width:1100px) {
   .barra__t, .barra__lb, .barra__e { display:none; }
@@ -940,6 +973,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   // ---------------- Elementos ----------------
   var $ = function (id) { return document.getElementById(id); };
+  // Cambia el texto de un boton sin mover la barra: el ancho solo crece (min-width) y el texto
+  // nuevo entra con un leve blur (.cambia) para que no parezca un boton distinto.
+  function cambiarTexto(b, txt) {
+    if (b.textContent === txt) return;
+    b.style.minWidth = b.offsetWidth + "px";
+    b.textContent = txt;
+    b.classList.remove("cambia");
+    void b.offsetWidth;
+    b.classList.add("cambia");
+  }
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
   var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
   // Con un template cargado, los avisos van dentro de la cinta de muestra: una sola franja amarilla.
@@ -1176,7 +1219,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
   elBuscar.onfocus = abrir;
   elBuscar.oninput = function () { verTodos = false; if (!abierto) abrir(); else pintarLista(); };
-  elBuscar.onblur = function () { setTimeout(cerrar, 120); };
+  // Un mousedown dentro de la lista (items, botones, barra de scroll) no le quita el foco al
+  // campo, asi que el blur solo llega cuando de verdad se sale y se puede cerrar sin demora.
+  elLista.addEventListener("mousedown", function (ev) { ev.preventDefault(); });
+  elBuscar.onblur = cerrar;
   elBuscar.onkeydown = function (ev) {
     if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
       ev.preventDefault();
@@ -1756,11 +1802,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
     };
+    var tEnlace;
     $("enlace").onclick = function () {
-      var b = $("enlace"), previo = b.textContent;
+      var b = $("enlace");
       function fin(ok) {
-        b.textContent = ok ? "Enlace copiado" : "Copia manual: mira la barra de direcciones";
-        setTimeout(function () { b.textContent = previo; }, 2500);
+        clearTimeout(tEnlace);
+        cambiarTexto(b, ok ? "Enlace copiado" : "Copia manual");
+        b.title = ok ? "" : "No se pudo copiar: copia la URL desde la barra de direcciones";
+        tEnlace = setTimeout(function () { cambiarTexto(b, "Copiar enlace"); b.title = ""; }, 2500);
       }
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -2222,11 +2271,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     b.onclick = function () { pintarAvisos(ultimo); };
     elAvisos.appendChild(b);
   }
-  function estadoWf(txt, dis) { bWf.textContent = txt; bWf.disabled = !!dis; }
+  function estadoWf(txt, dis) { cambiarTexto(bWf, txt); bWf.disabled = !!dis; }
 
   if (bWf) {
     if (!WORKFRONT_URL) {
-      estadoWf("Workfront no configurado", true);
+      bWf.textContent = "Workfront no configurado";   // al cargar: sin animacion
+      bWf.disabled = true;
       bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y subelo a mano.";
     }
     bWf.onclick = function () {
