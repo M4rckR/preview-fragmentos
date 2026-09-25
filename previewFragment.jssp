@@ -240,7 +240,7 @@ var datosFrg = vias.join(",");
   --canvas-bg:#f1f5f9; --frame-border:#cbd5e1; --panel-bg:#fff;
   --text:#1e293b; --text-muted:#64748b; --linea:#e2e8f0;
   --warn-bg:#fef3c7; --warn-fg:#92400e; --muestra-borde:#d97706;
-  --err-bg:#fee2e2; --err-fg:#991b1b;
+  --err-bg:#fee2e2; --err-fg:#991b1b; --ok-bg:#dcfce7; --ok-fg:#166534;
   --hover-bg:#f8fafc; --marca-bg:#fde68a; --foco-fecha-bg:#fffbeb; --sw-off:#cbd5e1; --wf-disabled:#475569;
   --wf-bg:#0284c7; --wf-hover:#0369a1; --wf-ok:#16a34a; --wf-err:#dc2626;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
@@ -455,7 +455,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .modal__cuerpo { padding:12px 16px; font-size:var(--fs-sm); }
 .modal__f { display:flex; gap:10px; padding:5px 0; border-bottom:1px solid var(--linea); align-items:baseline; }
 .modal__k { width:86px; flex:none; color:var(--text-muted); font-size:var(--fs-xs); }
-.modal__v { flex:1; min-width:0; word-break:break-word; }
+.modal__v { flex:1; min-width:0; word-break:break-word; white-space:pre-line; }
+.modal__rev { margin:0 0 10px; border-radius:4px; padding:8px 10px; background:var(--err-bg); color:var(--err-fg); }
+.modal__rev--ok { background:var(--ok-bg); color:var(--ok-fg); }
+.modal__rev b { display:block; margin-bottom:2px; }
+.modal__rev ul { margin:0; padding-left:18px; }
+.modal__rev li { margin:2px 0; word-break:break-word; }
 .modal__nota { margin-top:10px; background:var(--warn-bg); color:var(--warn-fg); border-radius:4px; padding:8px 10px; font-size:var(--fs-xs); }
 .modal__pie { display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid var(--linea); }
 .modal__pie button { font:inherit; font-size:var(--fs-sm); padding:6px 14px; border-radius:var(--radius-btn); cursor:pointer; }
@@ -2237,7 +2242,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var p = [], i;
     for (i = 0; i < det.orden.length; i++) {
       var n = det.orden[i], v = perfil[n];
-      p.push(n + "=" + (v === "" ? ETIQ_VACIO : (v === VAL_OTRO ? "con dato" : v)));
+      p.push(traducirUI(n) + " = " + (v === "" ? ETIQ_VACIO : (v === VAL_OTRO ? "con dato" : traducirUI(v))));
     }
     return p.length ? p.join(" \u00b7 ") : "sin variables";
   }
@@ -2247,7 +2252,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var e = ultimo.elegidas[i];
       p.push("Grupo " + e.grupo + " \u2192 " + (e.sin ? "sin rama activa" : e.label));
     }
-    return p.length ? p.join("; ") : "sin grupos condicionales";
+    return p.length ? p.join("\n") : "sin grupos condicionales";
   }
   function nombreActual() {
     for (var i = 0; i < TEMPLATES.length; i++) if (TEMPLATES[i].id === actual) return TEMPLATES[i].nom;
@@ -2257,25 +2262,77 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModal.className = "modal";
     if (focoPrevio && focoPrevio.focus) focoPrevio.focus();
   }
+  function plural(n, uno, varios) { return n + " " + (n === 1 ? uno : varios); }
+  // Lo que falta resolver en el HTML que se va a enviar. Sin valor de muestra solo
+  // cuenta con datos de muestra: en modo [CAMPOS] todos los tokens van sin reemplazar a proposito.
+  function pendientes() {
+    var p = [], i, sin = [];
+    for (i = 0; i < ultimo.elegidas.length; i++) if (ultimo.elegidas[i].sin) sin.push("Grupo " + ultimo.elegidas[i].grupo);
+    if (sin.length) p.push(plural(sin.length, "grupo sin rama activa", "grupos sin rama activa") +
+      " (no se env\u00eda nada en su lugar): " + sin.join(", "));
+    if (ultimo.noEval) p.push(plural(ultimo.noEval, "condici\u00f3n no evaluable", "condiciones no evaluables") +
+      ": se omiti\u00f3 esa rama");
+    if (ultimo.includes.length) p.push(plural(ultimo.includes.length, "fragmento no resuelto", "fragmentos no resueltos") +
+      ": " + ultimo.includes.join(", "));
+    if (vista.muestra && ultimo.sinValor.length) p.push(plural(ultimo.sinValor.length, "campo sin valor", "campos sin valor") +
+      ", sale como [CAMPO]: " + ultimo.sinValor.join(", "));
+    return p;
+  }
+  function revision(p) {
+    var r = document.createElement("div");
+    r.className = "modal__rev" + (p.length ? "" : " modal__rev--ok");
+    var b = document.createElement("b");
+    r.appendChild(b);
+    if (!p.length) {
+      b.textContent = "\u2713 Todo resuelto";
+      r.appendChild(document.createTextNode("Sin campos vac\u00edos, condiciones ni fragmentos pendientes."));
+      return r;
+    }
+    b.textContent = "Revisa antes de enviar: " + plural(p.length, "pendiente", "pendientes");
+    var ul = document.createElement("ul");
+    for (var i = 0; i < p.length; i++) {
+      var li = document.createElement("li");
+      li.textContent = p[i];
+      ul.appendChild(li);
+    }
+    r.appendChild(ul);
+    return r;
+  }
   function abrirModal() {
+    if (!ultimo) return;
     focoPrevio = document.activeElement;
+    var p = pendientes();
     elModalC.textContent = "";
+    elModalC.appendChild(revision(p));
     elModalC.appendChild(fila("Template", nombreActual() + "  (" + actual + ")"));
-    elModalC.appendChild(fila("Escenario", resumenEscenario(), true));
+    elModalC.appendChild(fila("Escenario", resumenEscenario()));
     elModalC.appendChild(fila("Ramas", resumenRamas(), true));
-    elModalC.appendChild(fila("Vista", (vista.w === 700 ? "Escritorio 700 px" : "M\u00f3vil 375 px") + " \u00b7 " + vista.z + "%"));
     if (hayEditados()) elModalC.appendChild(fila("Fechas editadas", resumenFechas()));
-    elModalC.appendChild(fila("Destino", WORKFRONT_URL, true));
     var n = document.createElement("div");
     n.className = "modal__nota";
     n.textContent = vista.muestra
-      ? "\u25C6 El HTML que se env\u00eda lleva valores de muestra (S/3,000, 45.8%, MARIA LOPEZ DEMO) y [CAMPO] donde no hay valor. No son datos reales del cliente."
+      ? "\u25C6 El HTML que se env\u00eda lleva los datos de muestra de esta vista, que son ficticios, y [CAMPO] donde no hay valor."
       : "\u25C7 El HTML que se env\u00eda lleva los tokens sin reemplazar ([CAMPO]).";
     elModalC.appendChild(n);
     elModalOk.disabled = false;
-    elModalOk.textContent = "Enviar ahora";
+    // Con pendientes, Enter no debe enviar: el foco empieza en Cancelar y el boton lo dice.
+    elModalOk.textContent = p.length ? "Enviar de todos modos" : "Enviar ahora";
     elModal.className = "modal modal--abierto";
-    elModalOk.focus();
+    (p.length ? $("modalCancel") : elModalOk).focus();
+  }
+  // El foco no sale del dialogo con Tab mientras esta abierto.
+  function atraparFoco(ev) {
+    if (ev.key !== "Tab") return;
+    var bs = elModal.querySelectorAll("button"), f = [], i;
+    for (i = 0; i < bs.length; i++) if (!bs[i].disabled) f.push(bs[i]);
+    if (!f.length) return;
+    var a = document.activeElement, pri = f[0], ult = f[f.length - 1];
+    if (ev.shiftKey && (a === pri || !elModal.contains(a))) { ev.preventDefault(); ult.focus(); }
+    else if (!ev.shiftKey && (a === ult || !elModal.contains(a))) { ev.preventDefault(); pri.focus(); }
+  }
+  function hora() {
+    var d = new Date(), m = d.getMinutes();
+    return d.getHours() + ":" + (m < 10 ? "0" : "") + m;
   }
   function avisoWf(ok, texto, detalle) {
     elAvisos.hidden = false;
@@ -2314,6 +2371,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("modalX").onclick = cerrarModal;
     $("modalCancel").onclick = cerrarModal;
     elModal.onmousedown = function (ev) { if (ev.target === elModal) cerrarModal(); };
+    elModal.onkeydown = atraparFoco;
     elModalOk.onclick = function () {
       if (!WORKFRONT_URL) return;
       elModalOk.disabled = true;
@@ -2360,8 +2418,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         }
       ];
 
+      // Tope de 30 s: sin respuesta no se sabe si llego, y el mensaje lo dice.
+      var ctl = window.AbortController ? new AbortController() : null;
+      var tope = ctl ? setTimeout(function () { ctl.abort(); }, 30000) : null;
       fetch(WORKFRONT_URL, {
         method: "POST",
+        signal: ctl ? ctl.signal : undefined,
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
@@ -2370,16 +2432,25 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         body: JSON.stringify(payload)
       })
         .then(function (res) {
-          if (!res.ok) throw new Error("HTTP " + res.status);
+          clearTimeout(tope);
+          if (!res.ok) { var e = new Error("HTTP " + res.status); e.http = res.status; throw e; }
           cerrarModal();
           estadoWf("\u2713 Enviado", false);
-          avisoWf(true, "Enviado a Workfront \u00b7 HTTP " + res.status + " \u00b7 " + nombreActual() + " (" + actual + ")");
+          avisoWf(true, "Enviado a Workfront a las " + hora() + " \u00b7 " + nombreActual() + " (" + actual + ")");
           setTimeout(function () { estadoWf("Enviar a Workfront \u2197", false, true); }, 5000);
         })
         .catch(function (err) {
+          clearTimeout(tope);
           cerrarModal();
           estadoWf("\u27f3 Reintentar Workfront", false);
-          avisoWf(false, "No se pudo enviar. Si fue un bloqueo del navegador (CORS), el env\u00edo pudo llegar igual: revisa en Workfront antes de reintentar. ", String(err && err.message || err));
+          // Un HTTP de error es un rechazo claro. Sin respuesta (red, CORS o tope) no se sabe
+          // si llego, y reintentar a ciegas puede duplicar la tarea.
+          var msg = err && err.http
+            ? "Workfront rechaz\u00f3 el env\u00edo (HTTP " + err.http + "). No se registr\u00f3: puedes reintentar."
+            : (err && err.name === "AbortError"
+              ? "Workfront no respondi\u00f3 en 30 s. El env\u00edo pudo llegar: revisa en Workfront antes de reintentar para no duplicarlo."
+              : "No hubo respuesta legible de Workfront (red o bloqueo del navegador). El env\u00edo pudo llegar: revisa en Workfront antes de reintentar para no duplicarlo.");
+          avisoWf(false, msg + " ", err && err.http ? "" : String(err && err.message || err));
         });
     };
   }
