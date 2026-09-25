@@ -445,7 +445,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* ---------- modal Workfront ---------- */
 .modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none;
          align-items:center; justify-content:center; padding:20px; z-index:60; }
-.modal--abierto { display:flex; animation:funde var(--dur-lg) ease; }
+.modal--abierto { display:flex; animation:funde var(--dur-lg) var(--ease-out); }
 .modal--abierto .modal__caja { animation:entra-modal var(--dur-lg) var(--ease-out); }
 .modal__caja { background:#fff; border-radius:8px; width:520px; max-width:100%; max-height:90vh; overflow:auto;
                box-shadow:0 20px 50px rgba(15,23,42,.35); }
@@ -487,7 +487,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 @keyframes entra-detalle { from { opacity:0; transform:translateY(-4px); } }
 @keyframes entra-panel { from { opacity:0; transform:translateX(-12px); } }
 /* Resultado de una accion (Workfront, PNG, PDF): solo en avisoWf, no en cada repintado. */
-.avisos--nuevo { animation:funde var(--dur-lg) ease; }
+.avisos--nuevo { animation:funde var(--dur-lg) var(--ease-out); }
 
 @media (max-width:1100px) {
   .barra__t, .barra__lb, .barra__e { display:none; }
@@ -495,16 +495,18 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 @media (max-width:900px) {
   .panel { position:absolute; z-index:30; top:auto; left:0; height:auto; max-height:70vh;
            box-shadow:0 10px 30px rgba(15,23,42,.22); }
-  /* Flotante: nace del borde izquierdo, donde esta el riel que lo abre. En escritorio va en el
-     flujo y el lienzo se reacomoda de golpe, asi que ahi no se anima. */
-  .panel:not([hidden]) { animation:entra-panel var(--dur-lg) var(--ease-out); }
+  /* Flotante: nace del borde izquierdo, donde esta el riel que lo abre. Solo al abrirlo con el
+     riel (.panel--entra), no al cargar: elegir un template recarga la pagina. En escritorio va
+     en el flujo y el lienzo se reacomoda de golpe, asi que ahi no se anima. */
+  .panel--entra { animation:entra-panel var(--dur-lg) var(--ease-out); }
   .cuerpo { position:relative; }
 }
 /* Movimiento reducido: solo fundidos. Va al final para ganarle a los media queries de ancho
    (el panel flotante de <=900px). La respuesta al clic (scale en su lugar) se mantiene: no desplaza. */
 @media (prefers-reduced-motion:reduce) {
   .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja,
-  .detalle--abierto, .panel:not([hidden]) { animation:funde var(--dur-sm) ease; }
+  .detalle--abierto { animation:funde var(--dur-sm) var(--ease-out); }
+  @media (max-width:900px) { .panel--entra { animation:funde var(--dur-sm) var(--ease-out); } }
   .vars__sw .sw__p::after { transition:none; }
 }
 </style>
@@ -584,7 +586,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
              aislamiento: el HTML guardado, que viene de la base y no es confiable, pasaria a
              ejecutarse con acceso al origen de Campaign, o sea a la sesion del operador.
              Si el correo no se ve bien, la solucion NO es tocar esta linea.
-             `sh lint.sh` falla si ese valor aparece en cualquier parte del archivo. -->
+             La verificacion de CLAUDE.md falla si ese valor aparece en cualquier parte del archivo. -->
         <iframe id="vista" width="700" height="100%" sandbox="allow-same-origin" referrerpolicy="no-referrer"
                 title="Vista del template"
                 data-id="<%= selAttr %>" data-html="<%= datosHtml %>" data-frg="<%= datosFrg %>"></iframe>
@@ -983,11 +985,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   // ---------------- Elementos ----------------
   var $ = function (id) { return document.getElementById(id); };
-  // Cambia el texto de un boton sin mover la barra: el ancho solo crece (min-width) y el texto
-  // nuevo entra con un leve blur (.cambia) para que no parezca un boton distinto.
-  function cambiarTexto(b, txt) {
-    if (b.textContent === txt) return;
-    b.style.minWidth = b.offsetWidth + "px";
+  // Cambia el texto de un boton sin mover la barra: durante los estados pasajeros el ancho solo
+  // crece (min-width) y el texto nuevo entra con un leve blur (.cambia) para que no parezca un
+  // boton distinto. reposo=true es la vuelta al texto normal: suelta el min-width para que el
+  // boton no quede inflado para siempre (la barra hace wrap y podria quedar en dos lineas).
+  function cambiarTexto(b, txt, reposo) {
+    if (b.textContent === txt) { if (reposo) b.style.minWidth = ""; return; }
+    b.style.minWidth = reposo ? "" : b.offsetWidth + "px";
     b.textContent = txt;
     b.classList.remove("cambia");
     void b.offsetWidth;
@@ -1803,11 +1807,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pintar();
     };
     elCerrarPanel.onclick = function () {
+      elPanel.classList.remove("panel--entra");
       vista.panel = false;
       aplicarVista();
       if (!elAbrirPanel.hidden) elAbrirPanel.focus();
     };
     elAbrirPanel.onclick = function () {
+      elPanel.classList.add("panel--entra");
       vista.panel = true;
       aplicarVista();
       elCerrarPanel.focus();
@@ -1829,7 +1835,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         clearTimeout(tEnlace);
         cambiarTexto(b, ok ? "Enlace copiado" : "Copia manual");
         b.title = ok ? "" : "No se pudo copiar: copia la URL desde la barra de direcciones";
-        tEnlace = setTimeout(function () { cambiarTexto(b, "Copiar enlace"); b.title = ""; }, 2500);
+        tEnlace = setTimeout(function () { cambiarTexto(b, "Copiar enlace", true); b.title = ""; }, 2500);
       }
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -2132,7 +2138,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var previo = bDesc.textContent;
       bPng.disabled = true; bPdf.disabled = true; bDesc.disabled = true;
       trabajo().then(null, errorCaptura).then(function () {
-        bPng.disabled = false; bPdf.disabled = false; bDesc.disabled = false; cambiarTexto(bDesc, previo);
+        bPng.disabled = false; bPdf.disabled = false; bDesc.disabled = false; cambiarTexto(bDesc, previo, true);
       });
     };
 
@@ -2293,7 +2299,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     b.onclick = function () { pintarAvisos(ultimo); };
     elAvisos.appendChild(b);
   }
-  function estadoWf(txt, dis) { cambiarTexto(bWf, txt); bWf.disabled = !!dis; }
+  function estadoWf(txt, dis, reposo) { cambiarTexto(bWf, txt, reposo); bWf.disabled = !!dis; }
 
   if (bWf) {
     if (!WORKFRONT_URL) {
@@ -2368,7 +2374,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           cerrarModal();
           estadoWf("\u2713 Enviado", false);
           avisoWf(true, "Enviado a Workfront \u00b7 HTTP " + res.status + " \u00b7 " + nombreActual() + " (" + actual + ")");
-          setTimeout(function () { estadoWf("Enviar a Workfront \u2197", false); }, 5000);
+          setTimeout(function () { estadoWf("Enviar a Workfront \u2197", false, true); }, 5000);
         })
         .catch(function (err) {
           cerrarModal();
