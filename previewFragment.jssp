@@ -249,6 +249,7 @@ var datosFrg = vias.join(",");
   --radius-field:4px; --radius-btn:5px; --radius-chip:3px;
   --gap:8px; --pad-bar:8px 12px; --panel-w:308px;
   --ease-out:cubic-bezier(0.23,1,0.32,1);
+  --dur-xs:120ms; --dur-sm:150ms; --dur-md:180ms; --dur-lg:200ms;
 }
 * { box-sizing:border-box; }
 body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg); color:var(--text);
@@ -282,7 +283,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .menu__lista { position:absolute; right:0; top:calc(100% + 4px); z-index:45; min-width:290px; padding:4px;
                background:#fff; border:1px solid var(--frame-border); border-radius:6px;
                box-shadow:0 10px 30px rgba(15,23,42,.25); }
-.menu__lista:not([hidden]) { transform-origin:top right; animation:entra-menu 150ms var(--ease-out); }
+.menu__lista:not([hidden]) { transform-origin:top right; animation:entra-menu var(--dur-sm) var(--ease-out); }
 .menu__lista[hidden] { display:none; }
 .menu__lista button { display:block; width:100%; text-align:left; font:inherit; font-size:var(--fs-sm); font-weight:600;
                       color:var(--text); background:none; border:0; border-radius:4px; padding:6px 10px; cursor:pointer; }
@@ -332,7 +333,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
              border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
 .detalle { flex:none; display:none; gap:24px; flex-wrap:wrap; padding:10px 12px; background:#fff;
            border-bottom:1px solid var(--linea); font-size:var(--fs-xs); overflow:auto; max-height:200px; }
-.detalle--abierto { display:flex; animation:entra-detalle 180ms var(--ease-out); }
+.detalle--abierto { display:flex; animation:entra-detalle var(--dur-md) var(--ease-out); }
 .detalle__col { flex:1; min-width:180px; }
 .detalle__t { font-weight:700; color:var(--vars-label); margin-bottom:4px; }
 .detalle ul { margin:0; padding-left:16px; }
@@ -380,8 +381,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .vars__sw .sw__e { flex:none; font-weight:600; }
 .vars__sw .sw__p { flex:none; width:26px; height:14px; border-radius:7px; background:var(--sw-off); position:relative; }
 .vars__sw .sw__p::after { content:""; position:absolute; top:2px; left:2px; width:10px; height:10px;
-                          border-radius:50%; background:#fff; transition:transform 150ms var(--ease-out); }
-.vars__sw .sw__p { transition:background-color 150ms ease, opacity 150ms ease; }
+                          border-radius:50%; background:#fff; transition:transform var(--dur-sm) var(--ease-out); }
+.vars__sw .sw__p { transition:background-color var(--dur-sm) ease, opacity var(--dur-sm) ease; }
 .vars__sw[aria-checked="true"] .sw__p { background:var(--acento); }
 .vars__sw[aria-checked="true"] .sw__p::after { transform:translateX(12px); }
 .vars__sw[aria-checked="mixed"] .sw__p { background:var(--acento); opacity:.55; }
@@ -416,7 +417,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .fechas { position:fixed; right:16px; bottom:16px; width:340px; max-width:calc(100vw - 32px); max-height:72vh;
           overflow:auto; background:#fff; border:1px solid var(--frame-border); border-top:3px solid var(--muestra-borde);
           border-radius:8px; box-shadow:0 12px 32px rgba(15,23,42,.25); z-index:35; font-size:var(--fs-sm); }
-.fechas:not([hidden]) { transform-origin:bottom right; animation:entra-fechas 180ms var(--ease-out); }
+.fechas:not([hidden]) { transform-origin:bottom right; animation:entra-fechas var(--dur-md) var(--ease-out); }
 .fechas[hidden] { display:none; }
 .fechas__cab { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--linea); }
 .fechas__cab h2 { margin:0; font-size:var(--fs-md); font-weight:700; flex:1; }
@@ -444,8 +445,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* ---------- modal Workfront ---------- */
 .modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none;
          align-items:center; justify-content:center; padding:20px; z-index:60; }
-.modal--abierto { display:flex; animation:funde 200ms ease; }
-.modal--abierto .modal__caja { animation:entra-modal 200ms var(--ease-out); }
+.modal--abierto { display:flex; animation:funde var(--dur-lg) ease; }
+.modal--abierto .modal__caja { animation:entra-modal var(--dur-lg) var(--ease-out); }
 .modal__caja { background:#fff; border-radius:8px; width:520px; max-width:100%; max-height:90vh; overflow:auto;
                box-shadow:0 20px 50px rgba(15,23,42,.35); }
 .modal__cab { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--linea); }
@@ -468,14 +469,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
    a proposito: se usan en rafagas o con teclado y cualquier animacion se sentiria como retraso. */
 .barra__btn, .barra__wf, .panel__b, .avisos__b, .combo__acc button, .menu__lista button,
 .vars__seg button, .vars__sw, .lienzo__cinta button, .fechas__pie button, .modal__pie button, .modal__x {
-  transition:background-color 120ms ease, color 120ms ease, transform 120ms var(--ease-out); }
-.combo__item, .panel__abrir { transition:background-color 120ms ease; }
+  transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
+.combo__item, .panel__abrir { transition:background-color var(--dur-xs) ease; }
 .barra__btn:active:not(:disabled), .barra__wf:active:not(:disabled), .panel__b:active, .avisos__b:active,
-.combo__acc button:active, .vars__seg button:active, .vars__sw:active, .lienzo__cinta button:active:not(:disabled),
+.combo__acc button:active, .vars__seg button:active, .lienzo__cinta button:active:not(:disabled),
 .fechas__pie button:active, .modal__pie button:active:not(:disabled), .modal__x:active { transform:scale(0.97); }
+/* Filas de ancho completo: con 0.97 se achicarian ~8px; mas leve para que se sienta igual. */
 .menu__lista button:active:not(:disabled) { transform:scale(0.98); }
-/* Cambio de texto en un boton (Copiar enlace, Workfront): el texto nuevo se enfoca desde un leve blur. */
-.cambia { animation:resuelve 180ms var(--ease-out); }
+.vars__sw:active { transform:scale(0.985); }
+/* Cambio de texto en un boton (Copiar enlace, Workfront, Descargar): el texto nuevo se enfoca desde un leve blur. */
+.cambia { animation:resuelve var(--dur-md) var(--ease-out); }
 @keyframes entra-menu { from { opacity:0; transform:scale(0.97) translateY(-2px); } }
 @keyframes entra-fechas { from { opacity:0; transform:translateY(8px); } }
 @keyframes entra-modal { from { opacity:0; transform:scale(0.96); } }
@@ -484,15 +487,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 @keyframes entra-detalle { from { opacity:0; transform:translateY(-4px); } }
 @keyframes entra-panel { from { opacity:0; transform:translateX(-12px); } }
 /* Resultado de una accion (Workfront, PNG, PDF): solo en avisoWf, no en cada repintado. */
-.avisos--nuevo { animation:funde 200ms ease; }
-@media (prefers-reduced-motion:reduce) {
-  .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja,
-  .detalle--abierto, .panel:not([hidden]) { animation:funde 150ms ease; }
-  .vars__sw .sw__p::after { transition:none; }
-  .barra__btn:active, .barra__wf:active, .panel__b:active, .avisos__b:active, .combo__acc button:active,
-  .vars__seg button:active, .vars__sw:active, .lienzo__cinta button:active, .fechas__pie button:active,
-  .modal__pie button:active, .modal__x:active, .menu__lista button:active { transform:none; }
-}
+.avisos--nuevo { animation:funde var(--dur-lg) ease; }
 
 @media (max-width:1100px) {
   .barra__t, .barra__lb, .barra__e { display:none; }
@@ -502,8 +497,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
            box-shadow:0 10px 30px rgba(15,23,42,.22); }
   /* Flotante: nace del borde izquierdo, donde esta el riel que lo abre. En escritorio va en el
      flujo y el lienzo se reacomoda de golpe, asi que ahi no se anima. */
-  .panel:not([hidden]) { animation:entra-panel 200ms var(--ease-out); }
+  .panel:not([hidden]) { animation:entra-panel var(--dur-lg) var(--ease-out); }
   .cuerpo { position:relative; }
+}
+/* Movimiento reducido: solo fundidos. Va al final para ganarle a los media queries de ancho
+   (el panel flotante de <=900px). La respuesta al clic (scale en su lugar) se mantiene: no desplaza. */
+@media (prefers-reduced-motion:reduce) {
+  .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja,
+  .detalle--abierto, .panel:not([hidden]) { animation:funde var(--dur-sm) ease; }
+  .vars__sw .sw__p::after { transition:none; }
 }
 </style>
 </head>
@@ -2100,7 +2102,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pngFallidas = [];
       PNG_ANCHOS.forEach(function (v) {
         cadena = cadena.then(function () {
-          bDesc.textContent = "Generando " + v.n + "\u2026";
+          cambiarTexto(bDesc, "Generando " + v.n + "\u2026");
           return renderEn(html, v.w).then(function (r) {
             return capturar(r, v.w).then(function (c) {
               r.f.remove();
@@ -2130,7 +2132,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var previo = bDesc.textContent;
       bPng.disabled = true; bPdf.disabled = true; bDesc.disabled = true;
       trabajo().then(null, errorCaptura).then(function () {
-        bPng.disabled = false; bPdf.disabled = false; bDesc.disabled = false; bDesc.textContent = previo;
+        bPng.disabled = false; bPdf.disabled = false; bDesc.disabled = false; cambiarTexto(bDesc, previo);
       });
     };
 
