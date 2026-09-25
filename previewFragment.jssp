@@ -332,7 +332,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
              border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
 .detalle { flex:none; display:none; gap:24px; flex-wrap:wrap; padding:10px 12px; background:#fff;
            border-bottom:1px solid var(--linea); font-size:var(--fs-xs); overflow:auto; max-height:200px; }
-.detalle--abierto { display:flex; }
+.detalle--abierto { display:flex; animation:entra-detalle 180ms var(--ease-out); }
 .detalle__col { flex:1; min-width:180px; }
 .detalle__t { font-weight:700; color:var(--vars-label); margin-bottom:4px; }
 .detalle ul { margin:0; padding-left:16px; }
@@ -481,8 +481,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 @keyframes entra-modal { from { opacity:0; transform:scale(0.96); } }
 @keyframes funde { from { opacity:0; } }
 @keyframes resuelve { from { opacity:.6; filter:blur(2px); } }
+@keyframes entra-detalle { from { opacity:0; transform:translateY(-4px); } }
+@keyframes entra-panel { from { opacity:0; transform:translateX(-12px); } }
+/* Resultado de una accion (Workfront, PNG, PDF): solo en avisoWf, no en cada repintado. */
+.avisos--nuevo { animation:funde 200ms ease; }
 @media (prefers-reduced-motion:reduce) {
-  .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja { animation:funde 150ms ease; }
+  .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja,
+  .detalle--abierto, .panel:not([hidden]) { animation:funde 150ms ease; }
   .vars__sw .sw__p::after { transition:none; }
   .barra__btn:active, .barra__wf:active, .panel__b:active, .avisos__b:active, .combo__acc button:active,
   .vars__seg button:active, .vars__sw:active, .lienzo__cinta button:active, .fechas__pie button:active,
@@ -495,6 +500,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 @media (max-width:900px) {
   .panel { position:absolute; z-index:30; top:auto; left:0; height:auto; max-height:70vh;
            box-shadow:0 10px 30px rgba(15,23,42,.22); }
+  /* Flotante: nace del borde izquierdo, donde esta el riel que lo abre. En escritorio va en el
+     flujo y el lienzo se reacomoda de golpe, asi que ahi no se anima. */
+  .panel:not([hidden]) { animation:entra-panel 200ms var(--ease-out); }
   .cuerpo { position:relative; }
 }
 </style>
@@ -991,6 +999,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
   var elAbrirPanel = $("abrirPanel"), elAbrirPanelN = $("abrirPanelN"), elCerrarPanel = $("cerrarPanel");
   var elVista = $("vista"), elMarco = $("marco"), elCinta = $("cinta"), elCintaTxt = $("cintaTxt");
+  var elLienzo = $("lienzo");
   var elModal = $("modal"), elModalC = $("modalC"), elModalOk = $("modalOk");
   var bWf = $("workfront");
 
@@ -1679,8 +1688,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // El alto lo pone el contenido y el scroll lo hace .lienzo, no el iframe.
   // Se puede leer el alto porque el iframe lleva sandbox="allow-same-origin" (ver el comentario
   // del iframe: nunca con el permiso de scripts). Si no se mide, queda ALTO_VISTA de respaldo.
-  // Sin margen extra y solo si cambia de verdad: un correo con height:100% mide lo que mide el
-  // iframe, y con el ResizeObserver cada ajuste dispararia el siguiente y creceria sin parar.
+  // Se mide con el iframe encogido a 0: con su alto actual, scrollHeight nunca baja de ese alto
+  // (el documento mide al menos lo que su ventana) y un correo mas corto no podria achicarse.
+  // Encoger, leer y reponer pasa en la misma tarea, sin pintar en medio; el scroll del lienzo
+  // se guarda y se repone porque el recorte momentaneo lo acota. Solo se aplica si cambia de
+  // verdad, para que el ResizeObserver no entre en bucle.
   function medirVista() {
     if (!elVista) return;
     try {
@@ -1694,7 +1706,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
             elMarco.style.width = anchoMedido + "px";
           }
         }
+        var altoPrevio = elVista.style.height, top = elLienzo.scrollTop;
+        elVista.style.height = "0px";
         var h = Math.max(d.body.scrollHeight, d.documentElement ? d.documentElement.scrollHeight : 0);
+        elVista.style.height = altoPrevio;
+        elLienzo.scrollTop = top;
         h = Math.min(Math.max(h, 200), ALTO_MAX);
         if (h > 0 && Math.abs(h - altoMedido) > 2) {
           altoMedido = h;
@@ -1731,7 +1747,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     ultimo = r;
     altoMedido = 0;                            // contenido nuevo: se vuelve a medir
     anchoMedido = 0;
-    elVista.style.height = ALTO_VISTA + "px";   // respaldo hasta que cargue y se pueda medir
+    // Hasta que el correo nuevo cargue y se mida se conserva el alto anterior: volver al
+    // respaldo en cada repintado hacia saltar el scroll. ALTO_VISTA solo en la primera vista.
+    if (!elVista.style.height) elVista.style.height = ALTO_VISTA + "px";
     // Con el editor de fechas abierto la vista lleva marcas para ubicar cada fecha;
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
     elVista.srcdoc = fechasAbierto ? podar(original, perfil, { muestra: vista.muestra, marcar: true }).html : r.html;
@@ -2254,6 +2272,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function avisoWf(ok, texto, detalle) {
     elAvisos.hidden = false;
     elAvisos.className = "avisos" + (ok ? "" : " avisos--error");
+    void elAvisos.offsetWidth;   // reinicia el fundido si llega un aviso tras otro
+    elAvisos.className += " avisos--nuevo";
     elAvisos.textContent = "";
     var s = document.createElement("span");
     s.textContent = texto;
