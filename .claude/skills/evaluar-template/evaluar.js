@@ -31,6 +31,7 @@ function cargarPoda() {
   if (a < 0 || b < 0) throw new Error("No encuentro BEGIN-PODA/END-PODA en " + jssp);
   var cuerpo = "var perfil = {}, VAL_OTRO = 'otro';\n" + t.slice(a, b) +
     "\nreturn { podar: podar, detectar: detectar, traducirUI: traducirUI, FRG_VIA: FRG_VIA," +
+    " diccionario: diccionario, esContactoMuestra: esContactoMuestra," +
     " fijarPerfil: function (p) { perfil = p; } };";
   return new Function(cuerpo)();
 }
@@ -111,7 +112,69 @@ function main(pagina) {
     lineas.push("");
   });
   if (!hay) lineas.push("Sin problemas: todos los escenarios eligen rama, evaluan sus condiciones y tienen dato de muestra.");
+  lineas.push("");
+  inventario(html, P, det).forEach(function (l) { lineas.push(l); });
   console.log(lineas.join("\n"));
+}
+
+// ---------- Inventario de variables ----------
+// Que variables deciden ramas (con que valores), cuales solo se imprimen (donde: texto o atributo)
+// y si el preview tiene dato de muestra. Ademas avisa de montos escritos fijos y de condiciones que
+// mezclan el segmento con los datos de contacto.
+function inventario(h, P, det) {
+  var O = "<" + "%", C = "%" + ">", m, vars = {}, orden = [];
+  function v(n) { if (!vars[n]) { vars[n] = { conds: 0, vals: {}, impr: 0, donde: {} }; orden.push(n); } return vars[n]; }
+  var rc = new RegExp(O + "\\s*\\}?\\s*(?:else\\s+)?if\\s*\\(([\\s\\S]*?)\\)\\s*\\{\\s*" + C, "g"), mezcla = 0;
+  while ((m = rc.exec(h))) {
+    var c = m[1], r = /(?:targetData|recipient)\.(\w+)\s*(?:===?|!==?)\s*(?:'([^']*)'|"([^"]*)")/g, mm, vistos = {};
+    while ((mm = r.exec(c))) {
+      var x = v(mm[1]);
+      if (!vistos[mm[1]]) { x.conds++; vistos[mm[1]] = 1; }
+      var val = mm[2] !== undefined ? mm[2] : mm[3];
+      x.vals[val] = (x.vals[val] || 0) + 1;
+    }
+    if (/\|\|/.test(c) && det.orden.some(function (n) { return c.indexOf(n) >= 0; }) &&
+        det.omitidas.some(function (n) { return c.indexOf(n) >= 0; })) mezcla++;
+  }
+  function lugar(i) {
+    var a = i - 1; while (a >= 0) { a = h.lastIndexOf("<", a); if (a < 0 || h.charAt(a + 1) !== "%") break; a--; }
+    var z = i - 1; while (z >= 0) { z = h.lastIndexOf(">", z); if (z < 0 || h.charAt(z - 1) !== "%") break; z--; }
+    if (a > z) { var at = /([\w-]+)\s*=\s*["'][^"']*$/.exec(h.slice(a, i)); return at ? "atributo " + at[1] : "atributo"; }
+    return "texto";
+  }
+  var ri = new RegExp(O + "=([\\s\\S]*?)" + C, "g");
+  while ((m = ri.exec(h))) {
+    var k = /(?:targetData|recipient)\.(\w+)/.exec(m[1]);
+    if (!k) continue;
+    var x = v(k[1]); x.impr++; var l = lugar(m.index); x.donde[l] = (x.donde[l] || 0) + 1;
+  }
+  var rv = new RegExp(O + "@\\s*include\\s+view\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C, "g");
+  while ((m = rv.exec(h))) { var x2 = v(m[1]); x2.impr++; var l2 = lugar(m.index); x2.donde[l2] = (x2.donde[l2] || 0) + 1; }
+
+  var out = ["## Variables", "", "### Deciden que rama se muestra"];
+  orden.filter(function (n) { return vars[n].conds; }).forEach(function (n) {
+    var x = vars[n], vals = Object.keys(x.vals).map(function (z) { return z === "" ? "(vacio)" : z + " (" + P.traducirUI(z) + ")"; });
+    out.push("- `" + n + "`" + (P.traducirUI(n) !== n ? " = " + P.traducirUI(n) : "") + ": " + x.conds + " condiciones" +
+      (P.esContactoMuestra(n) ? "; dato de contacto, el preview omite estas condiciones" : (det.vars[n] ? "; se elige en la ficha" : "")) + ". Valores: " + vals.join(", "));
+  });
+  out.push("", "### Se imprimen en el correo (editables en Datos de muestra, salvo PLASTICO)");
+  var impresas = orden.filter(function (n) { return vars[n].impr; });
+  if (!impresas.length) out.push("- Ninguna.");
+  impresas.forEach(function (n) {
+    var x = vars[n], donde = Object.keys(x.donde).map(function (z) { return z + " x" + x.donde[z]; }).join(", ");
+    var muestra = n === "PLASTICO" ? "sale del producto elegido" : (P.diccionario[n] !== undefined ? "dato de muestra: " + P.diccionario[n] : "SIN dato de muestra");
+    out.push("- `" + n + "`: " + donde + "; " + muestra);
+  });
+  // Montos escritos fijos en el texto (no vienen de una variable).
+  var texto = h.replace(new RegExp(O + "[\\s\\S]*?" + C, "g"), " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+  var montos = texto.match(/(?:S\/|US\$|\$)\s*\d[\d.,]*/g) || [];
+  out.push("", "### Avisos");
+  if (montos.length) out.push("- Montos escritos fijos en el HTML (todos los clientes ven el mismo): " +
+    montos.map(function (x) { return x.replace(/\s+/g, " "); }).filter(function (x, i, a) { return a.indexOf(x) === i; }).slice(0, 8).join(", ") +
+    ". Si deberian ser personalizados, falta un campo en Campaign.");
+  if (mezcla) out.push("- " + mezcla + " condiciones mezclan una variable de la ficha con datos de contacto vacios (con ||): un cliente al que le falte el dato de contacto cae en esa rama aunque su segmento o producto sea otro. El preview no muestra ese caso.");
+  if (!montos.length && !mezcla) out.push("- Ninguno.");
+  return out;
 }
 
 fetch(HOST + "/cus/previewFragment.jssp?frgId=" + frgId)

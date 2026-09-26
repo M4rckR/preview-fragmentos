@@ -558,14 +558,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           <div class="ficha__acc">
             <button type="button" class="lnk" id="restablecer" title="Vuelve al escenario por defecto">Por defecto</button>
             <button type="button" class="lnk" id="modoMuestra">Ver campos</button>
-            <button type="button" class="lnk" id="editarFechas" aria-controls="fechas" aria-expanded="false">Fechas de muestra</button>
+            <button type="button" class="lnk" id="editarFechas" aria-controls="fechas" aria-expanded="false">Datos de muestra</button>
           </div>
           <section class="fechas" id="fechas" aria-labelledby="fechasT" hidden>
-            <h2 class="sr" id="fechasT">Fechas de muestra</h2>
-            <p class="fechas__intro">Cada fecha lleva un n&uacute;mero; en el correo, el mismo n&uacute;mero marca d&oacute;nde aparece.
-              Los cambios se usan en .html, PNG, PDF y Workfront y siguen siendo ficticios.</p>
+            <h2 class="sr" id="fechasT">Datos de muestra</h2>
+            <p class="fechas__intro">Todo lo que el correo imprime, salvo el producto y el segmento (se eligen arriba). Cada dato lleva un
+              n&uacute;mero; en el correo, el mismo n&uacute;mero marca d&oacute;nde aparece. Los cambios se usan en .html, PNG, PDF y Workfront
+              y siguen siendo ficticios.</p>
             <div id="fechasL"></div>
-            <div class="fechas__pie"><button type="button" class="lnk" id="fechasReset">Fechas originales</button></div>
+            <div class="fechas__pie"><button type="button" class="lnk" id="fechasReset">Datos originales</button></div>
           </section>
           </div>
         </div>
@@ -810,10 +811,23 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       return DICCIONARIO_UI[clave] || clave;
   }
   // Fechas de muestra: el operador puede cambiarlas desde "Editar fechas" (van en la URL como d.CAMPO).
+  // Etiquetas de los datos de muestra editables; lo que no este aqui se muestra con su codigo.
   var ETIQ_FECHA = {
     "FECINICIOVIGENCIACAMPANIA": "Inicio de vigencia de la campa\u00f1a",
     "FECFINVIGENCIACAMPANIA": "Fin de vigencia de la campa\u00f1a",
-    "FECFINVIGENCIACAMPANIAL": "Fin de vigencia de la campa\u00f1a (variante L)"
+    "FECFINVIGENCIACAMPANIAL": "Fin de vigencia de la campa\u00F1a (variante L)",
+    "MTOOFERTASOL": "Monto de la oferta (S/)",
+    "TCEA": "TCEA (%)",
+    "YYYYMMDD": "Fecha de la campa\u00F1a en los enlaces (aaaammdd)",
+    "firstName": "Nombre",
+    "bcpSoloPrimerNombre": "Primer nombre",
+    "bcpSaludoEnaltaPrivVIEW6": "Saludo",
+    "DESNBREENNPRINCIPAL": "Nombre del ejecutivo",
+    "DESCORREOEENNPRINCIPAL": "Correo del ejecutivo",
+    "DESCELULAREENNPRINCIPAL": "Celular del ejecutivo",
+    "NBRFUNCIONARIO": "Nombre del funcionario",
+    "DESCORREOFUNCIONARIO": "Correo del funcionario",
+    "NUMTELEFONOFUNCIONARIO": "Tel\u00E9fono del funcionario"
   };
   var editados = {};
   function esFecha(k) { return /^FEC|FECHA/i.test(k); }
@@ -843,12 +857,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     opciones = opciones || {};
     var todas = !!opciones.todas;
     var conMuestra = opciones.muestra !== false;
-    var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [], fechas = [];
+    var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [], fechas = [], campos = [];
     var nGrupo = 0, guard = 0, out = src, prev;
     function anota(lista, v) { if (lista.indexOf(v) < 0) lista.push(v); }
     function token(key, x) {
-      if (!key || !esFecha(key)) return x;
-      anota(fechas, key);
+      if (!key) return x;
+      anota(campos, key);
+      if (esFecha(key)) anota(fechas, key);
       return opciones.marcar ? MK_A + key + MK_B + x + MK_FIN : x;
     }
     // En modo [CAMPOS] todos van sin valor a proposito: solo se senalan con datos de muestra.
@@ -917,7 +932,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       });
     out = out.replace(rx(O + "[\\s\\S]*?" + C), "");
     return { html: out, elegidas: elegidas, noEval: noEval, noEvalTextos: noEvalTextos,
-             includes: includes, sinValor: sinValor, fechas: fechas };
+             includes: includes, sinValor: sinValor, fechas: fechas, campos: campos };
   }
 
   // Variables usadas en las condiciones y los valores con que se comparan
@@ -1092,7 +1107,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       else if (k === "z") { var z = parseInt(v, 10); if (z >= 50 && z <= 100) vista.z = z; }
       else if (k === "muestra") vista.muestra = (v !== "0");
       else if (k.indexOf("v.") === 0 && !esContactoMuestra(k.slice(2))) perfil[k.slice(2)] = v;
-      else if (k.indexOf("d.") === 0 && esFecha(k.slice(2)) && limpiaFecha(v)) editados[k.slice(2)] = limpiaFecha(v);
+      else if (k.indexOf("d.") === 0 && /^\w+$/.test(k.slice(2)) && k.slice(2) !== "PLASTICO" && limpiaFecha(v)) editados[k.slice(2)] = limpiaFecha(v);
     }
   }
   function escribirURL() {
@@ -1545,7 +1560,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function pintarFechas(lista) {
     if (elEditarFechas) {
       elEditarFechas.disabled = !lista.length && !fechasAbierto;
-      elEditarFechas.title = lista.length ? "Cambiar las fechas de muestra de este correo" : "Este correo no usa fechas en esta vista";
+      elEditarFechas.title = lista.length ? "Cambiar los datos de muestra de este correo" : "Este correo no imprime datos en esta vista";
     }
     if (!fechasAbierto) return;
     // Orden fijo: primero las conocidas (inicio, fin...), luego el resto como aparezcan.
@@ -1561,7 +1576,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (!lista.length) {
       var v = document.createElement("div");
       v.className = "fechas__vacio";
-      v.textContent = "Este correo no usa fechas en la vista actual. Prueba con otro escenario.";
+      v.textContent = "Este correo no imprime datos en la vista actual. Prueba con otro escenario.";
       elFechasL.appendChild(v);
       return;
     }
@@ -1588,7 +1603,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         inp.id = "fecha" + n;
         inp.autocomplete = "off";
         inp.value = editados.hasOwnProperty(k) ? editados[k] : (diccionario[k] || "");
-        inp.placeholder = diccionario[k] ? "Vac\u00edo = " + diccionario[k] : "dd/mm/aaaa";
+        inp.placeholder = diccionario[k] ? "Vac\u00EDo = " + diccionario[k] : (esFecha(k) ? "dd/mm/aaaa" : "Sin dato de muestra");
         inp.oninput = function () {
           var v = limpiaFecha(inp.value);
           if (!v || v === diccionario[k]) delete editados[k]; else editados[k] = v;
@@ -1743,6 +1758,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       re.lastIndex = 0;
       while ((mm = re.exec(txt))) {
         if (mm.index > ult) frag.appendChild(d.createTextNode(quitaMarcas(txt.slice(ult, mm.index))));
+        // Solo se numeran los datos editables; el plastico y las variables de la ficha van sin marca.
+        if (!num[mm[1]]) { frag.appendChild(d.createTextNode(mm[2])); ult = re.lastIndex; continue; }
         var mk = d.createElement("mark");
         mk.setAttribute("data-fecha", mm[1]);
         mk.setAttribute("data-n", num[mm[1]] || "?");
@@ -1788,6 +1805,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     pintar();
     elEditarFechas.focus();
   }
+  // Datos de muestra editables: todo lo que el correo imprime, salvo PLASTICO (sale del producto
+  // elegido) y las variables que ya se eligen en la ficha (producto, segmento...).
+  function editables(campos) {
+    var out = [];
+    for (var i = 0; i < campos.length; i++) {
+      var k = campos[i];
+      if (k === "PLASTICO" || (det && det.vars[k])) continue;
+      out.push(k);
+    }
+    return out;
+  }
   function resumenFechas() {
     var p = [];
     for (var k in editados) if (editados.hasOwnProperty(k)) p.push((ETIQ_FECHA[k] || k) + " = " + editados[k]);
@@ -1806,7 +1834,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("zval").textContent = vista.z + "%";
     $("zmas").disabled = vista.z >= 100;
     $("zmenos").disabled = vista.z <= 50;
-    elCintaTxt.textContent = hayEditados() ? "\u00b7 fechas editadas" : "";
+    elCintaTxt.textContent = hayEditados() ? "\u00B7 datos editados" : "";
     $("cintaEtq").innerHTML = vista.muestra ? "<b>\u25C6</b> Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
     $("modoMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
     medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
@@ -1897,7 +1925,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elVista.srcdoc = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
     pintarFicha();
     pintarRevisar();
-    pintarFechas(r.fechas);
+    pintarFechas(editables(r.campos));
     aplicarVista();
     escribirURL();
   }
@@ -2465,7 +2493,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModalC.appendChild(fila("Template", nombreActual() + "  (" + actual + ")"));
     elModalC.appendChild(fila("Escenario", resumenEscenario()));
     elModalC.appendChild(fila("Ramas", resumenRamas()));
-    if (hayEditados()) elModalC.appendChild(fila("Fechas editadas", resumenFechas()));
+    if (hayEditados()) elModalC.appendChild(fila("Datos editados", resumenFechas()));
     var n = document.createElement("div");
     n.className = "modal__nota";
     n.textContent = vista.muestra

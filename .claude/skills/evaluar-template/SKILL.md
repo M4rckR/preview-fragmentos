@@ -20,6 +20,10 @@ Sirve para saber, una vez subido el preview a Campaign, que le falta exactamente
    - **Problemas del template** (afectan el envio real): grupo sin rama activa (un cliente con ese escenario recibiria el correo sin ese bloque), condicion no evaluable (la condicion esta mal escrita o usa algo que el evaluador no soporta) y fragmento no resuelto (el include no existe o no cargo).
    - **Solo del preview**: campo sin dato de muestra. El template esta bien; falta un valor ficticio en `diccionario` (dentro de BEGIN-PODA en `previewFragment.jssp`). Ofrece agregarlo; los datos de muestra son ficticios, nunca datos reales del banco, y las fechas se calculan relativas a hoy.
 4. Para cada problema del template, indica en que escenarios pasa y, si lo puedes ubicar, el texto de la condicion o el nombre del fragmento, para que Marcos sepa que corregir en Campaign.
+5. Presenta el inventario de variables (seccion "Variables" del reporte) como tablas:
+   - **Deciden que rama se muestra:** variable, nombre en la UI, cantidad de condiciones y valores (codigo y nombre). Producto y segmento se eligen en la ficha; los datos de contacto el preview los omite al elegir ramas.
+   - **Se imprimen en el correo:** variable, donde (texto o atributo, p. ej. `href` de los enlaces), cuantas veces y su dato de muestra. Todas son editables en "Datos de muestra" del preview, salvo `PLASTICO` (sale del producto elegido). Si alguna dice "SIN dato de muestra", ofrece agregarla a `diccionario` (y a `ETIQ_FECHA` con una etiqueta legible).
+   - **Avisos:** destaca los montos escritos fijos en el HTML (todos los clientes verian el mismo; si deberian ser personalizados, falta un campo en Campaign) y las condiciones que mezclan segmento/producto con datos de contacto vacios (`||`), explicando que cliente cae en que rama. Pregunta si es intencional; no lo afirmes como error.
 
 ## Reglas
 
