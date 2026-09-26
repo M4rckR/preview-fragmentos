@@ -683,12 +683,11 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
   var atajos = true, activa = 0, ultimo = null, ultimoN = -1;
 
   // ---------- modelo ----------
-  var SIN_OTRO = { CODSUBSEGMENTO: 1 };
   function valoresDe(v) {
     var d = det.vars[v];
     if (d.tipo !== "valores") return ["S", ""];
-    // El segmento no ofrece "otro valor": fuera de los segmentos del template no hay cliente real.
-    return SIN_OTRO[v] ? d.reales.slice() : d.reales.concat([VAL_OTRO]);
+    // Solo los valores que el template nombra; no se ofrece "otro valor" (la rama else).
+    return d.reales.slice();
   }
   function etiqVal(v, val) {
     if (val === VAL_OTRO) return "otro valor";
