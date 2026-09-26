@@ -412,11 +412,18 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                  display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px; font-size:var(--fs-xs);
                  background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
 .lienzo__cinta b { font-weight:700; }
+/* Estado a la izquierda (puede partirse), acciones a la derecha (no se parten), resultado en su linea. */
+.cinta__estado { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; flex:1 1 320px; min-width:0; }
+.cinta__acc { display:flex; gap:6px; flex:none; margin-left:auto; }
+.lienzo__cinta .cinta__accion { flex:1 1 100%; border-left:0; padding:4px 8px; border-radius:4px; background:rgba(255,255,255,.6); }
+.lienzo__cinta .cinta__accion--ok { color:var(--ok-fg); background:var(--ok-bg); }
+.lienzo__cinta .cinta__accion.avisos--error { color:var(--err-fg); background:var(--err-bg); }
+.cinta__accion details { font-weight:400; }
+.cinta__accion summary { cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .cinta__desborde { color:var(--err-fg); font-weight:600; }
-.lienzo__cinta button { margin-left:auto; font:inherit; font-size:var(--fs-xs); background:#fff; color:inherit; white-space:nowrap;
+.lienzo__cinta button { font:inherit; font-size:var(--fs-xs); background:#fff; color:inherit; white-space:nowrap;
                         border:1px solid currentColor; border-radius:var(--radius-chip); padding:2px 8px; cursor:pointer; }
 .lienzo__cinta button:disabled { opacity:.5; cursor:not-allowed; }
-.lienzo__cinta button + button { margin-left:0; }
 .marco iframe { display:block; border:0; background:#fff; }
 
 /* ---------- editor de fechas de muestra (panel flotante, no bloquea la vista) ---------- */
@@ -583,11 +590,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <% if (fragmentHtml != "") { %>
       <!-- La cinta va FUERA del marco: el marco es solo para el correo. -->
       <div class="lienzo__cinta" id="cinta">
-        <b>&#x25C6; Datos de muestra (ficticios)</b>
-        <span id="cintaTxt"></span>
-        <span class="cinta__desborde" id="desborde" hidden></span>
-        <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
-        <button type="button" id="modoMuestra">Ver campos</button>
+        <div class="cinta__estado" id="cintaEstado">
+          <b id="cintaEtq">&#x25C6; Datos de muestra (ficticios)</b>
+          <span id="cintaTxt"></span>
+          <span class="cinta__desborde" id="desborde" hidden></span>
+        </div>
+        <div class="cinta__acc">
+          <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
+          <button type="button" id="modoMuestra">Ver campos</button>
+        </div>
+        <!-- Resultado de una accion (Workfront, PNG, PDF): linea propia, no pisa los pendientes. -->
+        <div class="avisos cinta__accion" id="accion" hidden></div>
       </div>
       <div class="marco" id="marco">
         <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
@@ -770,6 +783,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       "([\\s\\S]*?)" + O + "\\/\\*\\s*\\[acr-dc-end-cond\\]\\s*\\*\\/" + C);
   }
 
+  // Fechas de muestra relativas a hoy (dd/mm/aaaa): una fecha fija acaba vencida y parece un error del correo.
+  function fechaMuestra(dias) {
+    var d = new Date();
+    d.setDate(d.getDate() + dias);
+    var dd = d.getDate(), mm = d.getMonth() + 1;
+    return (dd < 10 ? "0" : "") + dd + "/" + (mm < 10 ? "0" : "") + mm + "/" + d.getFullYear();
+  }
   // Valores de muestra: los tokens de personalizacion se reemplazan por estos valores.
   // Lo que no este aqui se ve como [CAMPO]. Son datos FICTICIOS.
   var diccionario = {
@@ -783,9 +803,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     "DESCELULAREENNPRINCIPAL": "987654321",
     "NUMTELEFONOFUNCIONARIO": "987654321",
     "TCEA": "45.8",
-    "FECINICIOVIGENCIACAMPANIA": "01/01/1940",
-    "FECFINVIGENCIACAMPANIA": "01/01/1940",
-    "FECFINVIGENCIACAMPANIAL": "01/01/1940",
+    "FECINICIOVIGENCIACAMPANIA": fechaMuestra(0),
+    "FECFINVIGENCIACAMPANIA": fechaMuestra(30),
+    "FECFINVIGENCIACAMPANIAL": fechaMuestra(30),
     "MTOOFERTASOL": "3,000"
   };
 
@@ -1029,7 +1049,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elAnuncio.textContent = txt;
   }
   // Con un template cargado, los avisos van dentro de la cinta de muestra: una sola franja amarilla.
-  if ($("cinta") && $("editarFechas")) $("cinta").insertBefore(elAvisos, $("editarFechas"));
+  if ($("cintaEstado")) $("cintaEstado").appendChild(elAvisos);
   var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
   var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
   var elAbrirPanel = $("abrirPanel"), elAbrirPanelN = $("abrirPanelN"), elCerrarPanel = $("cerrarPanel");
@@ -1802,7 +1822,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("zmas").disabled = vista.z >= 100;
     $("zmenos").disabled = vista.z <= 50;
     elCintaTxt.textContent = hayEditados() ? "fechas editadas" : "";
-    elCinta.firstElementChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
+    $("cintaEtq").textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
     $("modoMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
     medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
     ajustarMargen();
@@ -2461,27 +2481,32 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return d.getHours() + ":" + (m < 10 ? "0" : "") + m;
   }
   function avisoWf(ok, texto, detalle) {
-    elAvisos.hidden = false;
-    elAvisos.className = "avisos" + (ok ? "" : " avisos--error");
+    var el = $("accion");
+    if (!el) return;
+    el.hidden = false;
+    el.className = "avisos cinta__accion" + (ok ? " cinta__accion--ok" : " avisos--error");
     anunciar(texto, true);
-    void elAvisos.offsetWidth;   // reinicia el fundido si llega un aviso tras otro
-    elAvisos.className += " avisos--nuevo";
-    elAvisos.textContent = "";
+    void el.offsetWidth;   // reinicia el fundido si llega un aviso tras otro
+    el.className += " avisos--nuevo";
+    el.textContent = "";
     var s = document.createElement("span");
     s.textContent = texto;
-    elAvisos.appendChild(s);
+    el.appendChild(s);
     if (detalle) {
-      var d = document.createElement("span");
-      d.className = "mono";
-      d.textContent = detalle;
-      elAvisos.appendChild(d);
+      // El mensaje tecnico queda plegado: sirve para soporte, no para decidir.
+      var d = document.createElement("details"), sm = document.createElement("summary"), c = document.createElement("span");
+      sm.textContent = "Detalle t\u00e9cnico";
+      c.className = "mono";
+      c.textContent = " " + detalle;
+      d.appendChild(sm); d.appendChild(c);
+      el.appendChild(d);
     }
     var b = document.createElement("button");
     b.type = "button";
     b.className = "avisos__b";
     b.textContent = "Cerrar";
-    b.onclick = function () { pintarAvisos(ultimo); };
-    elAvisos.appendChild(b);
+    b.onclick = function () { el.hidden = true; el.textContent = ""; };
+    el.appendChild(b);
   }
   function estadoWf(txt, dis, reposo) { cambiarTexto(bWf, txt, reposo); bWf.disabled = !!dis; }
 
