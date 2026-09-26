@@ -32,6 +32,8 @@ print('ok')
 EOF
 ```
 
+Para saber qué le falta a un template ya subido, usa la skill `/evaluar-template <frgId>` (`.claude/skills/evaluar-template/`): baja la página de stage, recorre todos los escenarios con la poda del JSSP y separa los problemas del template (grupos sin rama, condiciones no evaluables, fragmentos no resueltos) de los campos sin dato de muestra, que solo afectan al preview. Nunca guardes en el repo el HTML de un template.
+
 Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<%= datosLista %>`, `<%= selAttr %>`, `<%= datosHtml %>` (HTML de correo pasado por `encodeURIComponent`) y `<%= datosFrg %>`. Quita los `<% if/else %>` y sirve el resultado con `python3 -m http.server`. La parte de servidor y el proxy solo se pueden probar en Campaign.
 - El correo de prueba debe traer lo que la UI tiene que mostrar: dos o más grupos `[acr-dc-*]`, uno sin rama `else` y metido en una `<table>` (así prueba la nota "sin rama activa" en una celda), un `targetData.X` sin valor también dentro de un `href`, fechas `FEC…` y ancho de 600 px para el aviso de desborde en Móvil.
 - En Chrome, `resize_window` no achica el viewport. Para probar ≤900 px, carga la página dentro de un `<iframe width="800">` del mismo origen.

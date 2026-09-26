@@ -9,7 +9,6 @@
   --mesa:#e8eaed; --linea:#d3d7dd; --papel:#fff; --papel-2:#f5f6f8;
   --tinta:#1f2430; --tinta-2:#4d5566; --tinta-3:#5d6573;
   --postal:#1f3a93; --barra-bg:#14275f; --postal-bg:#e8edf9; --postal-fondo:#f1f4fc; --postal-borde:#cdd6ee; --postal-quieto:#5a6b8c;
-  --sello:#c62d1f; --sello-txt:#a8261a; --sello-bg:#fce9e6;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-frase:15px;
@@ -115,46 +114,19 @@ button[aria-disabled="true"] { cursor:not-allowed; }
 .ficha__ayuda { margin:10px 0 0; font-size:var(--fs-xxs); color:var(--tinta-3); }
 .ficha__ayuda kbd { font-family:var(--mono); font-size:var(--fs-xxs); padding:0 4px; border:1px solid var(--linea); border-radius:3px; background:var(--papel-2); }
 
-/* ---------- matasellos ---------- */
-.sello { display:block; padding:0; border:0; background:none; color:var(--sello); }
-.sello svg { display:block; width:210px; height:118px; overflow:visible; transform:rotate(-7deg); }
-.sello--quieto { color:var(--postal-quieto); }
-.sello__aro { fill:none; stroke:currentColor; }
-.sello__txt { fill:currentColor; font:700 8.5px var(--font); letter-spacing:.1em; }
-.sello__num { fill:currentColor; font:800 38px var(--font); letter-spacing:-0.02em; }
-.sello__ok { fill:none; stroke:currentColor; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
-.sello__ond { fill:none; stroke:currentColor; stroke-width:2.2; opacity:.85; }
-.sello:hover .sello__aro { stroke-width:3.5; }
-/* La cifra cambia como evento visible: entra desde abajo y se asienta. */
-.sello__num.cambia { animation:cifra var(--dur-md) var(--ease-out); }
-@keyframes cifra { from { opacity:0; transform:translateY(8px); } }
-.notas { list-style:none; margin:14px 0 0; padding:0; }
-.notas li + li { margin-top:6px; }
-.nota { display:flex; gap:8px; width:100%; padding:8px 10px; border:0; border-radius:4px; text-align:left;
-        background:var(--sello-bg); color:#7a1a13; font-size:var(--fs-xs); line-height:1.35;
-        box-shadow:0 1px 1px rgba(122,26,19,.10); }
-.nota:hover { background:#f9d8d3; }
-.nota .ico { margin-top:1px; width:12px; height:12px; stroke:var(--sello); stroke-width:3; }
-.nota code { display:block; margin-top:2px; font-family:var(--mono); font-size:var(--fs-xxs); overflow-wrap:anywhere; }
-.nota[disabled] { cursor:default; }
 
 /* ---------- movimiento ---------- */
-.btn, .seg button, .zoom button, .nota, .lnk, .var__g button { transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
+.btn, .seg button, .zoom button, .lnk, .var__g button { transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
 .btn:active:not([aria-disabled="true"]), .seg button:active, .zoom button:active:not(:disabled) { transform:scale(0.97); }
-.nota:active:not([disabled]) { transform:scale(0.985); }
 .var__g button:active { transform:scale(0.97); }
-.sello:active svg { transform:rotate(-7deg) scale(0.97); }
-.sello svg { transition:transform var(--dur-xs) var(--ease-out); }
 
-/* Bajo ~1180 px los margenes no alcanzan: ficha y matasellos van en una linea sobre el correo. */
+/* Bajo ~1180 px el margen no alcanza: la ficha va sobre el correo. */
 @media (max-width:1180px) {
   .mesa { grid-template-columns:minmax(0,1fr); row-gap:16px; justify-items:center; }
   .margen { width:100%; max-width:760px; }
   .margen__pega { position:static; }
   .margen--izq .margen__pega, .margen--der .margen__pega { width:100%; margin:0; }
   .margen--der .margen__pega { display:flex; gap:16px; align-items:flex-start; }
-  .sello svg { width:150px; height:84px; }
-  .notas { margin:0; flex:1; }
   .centro { max-width:100%; overflow-x:auto; order:2; }
   .margen--der { order:1; }
 }
@@ -164,8 +136,6 @@ button[aria-disabled="true"] { cursor:not-allowed; }
   .margen--der .margen__pega { flex-direction:column; }
 }
 @media (prefers-reduced-motion:reduce) {
-  .sello__num.cambia { animation:funde var(--dur-md) var(--ease-out); }
-  @keyframes funde { from { opacity:0; } }
 }
 </style>
 </head>
@@ -226,28 +196,6 @@ button[aria-disabled="true"] { cursor:not-allowed; }
     <div class="hoja" id="hoja"><iframe id="vista" sandbox="allow-same-origin" referrerpolicy="no-referrer" title="Vista del correo"></iframe></div>
     <p class="pie" id="pie">Datos de muestra ficticios</p>
   </main>
-  <aside class="margen margen--der" aria-label="Pendientes">
-    <div class="margen__pega">
-      <button type="button" class="sello" id="sello" aria-expanded="true" aria-controls="notas">
-        <svg viewBox="0 0 210 118" aria-hidden="true">
-          <circle class="sello__aro" cx="59" cy="59" r="54" stroke-width="3"/>
-          <circle class="sello__aro" cx="59" cy="59" r="44" stroke-width="1.4"/>
-          <path id="arcoS" d="M 12.5 59 A 46.5 46.5 0 0 1 105.5 59" fill="none"/>
-          <path id="arcoI" d="M 7.5 59 A 51.5 51.5 0 0 0 110.5 59" fill="none"/>
-          <text class="sello__txt"><textPath href="#arcoS" startOffset="50%" text-anchor="middle" id="selloSup">PENDIENTES</textPath></text>
-          <text class="sello__txt"><textPath href="#arcoI" startOffset="50%" text-anchor="middle" id="selloInf">REVISAR</textPath></text>
-          <text class="sello__num" id="selloNum" x="59" y="72" text-anchor="middle">0</text>
-          <path class="sello__ok" id="selloOk" d="M44 60l10 10 20-22" style="display:none"/>
-          <path class="sello__ond" d="M118 38c10-7 20 7 30 0s20 7 30 0 20 7 28 0"/>
-          <path class="sello__ond" d="M118 52c10-7 20 7 30 0s20 7 30 0 20 7 28 0"/>
-          <path class="sello__ond" d="M118 66c10-7 20 7 30 0s20 7 30 0 20 7 28 0"/>
-          <path class="sello__ond" d="M118 80c10-7 20 7 30 0s20 7 30 0 20 7 28 0"/>
-        </svg>
-        <span class="sr" id="selloSr"></span>
-      </button>
-      <ol class="notas" id="notas"></ol>
-    </div>
-  </aside>
 </div>
 <span class="sr" id="anuncio" role="status"></span>
 
@@ -820,51 +768,6 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
     }
   }
 
-  // ---------- matasellos y notas ----------
-  function pintarSello(r) {
-    var items = [], i;
-    for (i = 0; i < r.elegidas.length; i++) if (r.elegidas[i].sin)
-      items.push({ t: "Grupo " + r.elegidas[i].grupo + ": ninguna rama cumple con este escenario", sel: '[data-pv-sinrama="' + r.elegidas[i].grupo + '"]' });
-    for (i = 0; i < r.noEvalTextos.length; i++) items.push({ t: "Condici\u00F3n que no se puede evaluar", code: r.noEvalTextos[i] });
-    for (i = 0; i < r.includes.length; i++) items.push({ t: "Fragmento no resuelto", code: r.includes[i] });
-    if (vista.muestra) for (i = 0; i < r.sinValor.length; i++)
-      items.push({ t: "Campo sin dato de muestra (solo afecta al preview)", code: r.sinValor[i], sel: '[data-pv-k="' + r.sinValor[i] + '"]' });
-    var n = items.length, s = $("sello"), num = $("selloNum");
-    s.className = "sello" + (n ? "" : " sello--quieto");
-    $("selloSup").textContent = n ? (n === 1 ? "PENDIENTE" : "PENDIENTES") : "SIN PENDIENTES";
-    $("selloInf").textContent = n ? "REVISAR" : "LISTO";
-    num.style.display = n ? "" : "none";
-    $("selloOk").style.display = n ? "none" : "";
-    if (n !== ultimoN) {
-      num.textContent = n;
-      num.classList.remove("cambia"); void num.getBBox(); num.classList.add("cambia");
-      ultimoN = n;
-    }
-    $("selloSr").textContent = n ? plural(n, "pendiente", "pendientes") + ". Mostrar u ocultar la lista" : "Sin pendientes";
-    var ol = $("notas");
-    ol.textContent = "";
-    for (i = 0; i < items.length; i++) {
-      (function (it) {
-        var li = document.createElement("li"), b = document.createElement("button");
-        b.type = "button"; b.className = "nota";
-        b.innerHTML = '<svg class="ico"><use href="#i-x"/></svg><span></span>';
-        var sp = b.querySelector("span");
-        sp.appendChild(document.createTextNode(it.t));
-        if (it.code) { sp.appendChild(document.createTextNode(" ")); var c = document.createElement("code"); c.textContent = it.code; sp.appendChild(c); }
-        if (it.sel) { b.onclick = function () { irA(it.sel); }; b.title = "Ir a la marca en el correo"; } else b.disabled = true;
-        li.appendChild(b); ol.appendChild(li);
-      })(items[i]);
-    }
-    ol.hidden = !n || s.getAttribute("aria-expanded") !== "true";
-  }
-  function irA(sel) {
-    var d = $("vista").contentDocument, el = d && d.querySelector(sel);
-    if (!el) return;
-    var z = vista.z / 100, top = el.getBoundingClientRect().top * z + $("hoja").offsetTop - 80;
-    $("mesa").scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    el.removeAttribute("data-pv-flash"); void el.offsetWidth; el.setAttribute("data-pv-flash", "");
-  }
-
   // ---------- correo ----------
   function marcar(d) {
     var st = d.createElement("style");
@@ -921,8 +824,8 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
     ifr.style.transform = "scale(" + z + ")";
     $("hoja").style.width = Math.round(ancho * z) + "px";
     $("hoja").style.height = Math.round(alto * z) + "px";
-    // La columna del correo mide siempre el ancho de escritorio: la ficha y el matasellos
-    // quedan junto al correo y no se mueven al pasar a movil.
+    // La columna del correo mide siempre el ancho de escritorio: la ficha
+    // queda junto al correo y no se mueven al pasar a movil.
     document.querySelector(".centro").style.width = Math.round(Math.max(700, ancho) * z) + "px";
     mesa.scrollTop = sc;
   }
@@ -934,7 +837,6 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
     ifr.onload = function () { marcar(ifr.contentDocument); medir(); };
     ifr.srcdoc = r.html;
     pintarFicha();
-    pintarSello(r);
     pintarFechas(r.fechas);
     $("bMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
     $("pie").textContent = vista.muestra ? "Datos de muestra ficticios" : "Campos sin reemplazar";
@@ -976,11 +878,6 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
     var abre = $("fechas").hidden;
     $("fechas").hidden = !abre; this.setAttribute("aria-expanded", abre ? "true" : "false");
     if (abre) { var i = $("fechas").querySelector("input"); if (i) i.focus(); }
-  };
-  $("sello").onclick = function () {
-    var abre = this.getAttribute("aria-expanded") !== "true";
-    this.setAttribute("aria-expanded", abre ? "true" : "false");
-    $("notas").hidden = !abre || !$("notas").children.length;
   };
   $("bDesk").onclick = function () { vista.w = 700; pintar(); };
   $("bMov").onclick = function () { vista.w = 375; pintar(); };
