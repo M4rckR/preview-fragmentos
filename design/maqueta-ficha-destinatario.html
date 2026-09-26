@@ -8,7 +8,7 @@
 :root {
   --mesa:#e8eaed; --linea:#d3d7dd; --papel:#fff; --papel-2:#f5f6f8;
   --tinta:#1f2430; --tinta-2:#4d5566; --tinta-3:#5d6573;
-  --postal:#1f3a93; --barra-bg:#14275f; --postal-bg:#e8edf9; --postal-quieto:#5a6b8c;
+  --postal:#1f3a93; --barra-bg:#14275f; --postal-bg:#e8edf9; --postal-fondo:#f1f4fc; --postal-borde:#cdd6ee; --postal-quieto:#5a6b8c;
   --sello:#c62d1f; --sello-txt:#a8261a; --sello-bg:#fce9e6;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -75,7 +75,7 @@ button[aria-disabled="true"] { cursor:not-allowed; }
         column-gap:28px; padding:20px 20px 40px; }
 .margen { min-width:0; }
 .margen__pega { position:sticky; top:0; }
-.margen--izq .margen__pega { margin-left:auto; width:min(300px,100%); }
+.margen--izq .margen__pega { margin-left:auto; width:min(320px,100%); }
 .margen--der .margen__pega { width:min(240px,100%); }
 .centro { min-width:0; }
 .hoja { position:relative; margin:0 auto; background:#fff; box-shadow:0 1px 2px rgba(31,36,48,.12), 0 12px 32px rgba(31,36,48,.14); }
@@ -88,18 +88,18 @@ button[aria-disabled="true"] { cursor:not-allowed; }
 .ficha__cab { display:flex; align-items:baseline; gap:8px; }
 .ficha__para { font-size:var(--fs-xxs); font-weight:700; letter-spacing:.12em; color:var(--postal); }
 .ficha__n { margin-left:auto; font-family:var(--mono); font-size:var(--fs-xxs); color:var(--tinta-3); }
-/* Renglones de la etiqueta: la frase se escribe sobre ellos. */
-.ficha__frase { margin:6px 0 10px; font-size:var(--fs-frase); line-height:34px; color:var(--tinta);
-  background-image:linear-gradient(transparent 33px, var(--linea) 33px); background-size:100% 34px; }
-.var { white-space:nowrap; }
-.var__n { display:inline-block; min-width:14px; margin-right:2px; font-family:var(--mono); font-size:var(--fs-xxs); color:var(--tinta-3);
-          vertical-align:1px; }
-.var select { appearance:none; -webkit-appearance:none; font:inherit; font-weight:600; color:var(--postal); max-width:100%;
-  border:0; border-radius:3px; padding:1px 20px 1px 4px; margin-left:2px; cursor:pointer;
-  background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%231f3a93' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 5px center; }
-.var select:hover { background-color:var(--postal-bg); }
-.var select:focus-visible { outline:2px solid var(--postal); outline-offset:1px; }
-.var--activa select { background-color:var(--postal-bg); box-shadow:inset 0 -2px var(--postal); }
+.vars { margin:10px 0 12px; }
+.var { padding:10px 10px 12px; border:1px solid var(--postal-borde); border-radius:7px; background:var(--postal-fondo); }
+.var + .var { margin-top:10px; }
+.var__t { display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; color:var(--postal); }
+.var__n { font-family:var(--mono); font-size:var(--fs-xxs); font-weight:500; color:var(--tinta-3); }
+.var--activa .var__t::after { content:""; flex:1; height:2px; margin-left:4px; border-radius:1px; background:var(--postal); opacity:.35; }
+.var__g { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.var__g--uno { grid-template-columns:1fr; }
+.var__g button { min-height:34px; padding:6px 8px; font-size:var(--fs-sm); line-height:1.2; color:var(--tinta);
+  background:var(--papel); border:1px solid var(--postal-borde); border-radius:5px; }
+.var__g button:hover { background:var(--postal-bg); }
+.var__g button[aria-pressed="true"] { background:var(--postal); border-color:var(--postal); color:#fff; font-weight:600; }
 .ficha__acc { display:flex; flex-wrap:wrap; gap:4px 14px; }
 .lnk { border:0; background:none; padding:2px 0; font-size:var(--fs-xs); color:var(--tinta-2); text-decoration:underline;
        text-underline-offset:3px; text-decoration-color:var(--linea); }
@@ -139,9 +139,10 @@ button[aria-disabled="true"] { cursor:not-allowed; }
 .nota[disabled] { cursor:default; }
 
 /* ---------- movimiento ---------- */
-.btn, .seg button, .zoom button, .nota, .lnk, .var select { transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
+.btn, .seg button, .zoom button, .nota, .lnk, .var__g button { transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
 .btn:active:not([aria-disabled="true"]), .seg button:active, .zoom button:active:not(:disabled) { transform:scale(0.97); }
 .nota:active:not([disabled]) { transform:scale(0.985); }
+.var__g button:active { transform:scale(0.97); }
 .sello:active svg { transform:rotate(-7deg) scale(0.97); }
 .sello svg { transition:transform var(--dur-xs) var(--ease-out); }
 
@@ -210,7 +211,7 @@ button[aria-disabled="true"] { cursor:not-allowed; }
     <div class="margen__pega">
       <div class="ficha" id="ficha">
         <div class="ficha__cab"><span class="ficha__para">PARA</span><span class="ficha__n" id="fichaN"></span></div>
-        <p class="ficha__frase" id="frase"></p>
+        <div class="vars" id="frase"></div>
         <div class="ficha__acc">
           <button type="button" class="lnk" id="bDef">Por defecto</button>
           <button type="button" class="lnk" id="bMuestra">Ver campos</button>
@@ -731,11 +732,8 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
   function pintarFicha() {
     var fr = $("frase");
     fr.textContent = "";
-    fr.appendChild(document.createTextNode(det.orden.length ? "un cliente con " : "cualquier cliente: este template no tiene condiciones"));
-    for (var i = 0; i < det.orden.length; i++) {
-      if (i > 0) fr.appendChild(document.createTextNode(i === det.orden.length - 1 ? " y " : ", "));
-      fr.appendChild(crearVar(det.orden[i], i));
-    }
+    if (!det.orden.length) fr.textContent = "Cualquier cliente: este template no tiene condiciones.";
+    for (var i = 0; i < det.orden.length; i++) fr.appendChild(crearVar(det.orden[i], i));
     $("fichaN").textContent = det.orden.length ? "escenario " + indiceEscenario() + " de " + totalEscenarios() : "";
     var ay = $("ayuda");
     ay.innerHTML = "";
@@ -745,22 +743,31 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
     }
   }
   function crearVar(v, i) {
-    var sp = document.createElement("span");
-    sp.className = "var" + (i === activa ? " var--activa" : "");
-    var n = document.createElement("span"); n.className = "var__n"; n.setAttribute("aria-hidden", "true");
-    n.textContent = i < 9 ? String(i + 1) : "";
-    var lb = document.createElement("label"); lb.htmlFor = "sel-" + v; lb.textContent = etiqVar(v);
-    var s = document.createElement("select"); s.id = "sel-" + v;
-    var vals = valoresDe(v);
+    var d = document.createElement("div");
+    d.className = "var" + (i === activa ? " var--activa" : "");
+    d.setAttribute("role", "group"); d.setAttribute("aria-labelledby", "t-" + v);
+    var t = document.createElement("div"); t.className = "var__t"; t.id = "t-" + v;
+    if (i < 9) { var n = document.createElement("span"); n.className = "var__n"; n.setAttribute("aria-hidden", "true"); n.textContent = String(i + 1); t.appendChild(n); }
+    t.appendChild(document.createTextNode(traducirUI(v)));
+    var g = document.createElement("div"), vals = valoresDe(v);
+    g.className = "var__g" + (vals.length < 2 ? " var__g--uno" : "");
     for (var j = 0; j < vals.length; j++) {
-      var o = document.createElement("option"); o.value = vals[j]; o.textContent = etiqVal(v, vals[j]);
-      if (vals[j] === perfil[v]) o.selected = true;
-      s.appendChild(o);
+      (function (val, j) {
+        var b = document.createElement("button");
+        b.type = "button"; b.id = "b-" + v + "-" + j;
+        b.textContent = etiqVal(v, val);
+        b.setAttribute("aria-pressed", val === perfil[v] ? "true" : "false");
+        b.onfocus = function () { if (activa !== i) { activa = i; marcarActiva(); } };
+        b.onclick = function () {
+          perfil[v] = val; activa = i; pintar();
+          $("b-" + v + "-" + j).focus();
+          anunciar(etiqVar(v) + ": " + etiqVal(v, val));
+        };
+        g.appendChild(b);
+      })(vals[j], j);
     }
-    s.onfocus = function () { if (activa !== i) { activa = i; marcarActiva(); } };
-    s.onchange = function () { perfil[v] = s.value; activa = i; pintar(); $("sel-" + v).focus(); anunciar(etiqVar(v) + ": " + etiqVal(v, s.value)); };
-    sp.appendChild(n); sp.appendChild(lb); sp.appendChild(document.createTextNode(" ")); sp.appendChild(s);
-    return sp;
+    d.appendChild(t); d.appendChild(g);
+    return d;
   }
   function marcarActiva() {
     var vs = $("frase").querySelectorAll(".var");
