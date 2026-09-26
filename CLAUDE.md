@@ -7,6 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Dos páginas JSSP (Dynamic JavaScript pages, namespace `cus`) de Adobe Campaign v8 (instancia BCP stage12). No hay build, dependencias ni servidor local.
 - `previewFragment.jssp` → `/cus/previewFragment.jssp`. Lista los templates de email, carga el HTML **guardado**, resuelve fragmentos, poda los condicionales según un escenario y muestra el correo en un iframe. Exporta .html, PNG y PDF, y envía a Workfront.
 - `proxy-images.jssp` → se publica en Campaign como **`/cus/imgProxy.jssp`** (el preview lo llama con ese nombre). Descarga imágenes de hosts sin CORS desde el servidor y devuelve texto `data:image/...;base64,...` para las exportaciones PNG/PDF.
+- `PRODUCT.md`: contexto de producto (usuarios, propósito, principios). Lo usa la skill `impeccable`; léelo antes de proponer cambios de diseño.
+- `.impeccable/critique/`: críticas de diseño guardadas, con fecha. La primera dio 24/40 y la segunda, 27/40. `/impeccable polish` lee de ahí los problemas prioritarios.
 - `design/Preview_de_templates.html`: bundle del diseño aprobado (artboards A–M). Está empaquetado: para leerlo hay que extraer el `__bundler/template` y el `__bundler/manifest` (base64 + gzip). El artboard E, "Ver todas las ramas", quedó descartado.
 
 Idioma: todo (código, comentarios, commits, respuestas a Marcos) va en español.
@@ -31,11 +33,23 @@ EOF
 ```
 
 Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<%= datosLista %>`, `<%= selAttr %>`, `<%= datosHtml %>` (HTML de correo pasado por `encodeURIComponent`) y `<%= datosFrg %>`. Quita los `<% if/else %>` y sirve el resultado con `python3 -m http.server`. La parte de servidor y el proxy solo se pueden probar en Campaign.
+- El correo de prueba debe traer lo que la UI tiene que mostrar: dos o más grupos `[acr-dc-*]`, uno sin rama `else` y metido en una `<table>` (así prueba la nota "sin rama activa" en una celda), un `targetData.X` sin valor también dentro de un `href`, fechas `FEC…` y ancho de 600 px para el aviso de desborde en Móvil.
+- En Chrome, `resize_window` no achica el viewport. Para probar ≤900 px, carga la página dentro de un `<iframe width="800">` del mismo origen.
+- Antes de abrir el modal de Workfront, reemplaza `window.fetch` por una función que rechace o que devuelva `{ok:false,status:500}`. Nunca envíes de verdad desde una prueba local.
+- Workfront está pausado (`WORKFRONT_ACTIVO = false`). Para probar el modal en local, ponlo en `true` solo en la copia.
 
 ## Estructura de `previewFragment.jssp`
 
 1. **Servidor** (hasta `<!DOCTYPE html>`). Consulta `nms:includeView`: `@type=1` son los templates y `@type=2` los fragmentos. Resuelve `<%@ include fragment="VIEWnnn" %>` en `frgResuelve` con un mapa nombre→id (`frgCargaMapa`) y `load(id)`, de forma recursiva y con topes. El token usa el **`@name`**, no el `@id`. Las consultas filtradas por `@name` nunca funcionaron en esta instancia, así que no las reintentes. Corre con `logonEscalation("neolane")`, que va fuera del `try`. No toques esta parte sin que te lo pidan.
 2. **HTML + CSS.** Los tokens de diseño son variables en `:root`; usa esas, no colores sueltos. Las clases siguen BEM en español (`.barra__btn`, `.vars__seg`, `.fechas__f`…).
+   - **Tipografía.** Escala `--fs-xxs` 11 px (solo metadatos: id del template, rótulos en mayúsculas, número de fecha), `--fs-xs` 12 px (etiquetas), `--fs-sm` 13 px (controles) y `--fs-md` 14 px (cuerpo). No uses tamaños sueltos ni bajes de 11 px.
+   - **Contraste.** `--text-muted` es `#5b6678` (≥5:1 sobre blanco y sobre `--vars-bg`); `--wf-bg` es `#0369a1` (5.9:1 con texto blanco). El placeholder del combo usa `--bar-fg-muted`. `--ok-bg`/`--ok-fg` son el verde de "todo resuelto" y de los resultados correctos. Si cambias un color, comprueba que el texto siga en 4.5:1 o más.
+   - **Barra.** El combo tiene `flex:1 1 220px` para que la barra quepa en una línea desde 1280 px. Si agregas algo a la barra, vuelve a medir a 1280 px.
+   - **Cinta** (`#cinta`, arriba del marco). Tiene tres zonas:
+     - `.cinta__estado`, a la izquierda: etiqueta de muestra/campos (`#cintaEtq`), fechas editadas, desborde en Móvil (`#desborde`) y los pendientes (`#avisos`, que se mueve ahí por JS). Esta zona puede partirse en varias líneas.
+     - `.cinta__acc`, a la derecha: Editar fechas y Ver campos. No se parte.
+     - `#accion`, en una línea propia: el resultado de Workfront, PNG o PDF.
+     Los pendientes y el resultado de una acción no comparten contenedor: un fallo de Workfront no debe borrar los pendientes.
    - **Movimiento.** Tokens en `:root`: `--ease-out: cubic-bezier(0.23,1,0.32,1)` y las duraciones `--dur-xs` (120ms), `--dur-sm` (150ms), `--dur-md` (180ms) y `--dur-lg` (200ms). No escribas ms ni curvas sueltas. Todo vive en el bloque `/* ---------- movimiento ---------- */`:
      - Hover: solo `background-color`/`color` con `--dur-xs ease`.
      - Respuesta al clic: `:active { transform:scale(0.97) }`. En filas de ancho completo es más leve: `.menu__lista button` usa 0.98 y `.vars__sw` usa 0.985. Si agregas un botón, súmalo a las listas de `transition` y `:active`.
@@ -54,6 +68,31 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
    - Estado en la URL (`leerURL`/`escribirURL`): `frgId`, `v.VAR` (escenario), `d.CAMPO` (fechas editadas), `muestra=0`, `w=375`, `z=NN`.
    - La vista mide el alto y el ancho reales del correo (`medirVista`). En escritorio, el marco crece si el correo pide más de 700 px (por ejemplo, `body{min-width:750px}`). Para medir el alto, encoge el iframe a 0, lee `scrollHeight` y le devuelve su alto en la misma tarea, guardando y reponiendo el scroll del lienzo. Con el alto actual puesto, `scrollHeight` nunca baja de ese alto y un correo corto no podría achicarse. `pintar()` conserva el alto anterior hasta que mide el correo nuevo; `ALTO_VISTA` (3000) solo se usa en la primera vista.
    - En los campos de contacto (`DESCORREO…`, `DESNBRE…`, `DESCELULAR…EENNPRINCIPAL`), las condiciones se omiten al elegir variantes, pero sus valores ficticios sí se muestran.
+   - Las fechas de muestra se calculan con `fechaMuestra(dias)`: el inicio es hoy y los fines son hoy + 30 días, en `dd/mm/aaaa`. Nunca pongas una fecha fija: con el tiempo queda vencida y en el PNG parece un error del correo.
+   - **Avisos.**
+     - `pintarAvisos(r)` corre en cada repintado. Junta en una línea los grupos sin rama, las condiciones no evaluables, los fragmentos no resueltos y los campos sin valor (estos, solo con datos de muestra). Con pendientes lleva `.avisos--falta` (rojo y "⚠"); si solo hay información, sale en el tono normal.
+     - `avisoWf(ok, texto, detalle)` escribe solo en `#accion`. El detalle técnico va plegado en un `<details>`.
+     - El lector de pantalla no escucha `#avisos` directamente: `anunciar(txt, forzar)` escribe en `#anuncio` (`.sr`, `role=status`) solo cuando el texto cambia.
+   - **Detalle** (`pintarDetalle`): solo muestra columnas con contenido, en orden de gravedad: grupos sin rama, condiciones no evaluables, fragmentos no resueltos, campos sin valor y fragmentos resueltos.
+   - **Modal de Workfront.**
+     - `pendientes()` arma la lista de revisión y `revision(p)` la pinta: roja si hay pendientes, verde ("✓ Todo resuelto") si no.
+     - Con pendientes, el foco empieza en Cancelar y el botón dice "Enviar de todos modos". Sin pendientes, el foco va a "Enviar ahora".
+     - `atraparFoco` mantiene Tab dentro del diálogo.
+     - No muestres la URL del webhook ni la fila "Vista": el HTML que se envía es siempre el mismo.
+     - `fetch` tiene un tope de 30 s con `AbortController`. Hay tres mensajes de error:
+       - HTTP de error: "no se registró, puedes reintentar".
+       - Sin respuesta (red o CORS): "pudo llegar, revisa antes de reintentar".
+       - Tope de 30 s: el mismo aviso de "revisa antes de reintentar".
+   - **Lenguaje de la UI.**
+     - Los chips de ramas y el modal pasan cada condición por `legible()`: `targetData.CODPRODUCTO == 'TCRPLL'` sale como "PRODUCTO = LATAM Platinum", y el original queda en el `title`.
+     - Los códigos se traducen con `traducirUI`, también en los `aria-label`.
+     - Los plurales se arman con `plural(n, uno, varios)`; nada de "(s)" ni "(es)".
+     - Al usuario se le dice "campo", no "token".
+     - Los botones nombran su acción: "Por defecto", "Fechas originales", "Ver campos" / "Ver datos de muestra".
+   - **Panel flotante (≤900 px).** Arranca cerrado (`panelFlota()` al cargar). `cerrarPanelFlotante()` lo cierra con Escape, con un clic en el lienzo o con un clic dentro del correo (el `mousedown` se registra en el documento del iframe en `seguirVista`).
+   - **Desborde en Móvil.** Si el correo es más ancho que 375 px, `medirVista` muestra `#desborde`: "El correo mide N px: en 375 px se corta a la derecha".
+   - **Combo.** Al abrirlo, el nombre actual queda seleccionado y no filtra (`pintarLista` lo trata como búsqueda vacía). Los atajos van en `title` y `aria-keyshortcuts`.
+   - **Zoom.** "+" se desactiva en 100% y "−" en 50%.
 
 ## Reglas duras (cada una viene de un problema real)
 
@@ -71,5 +110,17 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
 - El envío a Workfront está **pausado**: `WORKFRONT_ACTIVO = false` deja el botón visible pero desactivado. Para reactivarlo, se pone en `true`.
 - `WORKFRONT_URL`, `WORKFRONT_USER` y `WORKFRONT_PASS` están escritos en el cliente, y el repo en GitHub es público. Hay que moverlos al servidor.
 - Producción: cambiar `bcp-mid-stage13` por el dominio de producción en `PERMITIDOS` y en `PNG_PROXY_HOSTS`.
-- Pendiente de probar en Campaign (commits del 2026-09-25): la nueva medición del alto con correos cortos, largos con imágenes y con `height:100%`, además de las animaciones y la respuesta al clic.
+- Pendiente de probar en Campaign (commits del 2026-09-25 y 26):
+  - la medición del alto con correos cortos, largos con imágenes y con `height:100%`;
+  - las animaciones y la respuesta al clic;
+  - las marcas ámbar con correos reales;
+  - la cinta nueva;
+  - el panel flotante a ≤900 px;
+  - las fechas relativas.
+- Pendientes de la segunda crítica (`.impeccable/critique/2026-09-26…`):
+  - **P2:** el Detalle se abre arriba de toda la página, lejos de su botón. Falta que muestre la condición legible de cada grupo y que cada ítem baje hasta su marca en el correo.
+  - **P2:** el modal de Workfront no incluye el desborde en Móvil en `pendientes()`.
+  - **P3:** una variable con un solo valor se ve como botón presionado; debería ser texto fijo.
+  - **Accesibilidad:** los atajos de una sola tecla (`/`, `D`, `M`) no se pueden desactivar (WCAG 2.1.4).
+  - **Descartados a propósito:** la franja superior de 3 px en `.fechas` y `.marco--muestra` es la señal de "datos de muestra", aunque el detector la marque. El `overflow:hidden` del body es parte del layout.
 - La exportación PNG/PDF (SVG `foreignObject` → canvas) no funciona en Safari (`SecurityError`); se usa Chrome o Edge. No incrusta `url()` dentro de `<style>` ni fuentes externas.
