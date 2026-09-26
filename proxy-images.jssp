@@ -22,7 +22,25 @@ var PERMITIDOS = {
   "bcp-mid-stage13-res.adobe-campaign.com": "/res/",
   "cdn.storage.flexigon.io": "/"
 };
-var TIPOS = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+// El tipo sale de los primeros bytes (en base64), no de la extension ni de lo que diga el
+// origen: si una URL permitida redirige a otro sitio (o a algo interno) y devuelve texto,
+// HTML o JSON, no pasa. Solo se devuelve lo que de verdad es una imagen.
+var FIRMAS = [
+  { b64: "iVBORw0KGgo", tipo: "image/png" },
+  { b64: "/9j/", tipo: "image/jpeg" },
+  { b64: "R0lGODdh", tipo: "image/gif" },
+  { b64: "R0lGODlh", tipo: "image/gif" },
+  { b64: "UklGR", tipo: "image/webp", fin: "RUJQ" }   // RIFF....WEBP: "EBP" son los bytes 9-11
+];
+function tipoImagen(b64) {
+  for (var i = 0; i < FIRMAS.length; i++) {
+    var f = FIRMAS[i];
+    if (b64.indexOf(f.b64) !== 0) continue;
+    if (f.fin && b64.substring(12, 16) !== f.fin) continue;
+    return f.tipo;
+  }
+  return "";
+}
 var PESO_MAX = 5 * 1024 * 1024;
 
 var u = String(request.parameters.u || "");
@@ -45,6 +63,7 @@ try {
 } catch (e) {
   datos = "";
 }
-if (!datos || datos.length > PESO_MAX * 1.4) { response.sendError(502); return; }
-salida("data:" + TIPOS[m[3].toLowerCase()] + ";base64," + datos);
+var tipo = datos ? tipoImagen(datos) : "";
+if (!tipo || datos.length > PESO_MAX * 1.4) { response.sendError(502); return; }
+salida("data:" + tipo + ";base64," + datos);
 %>
