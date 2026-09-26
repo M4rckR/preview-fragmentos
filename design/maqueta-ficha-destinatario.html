@@ -8,7 +8,7 @@
 :root {
   --mesa:#e8eaed; --linea:#d3d7dd; --papel:#fff; --papel-2:#f5f6f8;
   --tinta:#1f2430; --tinta-2:#4d5566; --tinta-3:#5d6573;
-  --postal:#1f3a93; --postal-bg:#e8edf9; --postal-quieto:#5a6b8c;
+  --postal:#1f3a93; --barra-bg:#14275f; --postal-bg:#e8edf9; --postal-quieto:#5a6b8c;
   --sello:#c62d1f; --sello-txt:#a8261a; --sello-bg:#fce9e6;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -45,8 +45,8 @@ button[aria-disabled="true"] { cursor:not-allowed; }
 .btn:hover { background:var(--papel-2); }
 .btn--post { background:var(--postal); border-color:var(--postal); color:#fff; }
 .btn--post[aria-disabled="true"] { background:#5f6670; border-color:#5f6670; }
-/* Barra en azul postal: el mismo azul de la ficha, en superficie. */
-.barra { background:var(--postal); border-bottom-color:#172c70; color:#fff; }
+/* Barra en azul postal oscuro: la familia del azul de la ficha. */
+.barra { background:var(--barra-bg); border-bottom-color:#0d1b45; color:#fff; }
 .barra :focus-visible { outline-color:#fff; }
 .barra .combo { background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.28); }
 .barra .combo:focus-within { border-color:#fff; box-shadow:0 0 0 1px #fff; }
@@ -54,11 +54,11 @@ button[aria-disabled="true"] { cursor:not-allowed; }
 .barra .combo__id { color:rgba(255,255,255,.78); }
 .barra .btn { background:transparent; border-color:rgba(255,255,255,.34); color:#fff; }
 .barra .btn:hover { background:rgba(255,255,255,.12); }
-.barra .btn--post { background:#fff; border-color:#fff; color:var(--postal); }
+.barra .btn--post { background:#fff; border-color:#fff; color:var(--barra-bg); }
 .barra .btn--post[aria-disabled="true"] { background:rgba(255,255,255,.16); border-color:transparent; color:#fff; }
 .barra .seg { border-color:rgba(255,255,255,.34); }
 .barra .seg button { color:rgba(255,255,255,.88); }
-.barra .seg button[aria-pressed="true"] { background:#fff; color:var(--postal); }
+.barra .seg button[aria-pressed="true"] { background:#fff; color:var(--barra-bg); }
 .barra .zoom button { background:transparent; border-color:rgba(255,255,255,.34); color:#fff; }
 .barra .zoom output { color:rgba(255,255,255,.88); }
 .barra__sep { background:rgba(255,255,255,.3); }
@@ -75,8 +75,8 @@ button[aria-disabled="true"] { cursor:not-allowed; }
         column-gap:28px; padding:20px 20px 40px; }
 .margen { min-width:0; }
 .margen__pega { position:sticky; top:0; }
-.margen--izq .margen__pega { margin-left:auto; width:min(300px,100%); }
-.margen--der .margen__pega { width:min(240px,100%); }
+.margen--izq .margen__pega { width:min(300px,100%); }
+.margen--der .margen__pega { margin-left:auto; width:min(240px,100%); }
 .centro { min-width:0; }
 .hoja { position:relative; background:#fff; box-shadow:0 1px 2px rgba(31,36,48,.12), 0 12px 32px rgba(31,36,48,.14); }
 .hoja iframe { position:absolute; top:0; left:0; border:0; transform-origin:0 0; display:block; }
