@@ -19,7 +19,7 @@ Idioma: todo (código, comentarios, commits, respuestas a Marcos) va en español
 
 La única prueba real es desplegar: Marcos pega el archivo en Campaign (Explorer > Administration > Configuration > Dynamic JavaScript pages) y abre, por ejemplo, `https://bcp-mkt-stage12.campaign.adobe.com/cus/previewFragment.jssp?frgId=11104969`. Hace falta commit y push para que pueda probarlo. Siempre trabaja sobre el archivo real: si lo pegas por chat se pierden `*` y `\`.
 
-Verificación antes de cada commit (no hay lint ni tests en el repo; `lint.sh` se borró). Revisa la sintaxis del script de cliente y tres reglas duras: solo ASCII, nada de `<%`/`%>` en el script y nada del permiso de scripts en todo el archivo:
+Verificación antes de cada commit (no hay lint; `lint.sh` se borró. Las pruebas de la poda van aparte, abajo). Revisa la sintaxis del script de cliente y tres reglas duras: solo ASCII, nada de `<%`/`%>` en el script y nada del permiso de scripts en todo el archivo:
 ```sh
 python3 - <<'EOF'
 import re,subprocess
@@ -33,6 +33,8 @@ subprocess.run(['node','--check','/tmp/c.js'],check=True)
 print('ok')
 EOF
 ```
+
+La lógica de poda (entre `BEGIN-PODA` y `END-PODA`) tiene pruebas en `tests/poda.test.js`: `node --test tests/*.test.js` (sin dependencias). Cargan el bloque desde el propio JSSP, así que prueban el código real. Córrelas antes de cada commit que toque ese bloque, y si cambias la poda, agrega el caso. El correo de prueba es sintético: el helper `grupo()` arma los grupos `[acr-dc-*]` con el mismo formato de Campaign.
 
 Para saber qué le falta a un template ya subido, usa la skill `/evaluar-template <frgId>` (`.claude/skills/evaluar-template/`): baja la página de stage, recorre todos los escenarios con la poda del JSSP y separa los problemas del template (grupos sin rama, condiciones no evaluables, fragmentos no resueltos) de los campos sin dato de muestra, que solo afectan al preview. También trae el inventario de variables (cuáles deciden ramas, cuáles se imprimen y dónde) y avisa de montos escritos fijos y de condiciones que mezclan segmento con datos de contacto. Nunca guardes en el repo el HTML de un template.
 
