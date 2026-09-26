@@ -220,6 +220,26 @@ test("podar: escapa los valores de muestra antes de insertarlos", function () {
   assert.equal(r.html, "&lt;b&gt;&quot;Ana&quot; &amp; co&lt;/b&gt;");
 });
 
+test("podar: un dato editado no puede salirse de un atributo con comilla simple", function () {
+  var P = nueva();
+  P.fijarEditados({ firstName: "x' onmouseover='alert(1)" });
+  var r = P.podar("<a href='https://example.com/?n=" + campo("firstName") + "'>hola</a>", {});
+  assert.equal(r.html, "<a href='https://example.com/?n=x&#39; onmouseover=&#39;alert(1)'>hola</a>");
+});
+
+test("podar: descarta datos editados con un esquema ejecutable", function () {
+  var P = nueva();
+  ["javascript:alert(1)", " JavaScript:alert(1)", "java\tscript:alert(1)", "vbscript:x", "data:text/html,x"].forEach(function (v) {
+    P.fijarEditados({ URLX: v });
+    var r = P.podar("<a href=\"" + campo("URLX") + "\">x</a>", {});
+    assert.equal(r.html, "<a href=\"[URLX]\">x</a>", v);
+    assert.deepEqual(r.sinValor, ["URLX"], v);
+  });
+  // Un texto normal con dos puntos sigue pasando.
+  P.fijarEditados({ URLX: "Nota: vence hoy" });
+  assert.equal(P.podar(campo("URLX"), {}).html, "Nota: vence hoy");
+});
+
 test("podar: lo editado gana al diccionario y PLASTICO sale del producto", function () {
   var P = nueva();
   P.fijarEditados({ TCEA: "99.9" });
@@ -306,6 +326,6 @@ test("fechaMuestra: es relativa a hoy, en dd/mm/aaaa", function () {
 
 test("esc y norm", function () {
   var P = nueva();
-  assert.equal(P.esc("<a href=\"x\">&</a>"), "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;");
+  assert.equal(P.esc("<a href=\"x\" title='y'>&</a>"), "&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;");
   assert.equal(P.norm("Cl\u00E1sica \u00D1and\u00FA"), "clasica nandu");
 });

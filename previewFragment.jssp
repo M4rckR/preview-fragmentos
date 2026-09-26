@@ -669,8 +669,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // Los delimitadores se arman por partes para que el servidor no los tome por codigo.
   var O = "<" + "%", C = "%" + ">";
   function rx(s, f) { return new RegExp(s, f || "g"); }
+  // Escapa tambien la comilla simple: los templates ponen campos dentro de atributos con ' o con ".
   function esc(s) {
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  // Un dato de muestra puede terminar en un href o un src del .html exportado. Un valor que
+  // empiece con un esquema ejecutable (llega por la URL como d.CAMPO) se descarta. El navegador
+  // ignora espacios y caracteres de control antes del esquema, asi que se quitan antes de mirar.
+  function esquemaPeligroso(v) {
+    return /^(javascript|vbscript|data):/i.test(String(v).replace(/[\s\x00-\x1f]+/g, ""));
   }
   // Quita tildes y pasa a minusculas, para buscar sin acentos.
   function norm(s) {
@@ -869,7 +877,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function valorMuestra(k) {
     var din = valorDinamico(k);
     var v = editados.hasOwnProperty(k) ? editados[k] : (din !== undefined ? din : diccionario[k]);
-    return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
+    return (v !== undefined && v !== null && v !== "" && !esquemaPeligroso(v)) ? esc(v) : null;
   }
 
   // opciones: { muestra:bool (true por defecto), marcar:bool, senalar:bool }
