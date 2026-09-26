@@ -411,6 +411,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                  display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px; font-size:var(--fs-xs);
                  background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
 .lienzo__cinta b { font-weight:700; }
+.cinta__desborde { color:var(--err-fg); font-weight:600; }
 .lienzo__cinta button { margin-left:auto; font:inherit; font-size:var(--fs-xs); background:#fff; color:inherit; white-space:nowrap;
                         border:1px solid currentColor; border-radius:var(--radius-chip); padding:2px 8px; cursor:pointer; }
 .lienzo__cinta button:disabled { opacity:.5; cursor:not-allowed; }
@@ -583,6 +584,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <div class="lienzo__cinta" id="cinta">
         <b>&#x25C6; Datos de muestra (ficticios)</b>
         <span id="cintaTxt"></span>
+        <span class="cinta__desborde" id="desborde" hidden></span>
         <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
         <button type="button" id="modoMuestra">Ver campos</button>
       </div>
@@ -1763,6 +1765,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
 
   // ---------------- Pintar ----------------
+  // <=900px el panel flota sobre el correo: arranca cerrado y se cierra con Escape o con un clic fuera.
+  var mqFlota = window.matchMedia ? window.matchMedia("(max-width:900px)") : null;
+  function panelFlota() { return !!(mqFlota && mqFlota.matches); }
+  function cerrarPanelFlotante() {
+    if (!panelFlota() || !vista.panel || !det || !det.orden.length) return false;
+    elCerrarPanel.onclick();
+    return true;
+  }
   function actualizarPanel() {
     var abierto = vista.panel;
     var aplicable = !!(det && det.orden.length);
@@ -1814,6 +1824,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
             elMarco.style.width = anchoMedido + "px";
           }
         }
+        // En Movil el marco no crece: si el correo es mas ancho, se corta y hay que decirlo.
+        var elDes = $("desborde"), swM = vista.w === 375 && d.documentElement ? d.documentElement.scrollWidth : 0;
+        if (elDes) {
+          elDes.hidden = !(swM > vista.w + 1);
+          if (!elDes.hidden) elDes.textContent = "\u26A0 El correo mide " + swM + " px: en " + vista.w + " px se corta a la derecha.";
+        }
         var altoPrevio = elVista.style.height, top = elLienzo.scrollTop;
         elVista.style.height = "0px";
         var h = Math.max(d.body.scrollHeight, d.documentElement ? d.documentElement.scrollHeight : 0);
@@ -1832,6 +1848,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // se remide con el load de cada imagen y, si existe, con un ResizeObserver sobre el body.
   function seguirVista() {
     senalarFaltas();
+    try { elVista.contentDocument.addEventListener("mousedown", cerrarPanelFlotante); } catch (e0) {}
     medirVista();
     try {
       var d = elVista.contentDocument;
@@ -1883,8 +1900,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     if (lee("muestra") === "0" && location.search.indexOf("muestra=") < 0) vista.muestra = false;
     normalizarPerfil();
+    if (panelFlota()) vista.panel = false;
     pintarEscenario();
     pintar();
+    $("lienzo").addEventListener("mousedown", cerrarPanelFlotante);
 
     $("escritorio").onclick = function () { vista.w = 700; pintar(); };
     $("movil").onclick = function () { vista.w = 375; pintar(); };
@@ -1954,6 +1973,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
       else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
       else if (ev.key === "Escape" && elModal.className.indexOf("abierto") > 0) cerrarModal();
+      else if (ev.key === "Escape" && (elPanel.contains(document.activeElement) || document.activeElement === document.body)) cerrarPanelFlotante();
     };
   }
 
