@@ -8,8 +8,10 @@ Dos páginas JSSP (Dynamic JavaScript pages, namespace `cus`) de Adobe Campaign 
 - `previewFragment.jssp` → `/cus/previewFragment.jssp`. Lista los templates de email, carga el HTML **guardado**, resuelve fragmentos, poda los condicionales según un escenario y muestra el correo en un iframe. Exporta .html, PNG y PDF, y envía a Workfront.
 - `proxy-images.jssp` → se publica en Campaign como **`/cus/imgProxy.jssp`** (el preview lo llama con ese nombre). Descarga imágenes de hosts sin CORS desde el servidor y devuelve texto `data:image/...;base64,...` para las exportaciones PNG/PDF.
 - `PRODUCT.md`: contexto de producto (usuarios, propósito, principios). Lo usa la skill `impeccable`; léelo antes de proponer cambios de diseño.
-- `.impeccable/critique/`: críticas de diseño guardadas, con fecha. La primera dio 24/40 y la segunda, 27/40. `/impeccable polish` lee de ahí los problemas prioritarios.
-- `design/Preview_de_templates.html`: bundle del diseño aprobado (artboards A–M). Está empaquetado: para leerlo hay que extraer el `__bundler/template` y el `__bundler/manifest` (base64 + gzip). El artboard E, "Ver todas las ramas", quedó descartado.
+- `.impeccable/critique/`: críticas de diseño guardadas, con fecha: 24/40, 27/40 y 26/40 (la tercera, sobre el rediseño; sus problemas ya se aplicaron el 2026-09-25). `/impeccable polish` lee de ahí los problemas prioritarios.
+- `.impeccable/surfaces/previewfragment-jssp.md`: contrato de diseño del rediseño "Ficha del destinatario" y las decisiones de Marcos posteriores.
+- `design/maqueta-ficha-destinatario.html`: maqueta del diseño actual (con la poda real y un correo ficticio). `design/maqueta-hoja-contactos.html`: la alternativa descartada (su tira de variantes le quitaba espacio al correo).
+- `design/Preview_de_templates.html`: bundle del diseño **anterior** (artboards A–M), solo como historia. Está empaquetado (`__bundler/template` y `__bundler/manifest`, base64 + gzip). El artboard E, "Ver todas las ramas", quedó descartado.
 
 Idioma: todo (código, comentarios, commits, respuestas a Marcos) va en español.
 
@@ -35,8 +37,9 @@ EOF
 Para saber qué le falta a un template ya subido, usa la skill `/evaluar-template <frgId>` (`.claude/skills/evaluar-template/`): baja la página de stage, recorre todos los escenarios con la poda del JSSP y separa los problemas del template (grupos sin rama, condiciones no evaluables, fragmentos no resueltos) de los campos sin dato de muestra, que solo afectan al preview. También trae el inventario de variables (cuáles deciden ramas, cuáles se imprimen y dónde) y avisa de montos escritos fijos y de condiciones que mezclan segmento con datos de contacto. Nunca guardes en el repo el HTML de un template.
 
 Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<%= datosLista %>`, `<%= selAttr %>`, `<%= datosHtml %>` (HTML de correo pasado por `encodeURIComponent`) y `<%= datosFrg %>`. Quita los `<% if/else %>` y sirve el resultado con `python3 -m http.server`. La parte de servidor y el proxy solo se pueden probar en Campaign.
+- Para probar con un template real: el preview de stage no pide login, así que `curl` a `…/previewFragment.jssp?frgId=N` trae la página; el correo está en `data-html` (primero `html.unescape`, porque Campaign convierte `'` en `&#39;`, y después `unquote`). Guárdalo solo en el scratchpad, nunca en el repo.
 - El correo de prueba debe traer lo que la UI tiene que mostrar: dos o más grupos `[acr-dc-*]`, uno sin rama `else` y metido en una `<table>` (así prueba la nota "sin rama activa" en una celda), un `targetData.X` sin valor también dentro de un `href`, fechas `FEC…` y ancho de 600 px para el aviso de desborde en Móvil.
-- En Chrome, `resize_window` no achica el viewport. Para probar anchos chicos (≤1080 px la ficha pasa arriba del correo), carga la página dentro de un `<iframe width="800">` del mismo origen.
+- En Chrome, `resize_window` no achica el viewport. Para probar anchos chicos (≤1400 px los datos de muestra pasan a cajón; ≤1080 px la ficha se pliega arriba del correo), carga la página dentro de un `<iframe width="…">` del mismo origen. Chrome sin interfaz tampoco baja de ~500 px de ancho.
 - Antes de abrir el modal de Workfront, reemplaza `window.fetch` por una función que rechace o que devuelva `{ok:false,status:500}`. Nunca envíes de verdad desde una prueba local.
 - Workfront está pausado (`WORKFRONT_ACTIVO = false`). Para probar el modal en local, ponlo en `true` solo en la copia.
 
@@ -56,7 +59,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
    - **Movimiento.** Tokens en `:root`: `--ease-out: cubic-bezier(0.23,1,0.32,1)` y las duraciones `--dur-xs` (120ms), `--dur-sm` (150ms), `--dur-md` (180ms) y `--dur-lg` (200ms). No escribas ms ni curvas sueltas. Todo vive en el bloque `/* ---------- movimiento ---------- */`:
      - Hover: solo `background-color`/`color` con `--dur-xs ease`.
      - Respuesta al clic: `:active { transform:scale(0.97) }`. Si agregas un botón, súmalo a las listas de `transition` y `:active`.
-     - Entradas con keyframes (`entra-fechas`, `entra-modal`, `funde`): parten de `opacity:0` más un `scale(0.96)` o un desplazamiento de 4 px, nunca `scale(0)`. Las fechas bajan desde su botón; el modal queda centrado.
+     - Entradas con keyframes (`entra-lista`, `entra-datos`, `entra-modal`, `funde`): parten de `opacity:0` más un `scale(0.96–0.97)` o un desplazamiento de 2 a 12 px, nunca `scale(0)`. Las listas flotantes (por revisar, ayuda "?") salen desde su botón; el cajón de datos entra desde el borde derecho; el modal queda centrado.
      - La salida siempre es instantánea (`hidden` o quitar la clase).
      - Solo se animan `transform` y `opacity`. Nada de `transition: all`, `ease-in` ni duraciones de más de 300ms.
      - **Sin animación a propósito:** la lista del combo, el zoom, escritorio/móvil y el cambio de escenario (se accionan en ráfagas o con teclado: `/`, `D`, `M`, flechas, 1–9) y el repintado del correo. No los animes.
@@ -67,7 +70,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
    - `podar(src, perfil, opciones)` elige una rama por grupo `[acr-dc-start-group]`…`[acr-dc-end-group]` con un evaluador propio, sin `eval` ni `Function`. Después reemplaza los tokens `<%= targetData.X %>` y `<%@ include view='X' %>` por `valorMuestra(k)` o por `[X]`. Devuelve `{html, elegidas, noEval, sinValor, includes, fechas, campos}` (`campos`: todo lo impreso; `fechas`: solo los `FEC…`).
    - Prioridad de `valorMuestra`: fecha editada (`editados`) > valor dinámico (`valorDinamico`: `PLASTICO` sale del `CODPRODUCTO` elegido) > `diccionario`. Los datos de muestra son ficticios; no pongas datos reales del banco.
    - `pintar()` guarda el resultado limpio en `ultimo`. `ultimo.html` es lo que usan .html, PNG, PDF y Workfront. El iframe de la vista se pinta con `senalar:true`: los campos sin valor van entre `⟪…⟫` y los grupos sin rama dejan un comentario `pv-sin-rama N`, y `senalarFaltas()` los convierte en marcas ámbar al cargar. Lleva además las marcas `⟦KEY⟧…⟦/⟧` de los datos de muestra (invisibles salvo el activo). Ninguna de estas marcas debe llegar a `ultimo.html`.
-   - Estado en la URL (`leerURL`/`escribirURL`): `frgId`, `v.VAR` (escenario), `d.CAMPO` (fechas editadas), `muestra=0`, `w=375`, `z=NN`.
+   - Estado en la URL (`leerURL`/`escribirURL`): `frgId`, `v.VAR` (escenario), `d.CAMPO` (datos de muestra editados), `muestra=0`, `w=375`, `z=NN`.
    - La vista mide el alto y el ancho reales del correo (`medirVista`). En escritorio, el marco crece si el correo pide más de 700 px (por ejemplo, `body{min-width:750px}`). Para medir el alto, encoge el iframe a 0, lee `scrollHeight` y le devuelve su alto en la misma tarea, guardando y reponiendo el scroll del lienzo. Con el alto actual puesto, `scrollHeight` nunca baja de ese alto y un correo corto no podría achicarse. `pintar()` conserva el alto anterior hasta que mide el correo nuevo; `ALTO_VISTA` (3000) solo se usa en la primera vista.
    - En los campos de contacto (`DESCORREO…`, `DESNBRE…`, `DESCELULAR…EENNPRINCIPAL`), las condiciones se omiten al elegir variantes, pero sus valores ficticios sí se muestran.
    - Las fechas de muestra se calculan con `fechaMuestra(dias)`: el inicio es hoy y los fines son hoy + 30 días, en `dd/mm/aaaa`. Nunca pongas una fecha fija: con el tiempo queda vencida y en el PNG parece un error del correo.
@@ -88,8 +91,8 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
      - Los códigos se traducen con `traducirUI`, también en los `aria-label`.
      - Los plurales se arman con `plural(n, uno, varios)`; nada de "(s)" ni "(es)".
      - Al usuario se le dice "campo", no "token".
-     - Los botones nombran su acción: "Por defecto", "Fechas originales", "Ver campos" / "Ver datos de muestra".
-   - **Ficha y teclado.** `pintarFicha()` corre en cada `pintar()`. `valoresDe(n)` ofrece solo los valores reales que compara el template (sin "otro valor"); una bandera de presencia ofrece "con dato" (`VAL_OTRO`) o "(vacío)". `activa` es la variable que cambian ← / → (`paso`); 1–9 la eligen (`marcarActiva`). Los botones de la grilla tienen id `vb-<n.º de variable>-<n.º de valor>` para devolverles el foco tras repintar, y tabindex itinerante (solo el elegido es parada de Tab). Las flechas no actúan con el foco en la barra. `etiqVar(n)` da el nombre visible de la variable (traducción o el código sin prefijo: `FLGCASHBACK` → CASHBACK); las banderas dicen "con valor"/"sin valor".
+     - Los botones nombran su acción: "Por defecto", "Datos originales", "Ver campos" / "Ver datos de muestra".
+   - **Ficha y teclado.** `pintarFicha()` corre en cada `pintar()`. `valoresDe(n)` ofrece solo los valores reales que compara el template (sin "otro valor"); una bandera de presencia ofrece "con valor" (`VAL_OTRO`) o "sin valor" (`""`). `activa` es la variable que cambian ← / → (`paso`); 1–9 la eligen (`marcarActiva`). Los botones de la grilla tienen id `vb-<n.º de variable>-<n.º de valor>` para devolverles el foco tras repintar, y tabindex itinerante (solo el elegido es parada de Tab). Las flechas no actúan con el foco en la barra. `etiqVar(n)` da el nombre visible de la variable (traducción o el código sin prefijo: `FLGCASHBACK` → CASHBACK); los productos llevan tilde en `DICCIONARIO_UI` ("LATAM Clásica").
    - **Desborde en Móvil.** Si el correo es más ancho que 375 px, `medirVista` muestra `#desborde`: "El correo mide N px: en 375 px se corta a la derecha".
    - **Combo.** Al abrirlo, el nombre actual queda seleccionado y no filtra (`pintarLista` lo trata como búsqueda vacía). Los atajos van en `title` y `aria-keyshortcuts`.
    - **Atajos** (`/`, `D`, `M`, `1`–`9`, ← / →). Vienen **activados por defecto**; se apagan con `#atajos` dentro del panel "?" (`aria-pressed`, guardado en localStorage como `prevTpl.atajos`), por WCAG 2.1.4. `?` abre el panel (`abrirAyuda`/`cerrarAyuda`, Escape lo cierra). `pintarAyuda()` arma la lista con la variable activa; `pintarAtajos()` quita el `title` y el `aria-keyshortcuts` y atenúa la lista cuando están apagados. No se disparan con Ctrl/Cmd/Alt, con el modal abierto ni dentro de las fechas.
@@ -115,8 +118,9 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
   - la medición del alto con correos cortos, largos con imágenes y con `height:100%`;
   - las animaciones y la respuesta al clic;
   - las marcas ámbar con correos reales;
-  - el rediseño "Ficha del destinatario" (2026-09-25): ficha, teclado, fechas dentro de la ficha, PNG/PDF desde sus botones y anchos ≤1080 px;
+  - el rediseño "Ficha del destinatario" (2026-09-25 y 26): ficha y teclado, por revisar, panel de datos de muestra a la derecha (y cajón bajo 1400 px), ayuda "?", PNG/PDF desde sus botones (resultado en ámbar si faltan imágenes) y ficha plegada bajo 1080 px;
   - las fechas relativas.
-- Pendientes de la segunda crítica (`.impeccable/critique/2026-09-26…`):
-  - **Descartados a propósito:** la franja superior de 3 px en `.fechas` y `.marco--muestra` es la señal de "datos de muestra", aunque el detector la marque. El `overflow:hidden` del body es parte del layout.
+- Ideas que quedaron de la tercera crítica (no pedidas todavía): recorrer los escenarios en secuencia (todas las combinaciones) y marcar cuáles ya se revisaron.
+- impeccable pide cerrar el rediseño con una revisión final independiente y un `DESIGN.md`; se hará cuando Marcos confirme en Campaign que se ve bien.
+- **Descartado a propósito:** el `overflow:hidden` del body es parte del layout, aunque el detector lo marque.
 - La exportación PNG/PDF (SVG `foreignObject` → canvas) no funciona en Safari (`SecurityError`); se usa Chrome o Edge. No incrusta `url()` dentro de `<style>` ni fuentes externas.

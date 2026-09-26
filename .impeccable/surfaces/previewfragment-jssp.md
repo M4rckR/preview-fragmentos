@@ -27,7 +27,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 - La frase se reemplazo por grillas de botones por variable (pedido explicito).
 - El matasellos se quito; queda un aviso chico "por revisar" junto a la etiqueta de datos de muestra, solo si hay algo.
 - Sin "otro valor" en las variables. Barra azul oscuro #14275f. La ficha queda junto al correo y no se mueve al pasar a movil.
+- (2026-09-26) Los datos de muestra (todo lo impreso salvo producto/plastico y segmento) son editables en un panel del margen derecho, en orden de aparicion en el template; bajo 1400 px es un cajon. Las marcas del correo solo se ven en el dato activo.
+- (2026-09-26) La ayuda de teclado y el interruptor de atajos van en un panel "?" de la barra, no en la ficha. Atajos activados por defecto.
 
 ## Pendiente
-- Maqueta en design/maqueta-ficha-destinatario.html; la Hoja de contactos (design/maqueta-hoja-contactos.html) queda como alternativa descartada por espacio.
-- El JSSP no se toca hasta que Marcos apruebe.
+- Implementado en previewFragment.jssp (2026-09-25 y 26). La maqueta (design/maqueta-ficha-destinatario.html) quedo atras del JSSP; la Hoja de contactos (design/maqueta-hoja-contactos.html) es la alternativa descartada por espacio.
+- Falta: revision final independiente y DESIGN.md, cuando Marcos confirme en Campaign.

@@ -26,14 +26,15 @@ Vive dentro de la misma instancia de Campaign y trabaja sobre el HTML guardado r
 ## Operating Context
 
 - Se despliega como página JSSP (`/cus/previewFragment.jssp`) en Campaign v8, instancia BCP stage12. Se prueba pegando el archivo en Campaign; no hay build ni servidor local.
-- Se entra con `?frgId=`. El estado (escenario, fechas editadas, ancho, zoom) viaja en la URL, así que un enlace reproduce la vista.
+- Se entra con `?frgId=`. El estado (escenario, datos de muestra editados, ancho, zoom) viaja en la URL, así que un enlace reproduce la vista.
 - La aprobación pasa por Workfront. Las exportaciones PNG/PDF funcionan en Chrome o Edge, no en Safari.
 
 ## Capabilities and Constraints
 
 - Vocabulario: template, fragmento, escenario, rama/variante, grupo condicional, datos de muestra.
 - Restricciones técnicas duras en `CLAUDE.md`: solo ASCII, ES5 en el cliente, iframe con `sandbox="allow-same-origin"` y nada más, sin recursos externos y sin `<%`/`%>` en el cliente.
-- Diseño aprobado en `design/Preview_de_templates.html` (artboards A–M). El artboard E, "Ver todas las ramas", quedó descartado.
+- Diseño actual: "Ficha del destinatario" (2026-09-25): el correo al centro es el protagonista; a la izquierda la ficha con el escenario (grillas de botones por variable), a la derecha los datos de muestra editables, barra fina azul oscuro. El diseño anterior (`design/Preview_de_templates.html`) queda como historia; su artboard E, "Ver todas las ramas", quedó descartado.
+- Para revisar un template completo (todos los escenarios, inventario de variables, montos fijos) existe la skill `/evaluar-template <frgId>`.
 - Pendiente: autenticación y validación del operador, credenciales de Workfront en el servidor, dominios de producción.
 
 ## Brand Commitments
