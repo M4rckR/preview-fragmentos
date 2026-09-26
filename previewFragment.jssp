@@ -234,21 +234,21 @@ var datosFrg = vias.join(",");
 <title>Preview de templates</title>
 <style>
 :root {
-  --bar-bg:#1e293b; --bar-field-bg:#0f172a; --bar-fg:#fff; --bar-fg-muted:rgba(255,255,255,.62);
-  --acento:#4f46e5; --acento-claro:#a5b4fc;
-  --vars-bg:#eef2ff; --vars-border:#c7d2fe; --vars-label:#4338ca;
-  --canvas-bg:#f1f5f9; --frame-border:#cbd5e1; --panel-bg:#fff;
-  --text:#1e293b; --text-muted:#5b6678; --linea:#e2e8f0;
+  --bar-bg:#14275f; --bar-borde:#0d1b45; --bar-fg:#fff; --bar-fg-muted:rgba(255,255,255,.78);
+  --bar-linea:rgba(255,255,255,.34); --bar-hover:rgba(255,255,255,.12); --bar-campo:rgba(255,255,255,.10);
+  --acento:#1f3a93; --acento-claro:#a5b4fc;
+  --vars-bg:#e8edf9; --vars-fondo:#f1f4fc; --vars-border:#cdd6ee; --vars-label:#1f3a93;
+  --canvas-bg:#e8eaed; --frame-border:#cbd5e1; --panel-bg:#fff;
+  --text:#1f2430; --text-muted:#5b6678; --linea:#d3d7dd;
   --warn-bg:#fef3c7; --warn-fg:#92400e; --muestra-borde:#d97706;
   --err-bg:#fee2e2; --err-fg:#991b1b; --ok-bg:#dcfce7; --ok-fg:#166534;
-  --hover-bg:#f8fafc; --marca-bg:#fde68a; --foco-fecha-bg:#fffbeb; --sw-off:#cbd5e1; --wf-disabled:#475569;
-  --wf-bg:#0369a1; --wf-hover:#075985; --wf-ok:#16a34a; --wf-err:#dc2626;
+  --hover-bg:#f5f6f8; --marca-bg:#fde68a; --foco-fecha-bg:#fffbeb;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   /* Escala: xxs solo para metadatos (ids, rotulos en mayusculas); xs etiquetas; sm controles; md cuerpo. */
   --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px;
-  --radius-field:4px; --radius-btn:5px; --radius-chip:3px;
-  --gap:8px; --pad-bar:8px 12px; --panel-w:308px;
+  --radius-field:4px; --radius-btn:6px; --radius-chip:3px;
+  --gap:8px; --ficha-w:320px; --barra-h:44px;
   --ease-out:cubic-bezier(0.23,1,0.32,1);
   --dur-xs:120ms; --dur-sm:150ms; --dur-md:180ms; --dur-lg:200ms;
 }
@@ -256,49 +256,39 @@ var datosFrg = vias.join(",");
 body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg); color:var(--text);
        display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .mono { font-family:var(--font-mono); }
+.sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+::selection { background:#c9d4f2; color:var(--text); }
 :focus-visible { outline:2px solid var(--acento); outline-offset:2px; }
-.barra :focus-visible, .combo__campo:focus-within { outline:2px solid var(--acento-claro); outline-offset:1px; }
+.barra :focus-visible, .combo__campo:focus-within { outline:2px solid #fff; outline-offset:1px; }
 .combo__campo input:focus-visible { outline:none; }   /* el anillo lo lleva .combo__campo */
 
-/* ---------- barra ---------- */
-.barra { display:flex; align-items:center; gap:var(--gap); padding:var(--pad-bar);
-         background:var(--bar-bg); color:var(--bar-fg); flex:none; flex-wrap:wrap; }
-.barra__t { margin:0; font-weight:600; font-size:var(--fs-sm); flex:none; }
-.barra__lb { font-size:var(--fs-xs); color:var(--bar-fg-muted); flex:none; }
-.barra__e { font-size:var(--fs-xs); color:var(--bar-fg-muted); flex:none;
-            max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.barra__sep { width:1px; align-self:stretch; background:rgba(255,255,255,.16); margin:0 2px; flex:none; }
+/* ---------- barra (fina, azul oscuro: el correo es el protagonista) ---------- */
+.barra { display:flex; align-items:center; gap:var(--gap); min-height:var(--barra-h); padding:6px 14px;
+         background:var(--bar-bg); color:var(--bar-fg); border-bottom:1px solid var(--bar-borde); flex:none; flex-wrap:wrap; }
+.barra__t { margin:0 4px 0 0; font-weight:700; font-size:var(--fs-md); flex:none; }
+.barra__sep { width:1px; height:20px; background:var(--bar-linea); margin:0 2px; flex:none; }
 .barra__esp { flex:1 1 12px; min-width:0; }
-.barra__btn { font:inherit; font-size:var(--fs-sm); padding:5px 10px; border:1px solid rgba(255,255,255,.18);
-              border-radius:var(--radius-btn); background:transparent; color:var(--bar-fg); cursor:pointer; white-space:nowrap; }
-.barra__btn:hover { background:rgba(255,255,255,.10); }
-.barra__btn[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); }
+.barra__btn { display:inline-flex; align-items:center; height:30px; font:inherit; font-size:var(--fs-sm); font-weight:600; padding:0 11px;
+              border:1px solid var(--bar-linea); border-radius:var(--radius-btn); background:transparent; color:var(--bar-fg);
+              cursor:pointer; white-space:nowrap; }
+.barra__btn:hover { background:var(--bar-hover); }
 .barra__btn:disabled { opacity:.45; cursor:not-allowed; }
-.barra__seg, .barra__zoom { display:flex; align-items:center; gap:2px; background:var(--bar-field-bg);
-                            border:1px solid rgba(255,255,255,.14); border-radius:var(--radius-btn); padding:3px; flex:none; }
-.barra__seg .barra__btn, .barra__zoom .barra__btn { border:0; padding:3px 9px; }
-.barra__zoom output { font-size:var(--fs-xs); min-width:38px; text-align:center; color:var(--bar-fg-muted); }
-.barra__wf { font:inherit; font-size:var(--fs-sm); font-weight:600; padding:5px 12px; border:0;
-             border-radius:var(--radius-btn); background:var(--wf-bg); color:#fff; cursor:pointer; white-space:nowrap; }
-.barra__wf:hover { background:var(--wf-hover); }
-.menu { position:relative; flex:none; }
-.menu__lista { position:absolute; right:0; top:calc(100% + 4px); z-index:45; min-width:290px; padding:4px;
-               background:#fff; border-radius:6px;
-               box-shadow:0 10px 30px rgba(15,23,42,.25); }
-.menu__lista:not([hidden]) { transform-origin:top right; animation:entra-menu var(--dur-sm) var(--ease-out); }
-.menu__lista[hidden] { display:none; }
-.menu__lista button { display:block; width:100%; text-align:left; font:inherit; font-size:var(--fs-sm); font-weight:600;
-                      color:var(--text); background:none; border:0; border-radius:4px; padding:6px 10px; cursor:pointer; }
-.menu__lista button:hover, .menu__lista button:focus-visible { background:var(--vars-bg); outline:none; }
-.menu__lista button:disabled { opacity:.45; cursor:not-allowed; }
-.menu__lista small { display:block; font-size:var(--fs-xs); font-weight:400; color:var(--text-muted); }
-.menu__sep { height:1px; margin:4px 6px; background:var(--linea); }
-.barra__wf:disabled, .barra__wf[aria-disabled="true"] { background:var(--wf-disabled); color:rgba(255,255,255,.6); cursor:not-allowed; }
+.barra__grupo { display:flex; gap:4px; flex:none; }
+.barra__seg { display:flex; align-items:center; padding:2px; border:1px solid var(--bar-linea); border-radius:7px; flex:none; }
+.barra__seg .barra__btn { height:24px; padding:0 9px; border:0; border-radius:5px; font-size:var(--fs-xs); color:var(--bar-fg-muted); }
+.barra__seg .barra__btn[aria-pressed="true"] { background:#fff; color:var(--bar-bg); }
+.barra__zoom { display:flex; align-items:center; gap:2px; flex:none; }
+.barra__zoom .barra__btn { width:26px; height:26px; padding:0; justify-content:center; font-size:var(--fs-md); }
+.barra__zoom output { font-family:var(--font-mono); font-size:var(--fs-xxs); min-width:40px; text-align:center; color:var(--bar-fg-muted); }
+.barra__wf { display:inline-flex; align-items:center; height:30px; font:inherit; font-size:var(--fs-sm); font-weight:600; padding:0 12px;
+             border:0; border-radius:var(--radius-btn); background:#fff; color:var(--bar-bg); cursor:pointer; white-space:nowrap; }
+.barra__wf:hover { background:var(--vars-bg); }
+.barra__wf:disabled, .barra__wf[aria-disabled="true"] { background:rgba(255,255,255,.16); color:#fff; cursor:not-allowed; }
 
 /* ---------- combobox ---------- */
-.combo { position:relative; flex:1 1 220px; min-width:180px; max-width:420px; }
-.combo__campo { display:flex; align-items:center; gap:6px; background:var(--bar-field-bg);
-                border:1px solid rgba(255,255,255,.18); border-radius:var(--radius-field); padding:3px 6px; }
+.combo { position:relative; flex:0 1 340px; min-width:180px; }
+.combo__campo { display:flex; align-items:center; gap:6px; height:30px; background:var(--bar-campo);
+                border:1px solid var(--bar-linea); border-radius:var(--radius-btn); padding:0 10px; }
 .combo__campo input { flex:1; min-width:0; font:inherit; font-size:var(--fs-sm); border:0; outline:0;
                       background:transparent; color:var(--bar-fg); }
 .combo__campo input::placeholder { color:var(--bar-fg-muted); }
@@ -323,138 +313,84 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                      border-radius:var(--radius-chip); padding:3px 8px; cursor:pointer; color:var(--text); }
 .combo__acc button:hover { background:var(--hover-bg); }
 
-/* ---------- avisos ---------- */
-.avisos { display:flex; align-items:center; gap:var(--gap); flex-wrap:wrap; flex:none;
-          padding:6px 12px; font-size:var(--fs-xs); background:var(--warn-bg); color:var(--warn-fg);
-          border-bottom:1px solid rgba(146,64,14,.22); }
-.avisos:empty, .avisos[hidden] { display:none; }
-.avisos--error { background:var(--err-bg); color:var(--err-fg); border-bottom-color:rgba(153,27,27,.22); }
-.lienzo__cinta .avisos { background:none; border:0; padding:0 0 0 10px; border-left:1px solid rgba(146,64,14,.3); gap:6px; }
-.lienzo__cinta .avisos--falta { color:var(--err-fg); font-weight:600; }
-.lienzo__cinta .avisos--falta button { font-weight:400; }
-.sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
-.lienzo__cinta .avisos--error { background:var(--err-bg); color:var(--err-fg); padding:2px 8px; border:0; border-radius:4px; }
-.lienzo__cinta .avisos button { margin-left:0; }
-.avisos__b { font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
-             border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
-.detalle { flex:none; display:none; gap:24px; flex-wrap:wrap; padding:10px 12px; background:#fff;
-           border-bottom:1px solid var(--linea); font-size:var(--fs-xs); overflow:auto; max-height:200px; }
-.detalle--abierto { display:flex; animation:entra-detalle var(--dur-md) var(--ease-out); }
-.detalle__col { flex:1; min-width:180px; }
-.detalle__t { font-weight:700; color:var(--vars-label); margin-bottom:4px; }
-.detalle ul { margin:0; padding-left:16px; }
-.detalle li { margin-bottom:2px; word-break:break-word; }
+/* ---------- mesa: ficha | correo | margen libre ---------- */
+.mesa { flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:minmax(300px,1fr) auto minmax(0,1fr);
+        column-gap:28px; padding:20px 20px 40px; }
+.margen { min-width:0; }
+.margen__pega { position:sticky; top:0; margin-left:auto; width:min(var(--ficha-w),100%); }
+.centro { min-width:0; }
+.centro--vacio { grid-column:1 / -1; display:flex; }
+.espera { margin:auto; color:var(--text-muted); font-size:var(--fs-md); text-align:center; }
 
-/* ---------- cuerpo ---------- */
-.cuerpo { flex:1; display:flex; min-height:0; }
-.panel { width:var(--panel-w); flex:none; background:var(--panel-bg); border-right:1px solid var(--linea);
-         overflow:auto; padding:10px 12px 20px; }
-.panel[hidden] { display:none; }
-.panel__cab { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
-.panel__t { font-size:var(--fs-sm); font-weight:700; margin-right:auto; }
-.panel__n { font-size:var(--fs-xs); color:var(--text-muted); }
-.panel__b { font:inherit; font-size:var(--fs-xs); border:1px solid var(--linea); background:#fff;
-            border-radius:var(--radius-chip); padding:2px 7px; cursor:pointer; color:var(--text-muted); }
-.panel__b:hover { background:var(--hover-bg); color:var(--text); }
-.panel__abrir { flex:none; width:28px; display:flex; flex-direction:column; align-items:center; gap:8px;
-                padding:10px 0; font:inherit; font-size:var(--fs-sm); color:var(--vars-label);
-                background:var(--panel-bg); border:0; border-right:1px solid var(--linea); cursor:pointer; }
-.panel__abrir:hover { background:var(--vars-bg); }
-.panel__abrir:focus-visible { outline:2px solid var(--acento); outline-offset:-2px; }
-.panel__abrir span { writing-mode:vertical-rl; white-space:nowrap; font-weight:600; }
-.panel__abrir[hidden] { display:none; }
-.panel__vacio { font-size:var(--fs-xs); color:var(--text-muted); }
+/* ---------- ficha del destinatario ---------- */
+.ficha { background:var(--panel-bg); border-radius:4px; padding:12px 16px 14px;
+         max-height:calc(100vh - var(--barra-h) - 40px); overflow:auto;
+         box-shadow:0 1px 1px rgba(31,36,48,.08), 0 6px 18px rgba(31,36,48,.10); }
+.ficha__cab { display:flex; align-items:baseline; gap:8px; }
+.ficha__para { font-size:var(--fs-xxs); font-weight:700; letter-spacing:.12em; color:var(--vars-label); }
+.ficha__n { margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-xxs); color:var(--text-muted); }
+.ficha__nota { margin:8px 0 0; font-size:var(--fs-xs); color:var(--text-muted); }
+.vars { margin:10px 0 12px; }
+.var { padding:10px 10px 12px; border:1px solid var(--vars-border); border-radius:7px; background:var(--vars-fondo); }
+.var + .var { margin-top:10px; }
+.var__t { display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; color:var(--vars-label); }
+.var__n { font-family:var(--font-mono); font-size:var(--fs-xxs); font-weight:500; color:var(--text-muted); }
+.var--activa .var__t::after { content:""; flex:1; height:2px; margin-left:4px; border-radius:1px; background:var(--vars-label); opacity:.35; }
+.var__g { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.var__g--uno { grid-template-columns:1fr; }
+.var__g button { min-height:34px; padding:6px 8px; font:inherit; font-size:var(--fs-sm); line-height:1.2; color:var(--text); cursor:pointer;
+                 background:#fff; border:1px solid var(--vars-border); border-radius:5px; }
+.var__g button:hover { background:var(--vars-bg); }
+.var__g button[aria-pressed="true"] { background:var(--vars-label); border-color:var(--vars-label); color:#fff; font-weight:600; }
+.ficha__acc { display:flex; flex-wrap:wrap; gap:4px 14px; }
+.lnk { border:0; background:none; padding:2px 0; font:inherit; font-size:var(--fs-xs); color:var(--text-muted); cursor:pointer;
+       text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--linea); }
+.lnk:hover { color:var(--text); text-decoration-color:currentColor; }
+.lnk[aria-expanded="true"] { color:var(--vars-label); }
+.lnk:disabled { opacity:.5; cursor:not-allowed; }
+.ficha__ayuda { margin:10px 0 0; font-size:var(--fs-xxs); color:var(--text-muted); }
+.ficha__ayuda kbd { font-family:var(--font-mono); font-size:var(--fs-xxs); padding:0 4px; border:1px solid var(--linea); border-radius:3px; background:var(--hover-bg); }
+.ficha__atajos { margin-top:4px; }
 
-.vars__g { border:1px solid var(--vars-border); background:var(--vars-bg); border-radius:6px;
-           padding:8px; margin-bottom:8px; }
-.vars__cab { display:flex; align-items:baseline; gap:6px; margin-bottom:6px; }
-.vars__nom { font-family:var(--font-mono); font-size:var(--fs-xs); font-weight:700; color:var(--vars-label);
-             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vars__tipo { font-size:var(--fs-xxs); color:var(--text-muted); margin-left:auto; white-space:nowrap; }
-.vars__seg { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
-.vars__seg--uno { grid-template-columns:1fr; }
-.vars__seg button { font:inherit; font-size:var(--fs-xs); padding:4px 6px; border:1px solid var(--vars-border);
-                    background:#fff; color:var(--text); border-radius:var(--radius-chip); cursor:pointer;
-                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vars__seg button:hover { background:var(--hover-bg); }
-.vars__seg button[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
-.vars__sw { display:flex; align-items:center; gap:6px; width:100%; font:inherit; font-size:var(--fs-xs);
-            background:#fff; border:1px solid var(--vars-border); border-radius:var(--radius-chip);
-            padding:4px 6px; cursor:pointer; color:var(--text); text-align:left; }
-.vars__sw + .vars__sw { margin-top:4px; }
-.vars__sw:hover { background:var(--hover-bg); }
-.vars__sw .sw__n { flex:1; min-width:0; font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vars__sw .sw__e { flex:none; font-weight:600; }
-.vars__sw .sw__p { flex:none; width:26px; height:14px; border-radius:7px; background:var(--sw-off); position:relative; }
-.vars__sw .sw__p::after { content:""; position:absolute; top:2px; left:2px; width:10px; height:10px;
-                          border-radius:50%; background:#fff; transition:transform var(--dur-sm) var(--ease-out); }
-.vars__sw .sw__p { transition:background-color var(--dur-sm) ease, opacity var(--dur-sm) ease; }
-.vars__sw[aria-checked="true"] .sw__p { background:var(--acento); }
-.vars__sw[aria-checked="true"] .sw__p::after { transform:translateX(12px); }
-.vars__sw[aria-checked="mixed"] .sw__p { background:var(--acento); opacity:.55; }
-.vars__sw[aria-checked="mixed"] .sw__p::after { transform:translateX(6px); }
-.vars__sw--todos { background:transparent; border-style:dashed; margin-bottom:4px; }
-
-.ramas { border-top:1px solid var(--linea); margin-top:12px; padding-top:10px; }
-.ramas__t { font-size:var(--fs-xs); font-weight:700; color:var(--vars-label); margin-bottom:6px; }
-.ramas__f { display:flex; align-items:baseline; gap:6px; font-size:var(--fs-xs); margin-bottom:3px; }
-.ramas__g { color:var(--text-muted); flex:none; }
-.ramas__chip { font-size:var(--fs-xs); background:var(--vars-bg); color:var(--vars-label);
-               border:1px solid var(--vars-border); border-radius:var(--radius-chip); padding:1px 6px;
-               overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ramas__chip--sin { background:var(--warn-bg); color:var(--warn-fg); border-color:rgba(146,64,14,.3); }
-
-/* ---------- lienzo ---------- */
-.lienzo { flex:1; min-width:0; overflow:auto; padding:16px; display:flex; flex-direction:column; align-items:flex-start; }
-.marco { margin:0 auto; background:#fff; border:1px solid var(--frame-border); border-radius:4px;
-         transform-origin:top center; display:flex; flex-direction:column; flex:none; }
-.marco--muestra { border-top:3px solid var(--muestra-borde); }
-.lienzo__cinta { position:sticky; top:-16px; z-index:5; align-self:stretch; margin:-16px -16px 16px;
-                 display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 16px; font-size:var(--fs-xs);
-                 background:var(--warn-bg); color:var(--warn-fg); border-bottom:1px solid rgba(146,64,14,.2); }
-.lienzo__cinta b { font-weight:700; }
-/* Estado a la izquierda (puede partirse), acciones a la derecha (no se parten), resultado en su linea. */
-.cinta__estado { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; flex:1 1 320px; min-width:0; }
-.cinta__acc { display:flex; gap:6px; flex:none; margin-left:auto; }
-.lienzo__cinta .cinta__accion { flex:1 1 100%; border-left:0; padding:4px 8px; border-radius:4px; background:rgba(255,255,255,.6); }
-.lienzo__cinta .cinta__accion--ok { color:var(--ok-fg); background:var(--ok-bg); }
-.lienzo__cinta .cinta__accion.avisos--error { color:var(--err-fg); background:var(--err-bg); }
-.cinta__accion details { font-weight:400; }
-.cinta__accion summary { cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
-.cinta__desborde { color:var(--err-fg); font-weight:600; }
-.lienzo__cinta button { font:inherit; font-size:var(--fs-xs); background:#fff; color:inherit; white-space:nowrap;
-                        border:1px solid currentColor; border-radius:var(--radius-chip); padding:2px 8px; cursor:pointer; }
-.lienzo__cinta button:disabled { opacity:.5; cursor:not-allowed; }
-.marco iframe { display:block; border:0; background:#fff; }
-
-/* ---------- editor de fechas de muestra (panel flotante, no bloquea la vista) ---------- */
-.fechas { position:fixed; right:16px; bottom:16px; width:340px; max-width:calc(100vw - 32px); max-height:72vh;
-          overflow:auto; background:#fff; border:1px solid var(--frame-border); border-top:3px solid var(--muestra-borde);
-          border-radius:8px; box-shadow:0 12px 32px rgba(15,23,42,.25); z-index:35; font-size:var(--fs-sm); }
-.fechas:not([hidden]) { transform-origin:bottom right; animation:entra-fechas var(--dur-md) var(--ease-out); }
+/* ---------- fechas de muestra (dentro de la ficha) ---------- */
+.fechas { margin-top:10px; padding-top:6px; border-top:1px dashed var(--linea); font-size:var(--fs-sm); }
+.fechas:not([hidden]) { animation:entra-fechas var(--dur-md) var(--ease-out); }
 .fechas[hidden] { display:none; }
-.fechas__cab { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--linea); }
-.fechas__cab h2 { margin:0; font-size:var(--fs-md); font-weight:700; flex:1; }
-.fechas__intro { margin:0; padding:8px 12px; font-size:var(--fs-xs); color:var(--text-muted); border-bottom:1px solid var(--linea); }
-.fechas__f { padding:10px 12px; border-bottom:1px solid var(--linea); }
+.fechas__intro { margin:4px 0 6px; font-size:var(--fs-xs); color:var(--text-muted); }
+.fechas__f { padding:8px 6px; border-radius:4px; }
 .fechas__f--foco { background:var(--foco-fecha-bg); }
-.fechas__t { display:flex; align-items:center; gap:6px; font-weight:600; }
+.fechas__t { display:flex; align-items:center; gap:6px; font-weight:600; font-size:var(--fs-xs); }
 .fechas__num { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
                border-radius:9px; background:var(--muestra-borde); color:#fff; font-size:var(--fs-xxs); font-weight:700; }
-.fechas__ed { margin-left:auto; font-size:var(--fs-xs); font-weight:600; color:var(--muestra-borde); }
-.fechas__tok { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-muted); margin-top:2px; }
-.fechas__f input { box-sizing:border-box; width:100%; margin-top:6px; font:inherit; padding:5px 8px;
-                   border:1px solid var(--frame-border); border-radius:var(--radius-field); }
-.fechas__f input:focus { outline:2px solid var(--acento); outline-offset:1px; }
+.fechas__ed { margin-left:auto; font-size:var(--fs-xxs); font-weight:600; color:var(--warn-fg); }
+.fechas__tok { font-family:var(--font-mono); font-size:var(--fs-xxs); color:var(--text-muted); margin-top:2px; }
+.fechas__f input { box-sizing:border-box; width:100%; height:30px; margin-top:6px; font-family:var(--font-mono); font-size:var(--fs-xs); padding:0 8px;
+                   border:1px solid var(--linea); border-radius:5px; color:var(--text); }
+.fechas__f input:focus-visible { outline:0; border-color:var(--acento); box-shadow:0 0 0 1px var(--acento); }
 .fechas__donde { margin-top:6px; font-size:var(--fs-xs); color:var(--text-muted); }
 .fechas__ctx { display:block; margin-top:3px; padding:4px 6px; border-radius:4px; background:var(--canvas-bg); color:var(--text); }
 .fechas__ctx mark { background:var(--marca-bg); color:inherit; padding:0 1px; }
-.fechas__vacio { padding:12px; font-size:var(--fs-sm); color:var(--text-muted); }
-.fechas__pie { display:flex; align-items:center; gap:8px; padding:10px 12px; }
-.fechas__pie span { flex:1; font-size:var(--fs-xs); color:var(--text-muted); }
-.fechas__pie button { font:inherit; font-size:var(--fs-xs); padding:4px 10px; border:1px solid var(--frame-border);
-                      background:#fff; border-radius:var(--radius-btn); cursor:pointer; }
-.espera { margin:auto; color:var(--text-muted); font-size:var(--fs-md); text-align:center; }
+.fechas__vacio { padding:6px 0; font-size:var(--fs-xs); color:var(--text-muted); }
+.fechas__pie { padding:6px 0 0; }
+
+/* ---------- correo ---------- */
+.centro__cab { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; margin:0 0 8px; font-size:var(--fs-xs); color:var(--text-muted); }
+.centro__muestra b { color:var(--warn-fg); font-weight:700; }
+.centro__desborde { flex:1 1 100%; color:var(--err-fg); font-weight:600; }
+.marco { margin:0 auto; background:#fff; transform-origin:top center; display:flex; flex-direction:column;
+         box-shadow:0 1px 2px rgba(31,36,48,.12), 0 12px 32px rgba(31,36,48,.14); }
+.marco iframe { display:block; border:0; background:#fff; }
+
+/* ---------- resultado de una accion (Workfront, PNG, PDF) ---------- */
+.accion { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:0 0 10px; padding:6px 10px; border-radius:6px;
+          font-size:var(--fs-xs); }
+.accion[hidden] { display:none; }
+.accion--ok { background:var(--ok-bg); color:var(--ok-fg); }
+.accion--error { background:var(--err-bg); color:var(--err-fg); }
+.accion details { font-weight:400; }
+.accion summary { cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.accion__b { margin-left:auto; font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
+             border-radius:var(--radius-chip); color:inherit; padding:2px 8px; cursor:pointer; }
 
 /* ---------- modal Workfront ---------- */
 .modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none;
@@ -465,7 +401,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                box-shadow:0 20px 50px rgba(15,23,42,.35); }
 .modal__cab { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--linea); }
 .modal__cab h2 { margin:0; font-size:var(--fs-md); font-weight:700; flex:1; }
-.modal__x { font:inherit; border:0; background:transparent; cursor:pointer; color:var(--text-muted); font-size:14px; padding:2px 6px; }
+.modal__x { font:inherit; border:0; background:transparent; cursor:pointer; color:var(--text-muted); font-size:var(--fs-md); padding:2px 6px; }
 .modal__cuerpo { padding:12px 16px; font-size:var(--fs-sm); }
 .modal__f { display:flex; gap:10px; padding:5px 0; border-bottom:1px solid var(--linea); align-items:baseline; }
 .modal__k { width:86px; flex:none; color:var(--text-muted); font-size:var(--fs-xs); }
@@ -479,63 +415,50 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .modal__pie { display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid var(--linea); }
 .modal__pie button { font:inherit; font-size:var(--fs-sm); padding:6px 14px; border-radius:var(--radius-btn); cursor:pointer; }
 .modal__cancel { background:#fff; border:1px solid var(--frame-border); color:var(--text); }
-.modal__ok { background:var(--wf-bg); border:1px solid var(--wf-bg); color:#fff; font-weight:600; }
+.modal__ok { background:var(--acento); border:1px solid var(--acento); color:#fff; font-weight:600; }
 .modal__ok:disabled { opacity:.6; cursor:not-allowed; }
 
 /* ---------- movimiento ----------
-   Solo transform y opacity (mas el color del hover). Respuesta al clic y entrada de menu, fechas y modal;
-   la salida es instantanea. La lista del combo, el zoom y el cambio escritorio/movil van sin animacion
-   a proposito: se usan en rafagas o con teclado y cualquier animacion se sentiria como retraso. */
-.barra__btn, .barra__wf, .panel__b, .avisos__b, .combo__acc button, .menu__lista button,
-.vars__seg button, .vars__sw, .lienzo__cinta button, .fechas__pie button, .modal__pie button, .modal__x {
+   Solo transform y opacity (mas el color del hover). Respuesta al clic y entrada de fechas y modal;
+   la salida es instantanea. La lista del combo, el zoom, el cambio escritorio/movil y el cambio de
+   escenario van sin animacion a proposito: se usan en rafagas o con teclado. */
+.barra__btn, .barra__wf, .lnk, .var__g button, .accion__b, .combo__acc button, .modal__pie button, .modal__x {
   transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
-.combo__item, .panel__abrir { transition:background-color var(--dur-xs) ease; }
-.barra__btn:active:not(:disabled), .barra__wf:active:not(:disabled), .panel__b:active, .avisos__b:active,
-.combo__acc button:active, .vars__seg button:active, .lienzo__cinta button:active:not(:disabled),
-.fechas__pie button:active, .modal__pie button:active:not(:disabled), .modal__x:active { transform:scale(0.97); }
-/* Filas de ancho completo: con 0.97 se achicarian ~8px; mas leve para que se sienta igual. */
-.menu__lista button:active:not(:disabled) { transform:scale(0.98); }
-.vars__sw:active { transform:scale(0.985); }
-/* Cambio de texto en un boton (Copiar enlace, Workfront, Descargar): el texto nuevo se enfoca desde un leve blur. */
+.combo__item { transition:background-color var(--dur-xs) ease; }
+.barra__btn:active:not(:disabled), .barra__wf:active:not(:disabled), .accion__b:active, .combo__acc button:active,
+.var__g button:active, .modal__pie button:active:not(:disabled), .modal__x:active { transform:scale(0.97); }
+/* Cambio de texto en un boton (Copiar enlace, Workfront, PNG, PDF): el texto nuevo se enfoca desde un leve blur. */
 .cambia { animation:resuelve var(--dur-md) var(--ease-out); }
-@keyframes entra-menu { from { opacity:0; transform:scale(0.97) translateY(-2px); } }
-@keyframes entra-fechas { from { opacity:0; transform:translateY(8px); } }
+@keyframes entra-fechas { from { opacity:0; transform:translateY(-4px); } }
 @keyframes entra-modal { from { opacity:0; transform:scale(0.96); } }
 @keyframes funde { from { opacity:0; } }
 @keyframes resuelve { from { opacity:.6; filter:blur(2px); } }
-@keyframes entra-detalle { from { opacity:0; transform:translateY(-4px); } }
-@keyframes entra-panel { from { opacity:0; transform:translateX(-12px); } }
-/* Resultado de una accion (Workfront, PNG, PDF): solo en avisoWf, no en cada repintado. */
-.avisos--nuevo { animation:funde var(--dur-lg) var(--ease-out); }
+/* Resultado de una accion: solo en avisoWf, no en cada repintado. */
+.accion--nuevo { animation:funde var(--dur-lg) var(--ease-out); }
 
-@media (max-width:1100px) {
-  .barra__lb, .barra__e { display:none; }
-  /* El h1 sigue para el lector de pantalla aunque no quepa a la vista. */
-  .barra__t { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+/* Bajo ~1080 px el margen no alcanza: la ficha va sobre el correo. */
+@media (max-width:1080px) {
+  .mesa { grid-template-columns:minmax(0,1fr); row-gap:16px; justify-items:center; }
+  .margen { width:100%; max-width:760px; }
+  .margen__pega { position:static; width:100%; margin:0; }
+  .ficha { max-height:none; }
+  .centro { max-width:100%; overflow-x:auto; }
 }
 @media (max-width:900px) {
-  .panel { position:absolute; z-index:30; top:auto; left:0; height:auto; max-height:70vh;
-           box-shadow:0 10px 30px rgba(15,23,42,.22); }
-  /* Flotante: nace del borde izquierdo, donde esta el riel que lo abre. Solo al abrirlo con el
-     riel (.panel--entra), no al cargar: elegir un template recarga la pagina. En escritorio va
-     en el flujo y el lienzo se reacomoda de golpe, asi que ahi no se anima. */
-  .panel--entra { animation:entra-panel var(--dur-lg) var(--ease-out); }
-  .cuerpo { position:relative; }
+  .combo__id, .barra__sep { display:none; }
+  .combo { flex:1 1 100%; order:9; }
 }
-/* Movimiento reducido: solo fundidos. Va al final para ganarle a los media queries de ancho
-   (el panel flotante de <=900px). La respuesta al clic (scale en su lugar) se mantiene: no desplaza. */
+/* Movimiento reducido: solo fundidos. Va al final para ganarle a los media queries de ancho.
+   La respuesta al clic (scale en su lugar) se mantiene: no desplaza nada. */
 @media (prefers-reduced-motion:reduce) {
-  .menu__lista:not([hidden]), .fechas:not([hidden]), .modal--abierto .modal__caja,
-  .detalle--abierto { animation:funde var(--dur-sm) var(--ease-out); }
-  @media (max-width:900px) { .panel--entra { animation:funde var(--dur-sm) var(--ease-out); } }
-  .vars__sw .sw__p::after { transition:none; }
+  .fechas:not([hidden]), .modal--abierto .modal__caja { animation:funde var(--dur-sm) var(--ease-out); }
 }
 </style>
 </head>
 <body>
   <header class="barra" aria-label="Acciones del preview">
-    <h1 class="barra__t">Preview de templates</h1>
-    <span class="barra__lb" id="lbCombo">Template</span>
+    <h1 class="barra__t">Preview</h1>
+    <span class="sr" id="lbCombo">Template</span>
     <div class="combo" id="combo" data-frags="<%= datosLista %>" data-sel="<%= selAttr %>">
       <div class="combo__campo">
         <input id="buscar" type="text" autocomplete="off" spellcheck="false"
@@ -546,7 +469,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       </div>
       <div class="combo__lista" id="lista" role="listbox" aria-label="Templates"></div>
     </div>
-    <span class="barra__e" id="info">guardado en Campaign</span>
     <span class="barra__esp"></span>
     <div class="barra__seg" role="group" aria-label="Dispositivo">
       <button type="button" class="barra__btn" id="escritorio" aria-pressed="true" title="Escritorio (tecla D)" aria-keyshortcuts="D">Escritorio</button>
@@ -557,56 +479,50 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <output id="zval" for="zmenos zmas">100%</output>
       <button type="button" class="barra__btn" id="zmas" aria-label="Acercar">+</button>
     </div>
-    <div class="menu" id="menuDesc">
-      <button type="button" class="barra__btn" id="bDescargar" aria-haspopup="menu" aria-expanded="false"
-              aria-controls="menuDescL">Descargar &#x25BE;</button>
-      <div class="menu__lista" id="menuDescL" role="menu" aria-labelledby="bDescargar" hidden>
-        <button type="button" role="menuitem" id="descargar">Correo .html<small>El HTML tal como se ve</small></button>
-        <button type="button" role="menuitem" id="descargarPng">Im&aacute;genes PNG<small>Dos archivos: escritorio 700 px y m&oacute;vil 375 px</small></button>
-        <button type="button" role="menuitem" id="descargarPdf">PDF<small>Dos p&aacute;ginas: escritorio y m&oacute;vil</small></button>
-        <div class="menu__sep" role="separator"></div>
-        <button type="button" role="menuitemcheckbox" id="atajos" aria-checked="true">Atajos de teclado<small id="atajosE"></small></button>
-      </div>
+    <span class="barra__sep" aria-hidden="true"></span>
+    <div class="barra__grupo" role="group" aria-label="Descargar">
+      <button type="button" class="barra__btn" id="descargar" title="Descargar el correo en .html, tal como se ve">.html</button>
+      <button type="button" class="barra__btn" id="descargarPng" title="Descargar PNG: dos archivos, escritorio 700 px y m&oacute;vil 375 px">PNG</button>
+      <button type="button" class="barra__btn" id="descargarPdf" title="Descargar PDF: dos p&aacute;ginas, escritorio y m&oacute;vil">PDF</button>
     </div>
     <button type="button" class="barra__btn" id="enlace">Copiar enlace</button>
-    <span class="barra__sep" aria-hidden="true"></span>
-    <button type="button" class="barra__wf" id="workfront">Enviar a Workfront &#x2197;</button>
+    <button type="button" class="barra__wf" id="workfront">Workfront &#x2197;</button>
   </header>
-
-  <div class="avisos" id="avisos" hidden></div>
   <span class="sr" id="anuncio" role="status"></span>
-  <div class="detalle" id="detalle"></div>
 
-  <div class="cuerpo">
-    <button type="button" class="panel__abrir" id="abrirPanel" aria-label="Mostrar panel de escenario"
-            aria-expanded="true" aria-controls="panel" hidden>&#x25B6;<span id="abrirPanelN">Escenario</span></button>
-    <aside class="panel" id="panel" aria-label="Escenario">
-      <div class="panel__cab">
-        <span class="panel__t">Escenario</span>
-        <span class="panel__n" id="panelN"></span>
-        <button type="button" class="panel__b" id="restablecer" title="Vuelve al escenario por defecto">Por defecto</button>
-        <button type="button" class="panel__b" id="cerrarPanel" aria-label="Ocultar panel"
-                aria-expanded="true" aria-controls="panel">&#x25C0;</button>
+  <div class="mesa" id="lienzo">
+    <% if (fragmentHtml != "") { %>
+    <!-- Ficha del destinatario: el escenario, en el margen izquierdo, junto al correo. -->
+    <aside class="margen" aria-label="Escenario">
+      <div class="margen__pega">
+        <div class="ficha" id="ficha">
+          <div class="ficha__cab"><span class="ficha__para">PARA</span><span class="ficha__n" id="fichaN"></span></div>
+          <div class="vars" id="vars"></div>
+          <div class="ficha__acc">
+            <button type="button" class="lnk" id="restablecer" title="Vuelve al escenario por defecto">Por defecto</button>
+            <button type="button" class="lnk" id="modoMuestra">Ver campos</button>
+            <button type="button" class="lnk" id="editarFechas" aria-controls="fechas" aria-expanded="false">Fechas de muestra</button>
+          </div>
+          <section class="fechas" id="fechas" aria-labelledby="fechasT" hidden>
+            <h2 class="sr" id="fechasT">Fechas de muestra</h2>
+            <p class="fechas__intro">Cada fecha lleva un n&uacute;mero; en el correo, el mismo n&uacute;mero marca d&oacute;nde aparece.
+              Los cambios se usan en .html, PNG, PDF y Workfront y siguen siendo ficticios.</p>
+            <div id="fechasL"></div>
+            <div class="fechas__pie"><button type="button" class="lnk" id="fechasReset">Fechas originales</button></div>
+          </section>
+          <p class="ficha__ayuda" id="ayuda"></p>
+          <button type="button" class="lnk ficha__atajos" id="atajos" aria-pressed="true">Atajos de teclado: activados</button>
+        </div>
       </div>
-      <div id="vars"></div>
-      <div class="ramas" id="ramas"></div>
     </aside>
-    <main class="lienzo" id="lienzo">
-      <% if (fragmentHtml != "") { %>
-      <!-- La cinta va FUERA del marco: el marco es solo para el correo. -->
-      <div class="lienzo__cinta" id="cinta">
-        <div class="cinta__estado" id="cintaEstado">
-          <b id="cintaEtq">&#x25C6; Datos de muestra (ficticios)</b>
-          <span id="cintaTxt"></span>
-          <span class="cinta__desborde" id="desborde" hidden></span>
-        </div>
-        <div class="cinta__acc">
-          <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
-          <button type="button" id="modoMuestra">Ver campos</button>
-        </div>
-        <!-- Resultado de una accion (Workfront, PNG, PDF): linea propia, no pisa los pendientes. -->
-        <div class="avisos cinta__accion" id="accion" hidden></div>
+    <main class="centro" id="centro">
+      <div class="centro__cab">
+        <span class="centro__muestra" id="cintaEtq"></span>
+        <span id="cintaTxt"></span>
+        <span class="centro__desborde" id="desborde" hidden></span>
       </div>
+      <!-- Resultado de una accion (Workfront, PNG, PDF): linea propia sobre el correo. -->
+      <div class="accion" id="accion" hidden></div>
       <div class="marco" id="marco">
         <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
              Sirve para que esta pagina pueda leer el alto real del correo (medirVista) y el
@@ -622,25 +538,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                 title="Vista del template"
                 data-id="<%= selAttr %>" data-html="<%= datosHtml %>" data-frg="<%= datosFrg %>"></iframe>
       </div>
-      <% } else { %>
-      <div class="espera" id="espera">Elige un template.</div>
-      <% } %>
     </main>
+    <% } else { %>
+    <main class="centro centro--vacio"><div class="espera" id="espera">Elige un template.</div></main>
+    <% } %>
   </div>
-
-  <section class="fechas" id="fechas" role="dialog" aria-labelledby="fechasT" hidden>
-    <div class="fechas__cab">
-      <h2 id="fechasT">Editar fechas de muestra</h2>
-      <button type="button" class="modal__x" id="fechasX" aria-label="Cerrar">&#x2715;</button>
-    </div>
-    <p class="fechas__intro">Cada fecha lleva un n&uacute;mero. En el correo, el mismo n&uacute;mero marca d&oacute;nde aparece.
-      Al escribir o pasar el mouse sobre una fecha, su lugar en el correo se resalta.</p>
-    <div id="fechasL"></div>
-    <div class="fechas__pie">
-      <span>Los cambios se usan en .html, PNG, PDF y Workfront. Siguen siendo datos ficticios.</span>
-      <button type="button" id="fechasReset">Fechas originales</button>
-    </div>
-  </section>
 
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalT">
     <div class="modal__caja">
@@ -1054,20 +956,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     b.classList.add("cambia");
   }
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
-  var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle"), elAnuncio = $("anuncio");
-  // Region viva aparte: #avisos se repinta en cada cambio y no debe repetir lo mismo al lector.
+  var elAnuncio = $("anuncio");
+  // Region viva aparte: solo habla cuando el texto cambia, para no repetir lo mismo al lector.
   var ultAnuncio = "";
   function anunciar(txt, forzar) {
     if (!elAnuncio || (txt === ultAnuncio && !forzar)) return;
     ultAnuncio = txt;
     elAnuncio.textContent = txt;
   }
-  // Con un template cargado, los avisos van dentro de la cinta de muestra: una sola franja amarilla.
-  if ($("cintaEstado")) $("cintaEstado").appendChild(elAvisos);
-  var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
+  var elVars = $("vars"), elFichaN = $("fichaN"), elAyuda = $("ayuda");
   var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
-  var elAbrirPanel = $("abrirPanel"), elAbrirPanelN = $("abrirPanelN"), elCerrarPanel = $("cerrarPanel");
-  var elVista = $("vista"), elMarco = $("marco"), elCinta = $("cinta"), elCintaTxt = $("cintaTxt");
+  var elVista = $("vista"), elMarco = $("marco"), elCentro = $("centro"), elCintaTxt = $("cintaTxt");
   var elLienzo = $("lienzo");
   var elModal = $("modal"), elModalC = $("modalC"), elModalOk = $("modalOk");
   var bWf = $("workfront");
@@ -1075,7 +974,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // ---------------- Estado ----------------
   var TEMPLATES = [], actual = elCombo.getAttribute("data-sel") || "";
   var perfil = {}, det = null, ultimo = null;
-  var vista = { w: 700, z: 100, muestra: true, panel: true };
+  var vista = { w: 700, z: 100, muestra: true };
   var ALTO_VISTA = 3000;   // px; alto de respaldo si no se puede medir (ver medirVista)
   var observador = null;   // ResizeObserver sobre el body del preview, si el navegador lo trae
   var ALTO_MAX = 30000;    // px; tope duro del alto medido
@@ -1083,12 +982,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // Algunos correos piden mas ancho que 700 (p. ej. body{min-width:750px}); en escritorio el
   // marco crece a ese ancho, una sola vez por render, para que no salga scroll horizontal.
   var anchoMedido = 0, ANCHO_MAX = 1200;
+  // La columna del correo mide siempre el ancho de escritorio (o el mayor medido): asi la ficha
+  // queda junto al correo y no se mueve al pasar a movil.
+  var anchoCentro = 700;
   function anchoVista() { return vista.w === 700 && anchoMedido > vista.w ? anchoMedido : vista.w; }
   var original = elVista ? decodeURIComponent(elVista.getAttribute("data-html") || "") : "";
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
   function lee(k) { try { return localStorage.getItem("prevTpl." + k); } catch (e) { return null; } }
-  // Atajos de una tecla (/, D, M). WCAG 2.1.4 pide poder apagarlos: se hace desde el menu Descargar.
+  // Atajos de una tecla (/, D, M, 1-9) y flechas. WCAG 2.1.4 pide poder apagarlos: se hace desde la ficha.
   var atajos = lee("atajos") !== "0";
 
   (function cargarTemplates() {
@@ -1322,8 +1224,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
   };
 
-  // ---------------- Panel de escenario ----------------
+  // ---------------- Ficha del destinatario ----------------
   var ETIQ_VACIO = "(vac\u00edo)", ETIQ_OTRO = "(otro valor)", VAL_OTRO = "otro";
+  var activa = 0;   // variable que cambian las flechas izquierda/derecha (1-9 la eligen)
 
   function valorPorDefecto(v) { return v.reales.length ? v.reales[0] : VAL_OTRO; }
 
@@ -1338,157 +1241,109 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
   }
 
-  function pintarEscenario() {
+  // Solo los valores que el template compara de verdad: "(otro valor)" caia siempre en la rama
+  // por defecto y confundia. Una bandera de presencia ofrece "con dato" o "(vacio)".
+  function valoresDe(n) { var v = det.vars[n]; return v.tipo === "valores" ? v.reales.slice() : [VAL_OTRO, ""]; }
+  function etiqValor(n, val) {
+    if (det.vars[n].tipo !== "valores") return val === "" ? ETIQ_VACIO : "con dato";
+    return traducirUI(val);
+  }
+  function totalEscenarios() {
+    var t = 1;
+    for (var i = 0; i < det.orden.length; i++) t *= valoresDe(det.orden[i]).length;
+    return t;
+  }
+  function indiceEscenario() {
+    var idx = 0;
+    for (var i = 0; i < det.orden.length; i++) {
+      var vals = valoresDe(det.orden[i]);
+      idx = idx * vals.length + Math.max(0, vals.indexOf(perfil[det.orden[i]]));
+    }
+    return idx + 1;
+  }
+  function notaFicha(txt) {
+    var p = document.createElement("p");
+    p.className = "ficha__nota";
+    p.textContent = txt;
+    return p;
+  }
+  function pintarFicha() {
+    if (!elVars) return;
     elVars.textContent = "";
-    if (det.omitidas.length) {
-      var nota = document.createElement("div");
-      nota.className = "panel__vacio";
-      nota.textContent = "Vista visual: los datos de contacto no condicionan las variantes. Se muestran como datos ficticios en modo muestra.";
-      elVars.appendChild(nota);
-    }
-    if (!det.orden.length) {
-      var p = document.createElement("div");
-      p.className = "panel__vacio";
-      p.textContent = det.omitidas.length ? "Sin otras variables para elegir en esta vista." : "Este template no tiene contenido condicional.";
-      elVars.appendChild(p);
-      elPanelN.textContent = "sin variables";
-      return;
-    }
-    elPanelN.textContent = det.orden.length + " variable" + (det.orden.length === 1 ? "" : "s");
-
-    var valores = [], presencia = [], i;
-    for (i = 0; i < det.orden.length; i++) {
-      (det.vars[det.orden[i]].tipo === "valores" ? valores : presencia).push(det.orden[i]);
-    }
-    for (i = 0; i < valores.length; i++) elVars.appendChild(cajaValores(valores[i]));
-    var grupos = agrupar(presencia);
-    for (i = 0; i < grupos.length; i++) elVars.appendChild(cajaPresencia(grupos[i]));
+    if (activa >= det.orden.length) activa = 0;
+    if (!det.orden.length) elVars.appendChild(notaFicha(det.omitidas.length
+      ? "Sin variables para elegir: los datos de contacto no condicionan las variantes."
+      : "Este template no tiene contenido condicional."));
+    for (var i = 0; i < det.orden.length; i++) elVars.appendChild(cajaVariable(det.orden[i], i));
+    if (det.orden.length && det.omitidas.length)
+      elVars.appendChild(notaFicha("Los datos de contacto no condicionan las variantes; se muestran como datos ficticios."));
+    elFichaN.textContent = det.orden.length ? "escenario " + indiceEscenario() + " de " + totalEscenarios() : "";
+    pintarAyuda();
   }
-
-  function cabecera(nombre, tipo) {
-    var c = document.createElement("div");
-    c.className = "vars__cab";
-    var n = document.createElement("span");
-    n.className = "vars__nom";
-    n.textContent = traducirUI(nombre);
-    n.title = nombre;
-    var t = document.createElement("span");
-    t.className = "vars__tipo";
-    t.textContent = tipo || "";
-    c.appendChild(n);
-    if (tipo) c.appendChild(t);
-    return c;
-  }
-
-  function cajaValores(nombre) {
-    var v = det.vars[nombre], g = document.createElement("div");
-    g.className = "vars__g";
-    g.appendChild(cabecera(nombre, ""));
-    var seg = document.createElement("div");
-    seg.className = "vars__seg" + (v.reales.length === 1 ? " vars__seg--uno" : "");
-    seg.setAttribute("role", "group");
-    seg.setAttribute("aria-label", traducirUI(nombre));
-    // Solo los valores que el template compara de verdad. "(otro valor)" y "(vacio)" caian
-    // siempre en la rama por defecto, que suele estar vacia, y se veia como si no hubiera nada.
-    var ops = [], i;
-    for (i = 0; i < v.reales.length; i++) ops.push([v.reales[i], traducirUI(v.reales[i])]);
-    for (i = 0; i < ops.length; i++) {
-      (function (val, txt) {
+  function cajaVariable(n, i) {
+    var d = document.createElement("div");
+    d.className = "var" + (i === activa ? " var--activa" : "");
+    d.setAttribute("role", "group");
+    d.setAttribute("aria-labelledby", "vt-" + i);
+    var t = document.createElement("div");
+    t.className = "var__t";
+    t.id = "vt-" + i;
+    t.title = n;
+    if (i < 9) {
+      var num = document.createElement("span");
+      num.className = "var__n";
+      num.setAttribute("aria-hidden", "true");
+      num.textContent = String(i + 1);
+      t.appendChild(num);
+    }
+    t.appendChild(document.createTextNode(traducirUI(n)));
+    var g = document.createElement("div"), vals = valoresDe(n);
+    g.className = "var__g" + (vals.length < 2 ? " var__g--uno" : "");
+    for (var j = 0; j < vals.length; j++) {
+      (function (val, j) {
         var b = document.createElement("button");
         b.type = "button";
-        b.textContent = txt;
-        if (txt !== val) b.title = "C\u00f3digo " + val;
-        b.setAttribute("aria-pressed", perfil[nombre] === val ? "true" : "false");
-        b.onclick = function () { perfil[nombre] = val; pintarEscenario(); pintar(); };
-        seg.appendChild(b);
-      })(ops[i][0], ops[i][1]);
-    }
-    g.appendChild(seg);
-    return g;
-  }
-
-  function interruptor(nombre, esGrupo) {
-    var b = document.createElement("button");
-    b.type = "button";
-    b.className = "vars__sw" + (esGrupo ? " vars__sw--todos" : "");
-    b.setAttribute("role", "switch");
-    var p = document.createElement("span"); p.className = "sw__p";
-    var n = document.createElement("span"); n.className = "sw__n";
-    n.textContent = nombre; b.title = nombre;
-    var e = document.createElement("span"); e.className = "sw__e";
-    b.appendChild(p); b.appendChild(n); b.appendChild(e);
-    b.actualizar = function (estado) {
-      b.setAttribute("aria-checked", estado);
-      e.textContent = estado === "true" ? "con dato" : (estado === "mixed" ? "parcial" : ETIQ_VACIO);
-    };
-    return b;
-  }
-
-  function cajaPresencia(grupo) {
-    var g = document.createElement("div"), i;
-    g.className = "vars__g";
-    if (grupo.nombres.length === 1) {
-      g.appendChild(cabecera(grupo.nombres[0], ""));
-      var uno = interruptor("estado", false);
-      uno.actualizar(perfil[grupo.nombres[0]] === "" ? "false" : "true");
-      uno.onclick = function () {
-        perfil[grupo.nombres[0]] = (perfil[grupo.nombres[0]] === "" ? VAL_OTRO : "");
-        pintarEscenario(); pintar();
-      };
-      g.appendChild(uno);
-      return g;
-    }
-    var conDato = 0;
-    for (i = 0; i < grupo.nombres.length; i++) if (perfil[grupo.nombres[i]] !== "") conDato++;
-    g.appendChild(cabecera(grupo.etiqueta, conDato + " de " + grupo.nombres.length + " con dato"));
-    var todos = interruptor("todos", true);
-    todos.actualizar(conDato === grupo.nombres.length ? "true" : (conDato === 0 ? "false" : "mixed"));
-    todos.onclick = function () {
-      var nuevo = (conDato === grupo.nombres.length) ? "" : VAL_OTRO;
-      for (var j = 0; j < grupo.nombres.length; j++) perfil[grupo.nombres[j]] = nuevo;
-      pintarEscenario(); pintar();
-    };
-    g.appendChild(todos);
-    for (i = 0; i < grupo.nombres.length; i++) {
-      (function (nombre) {
-        var sw = interruptor(nombre, false);
-        sw.actualizar(perfil[nombre] === "" ? "false" : "true");
-        sw.onclick = function () {
-          perfil[nombre] = (perfil[nombre] === "" ? VAL_OTRO : "");
-          pintarEscenario(); pintar();
+        b.id = "vb-" + i + "-" + j;
+        b.textContent = etiqValor(n, val);
+        if (det.vars[n].tipo === "valores" && traducirUI(val) !== val) b.title = "C\u00f3digo " + val;
+        b.setAttribute("aria-pressed", perfil[n] === val ? "true" : "false");
+        b.onfocus = function () { if (activa !== i) { activa = i; marcarActiva(); } };
+        b.onclick = function () {
+          perfil[n] = val;
+          activa = i;
+          pintar();
+          if ($("vb-" + i + "-" + j)) $("vb-" + i + "-" + j).focus();
+          anunciar(traducirUI(n) + ": " + etiqValor(n, val));
         };
-        g.appendChild(sw);
-      })(grupo.nombres[i]);
+        g.appendChild(b);
+      })(vals[j], j);
     }
-    return g;
+    d.appendChild(t);
+    d.appendChild(g);
+    return d;
   }
-
-  function pintarRamas(elegidas) {
-    elRamas.textContent = "";
-    if (!det.n) return;
-    var t = document.createElement("div");
-    t.className = "ramas__t";
-    t.textContent = "Ramas activas";
-    elRamas.appendChild(t);
-    if (!elegidas.length) {
-      var v = document.createElement("div");
-      v.className = "panel__vacio";
-      v.textContent = "Ning\u00fan grupo condicional en la vista.";
-      elRamas.appendChild(v);
-    }
-    for (var i = 0; i < elegidas.length; i++) {
-      var f = document.createElement("div");
-      f.className = "ramas__f";
-      var g = document.createElement("span");
-      g.className = "ramas__g";
-      g.textContent = "Grupo " + elegidas[i].grupo + " \u2192";
-      var c = document.createElement("span");
-      c.className = "ramas__chip" + (elegidas[i].sin ? " ramas__chip--sin" : "");
-      c.textContent = elegidas[i].sin ? "sin rama activa" : legible(elegidas[i].label);
-      c.title = elegidas[i].sin ? "Ninguna condici\u00f3n se cumple: en el correo no sale nada en su lugar." : elegidas[i].label;
-      f.appendChild(g); f.appendChild(c);
-      elRamas.appendChild(f);
-    }
+  function marcarActiva() {
+    var vs = elVars.querySelectorAll(".var");
+    for (var i = 0; i < vs.length; i++) vs[i].className = "var" + (i === activa ? " var--activa" : "");
+    pintarAyuda();
+  }
+  // Ayuda de teclado bajo la ficha; se oculta si los atajos estan apagados.
+  function pintarAyuda() {
+    if (!elAyuda || !det) return;
+    elAyuda.hidden = !atajos || !det.orden.length;
+    if (elAyuda.hidden) return;
+    elAyuda.innerHTML = "<kbd>\u2190</kbd> <kbd>\u2192</kbd> cambian " + esc(traducirUI(det.orden[activa]).toLowerCase()) +
+      (det.orden.length > 1 ? " \u00b7 <kbd>1</kbd>\u2013<kbd>" + Math.min(9, det.orden.length) + "</kbd> eligen la variable" : "");
+  }
+  // Flechas: siguiente o anterior valor de la variable activa. Si el foco estaba en la grilla, lo sigue.
+  function paso(dir) {
+    var n = det.orden[activa], vals = valoresDe(n), i = vals.indexOf(perfil[n]);
+    var enGrilla = document.activeElement && /^vb-/.test(document.activeElement.id || "");
+    i = (i + dir + vals.length) % vals.length;
+    perfil[n] = vals[i];
+    pintar();
+    if (enGrilla && $("vb-" + activa + "-" + i)) $("vb-" + activa + "-" + i).focus();
+    anunciar(traducirUI(n) + ": " + etiqValor(n, vals[i]));
   }
 
   // "targetData.CODPRODUCTO == 'TCRPLL'" -> "PRODUCTO = LATAM Platinum". El original queda en el title.
@@ -1499,71 +1354,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       .replace(/\s*!==?\s*/g, " \u2260 ").replace(/\s*===?\s*/g, " = ")
       .replace(/\s*&&\s*/g, " y ").replace(/\s*\|\|\s*/g, " o ")
       .replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
-  }
-
-  // ---------------- Avisos y detalle ----------------
-  var detalleAbierto = false;
-  function pintarAvisos(r) {
-    elAvisos.textContent = "";
-    var partes = [], sinRama = 0, i;
-    for (i = 0; i < r.elegidas.length; i++) if (r.elegidas[i].sin) sinRama++;
-    if (sinRama) partes.push(plural(sinRama, "grupo sin rama activa", "grupos sin rama activa"));
-    if (r.noEval) partes.push(plural(r.noEval, "condici\u00f3n no evaluable", "condiciones no evaluables") + " (se omiti\u00f3 esa rama)");
-    if (r.includes.length) partes.push(plural(r.includes.length, "fragmento no resuelto", "fragmentos no resueltos"));
-    if (vista.muestra && r.sinValor.length) partes.push(plural(r.sinValor.length, "campo sin valor de muestra", "campos sin valor de muestra"));
-    // La barra tambien sale cuando todo fue bien pero hubo fragmentos: es la
-    // unica forma de abrir el Detalle y ver por que camino los trajo el servidor.
-    if (!partes.length && !FRG_OK.length) { elAvisos.hidden = true; cerrarDetalle(); anunciar(""); return; }
-    elAvisos.hidden = false;
-    elAvisos.className = "avisos" + (partes.length ? " avisos--falta" : "");
-    var s = document.createElement("span");
-    s.textContent = partes.length
-      ? "\u26A0 " + partes.join(" \u00b7 ") + (vista.muestra && r.sinValor.length ? ". Marcados en el correo." : ".")
-      : plural(FRG_OK.length, "fragmento resuelto", "fragmentos resueltos") + " en el servidor.";
-    elAvisos.appendChild(s);
-    anunciar(partes.length ? s.textContent : "");
-    var b = document.createElement("button");
-    b.type = "button";
-    b.className = "avisos__b";
-    b.textContent = detalleAbierto ? "Ocultar detalle" : "Ver detalle";
-    b.setAttribute("aria-expanded", detalleAbierto ? "true" : "false");
-    b.onclick = function () { detalleAbierto = !detalleAbierto; pintarDetalle(ultimo); pintarAvisos(ultimo); };
-    elAvisos.appendChild(b);
-  }
-  function cerrarDetalle() { detalleAbierto = false; elDetalle.className = "detalle"; elDetalle.textContent = ""; }
-  function columna(titulo, items, vacio) {
-    var c = document.createElement("div");
-    c.className = "detalle__col";
-    var t = document.createElement("div");
-    t.className = "detalle__t";
-    t.textContent = titulo + " (" + items.length + ")";
-    c.appendChild(t);
-    if (!items.length) {
-      var v = document.createElement("div");
-      v.textContent = vacio;
-      c.appendChild(v);
-      return c;
-    }
-    var ul = document.createElement("ul");
-    for (var i = 0; i < items.length; i++) {
-      var li = document.createElement("li");
-      li.className = "mono";
-      li.textContent = items[i];
-      ul.appendChild(li);
-    }
-    c.appendChild(ul);
-    return c;
-  }
-  function pintarDetalle(r) {
-    elDetalle.textContent = "";
-    if (!detalleAbierto || !r) { elDetalle.className = "detalle"; return; }
-    elDetalle.className = "detalle detalle--abierto";
-    // Solo las columnas con algo, de lo mas grave a lo informativo.
-    var sinRama = [];
-    for (var g = 0; g < r.elegidas.length; g++) if (r.elegidas[g].sin) sinRama.push("Grupo " + r.elegidas[g].grupo);
-    var cols = [["Grupos sin rama activa", sinRama], ["Condiciones no evaluables", r.noEvalTextos], ["Fragmentos no resueltos", r.includes],
-                ["Campos sin valor de muestra", r.sinValor], ["Fragmentos resueltos", FRG_OK]];
-    for (var i = 0; i < cols.length; i++) if (cols[i][1].length) elDetalle.appendChild(columna(cols[i][0], cols[i][1], ""));
   }
 
   // ---------------- Editor de fechas de muestra ----------------
@@ -1808,37 +1598,19 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
 
   // ---------------- Pintar ----------------
-  // <=900px el panel flota sobre el correo: arranca cerrado y se cierra con Escape o con un clic fuera.
-  var mqFlota = window.matchMedia ? window.matchMedia("(max-width:900px)") : null;
-  function panelFlota() { return !!(mqFlota && mqFlota.matches); }
-  function cerrarPanelFlotante() {
-    if (!panelFlota() || !vista.panel || !det || !det.orden.length) return false;
-    elCerrarPanel.onclick();
-    return true;
-  }
-  function actualizarPanel() {
-    var abierto = vista.panel;
-    var aplicable = !!(det && det.orden.length);
-    elPanel.hidden = !abierto;
-    elAbrirPanel.hidden = abierto || !aplicable;
-    elAbrirPanelN.textContent = "Escenario (" + (aplicable ? det.orden.length : 0) + ")";
-    elAbrirPanel.setAttribute("aria-expanded", abierto ? "true" : "false");
-    elCerrarPanel.setAttribute("aria-expanded", abierto ? "true" : "false");
-  }
   function aplicarVista() {
-    actualizarPanel();
     if (!elVista) return;
     elVista.setAttribute("width", anchoVista());
     elMarco.style.width = anchoVista() + "px";
     elMarco.style.transform = vista.z === 100 ? "" : "scale(" + (vista.z / 100) + ")";
-    elMarco.className = "marco" + (vista.muestra ? " marco--muestra" : "");
+    elCentro.style.width = anchoCentro + "px";
     $("escritorio").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
     $("movil").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
     $("zval").textContent = vista.z + "%";
     $("zmas").disabled = vista.z >= 100;
     $("zmenos").disabled = vista.z <= 50;
-    elCintaTxt.textContent = hayEditados() ? "fechas editadas" : "";
-    $("cintaEtq").textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
+    elCintaTxt.textContent = hayEditados() ? "\u00b7 fechas editadas" : "";
+    $("cintaEtq").innerHTML = vista.muestra ? "<b>\u25C6</b> Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
     $("modoMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
     medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
     ajustarMargen();
@@ -1867,6 +1639,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
             anchoMedido = Math.min(sw, ANCHO_MAX);
             elVista.setAttribute("width", anchoMedido);
             elMarco.style.width = anchoMedido + "px";
+            if (anchoMedido > anchoCentro) { anchoCentro = anchoMedido; elCentro.style.width = anchoCentro + "px"; }
           }
         }
         // En Movil el marco no crece: si el correo es mas ancho, se corta y hay que decirlo.
@@ -1893,7 +1666,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // se remide con el load de cada imagen y, si existe, con un ResizeObserver sobre el body.
   function seguirVista() {
     senalarFaltas();
-    try { elVista.contentDocument.addEventListener("mousedown", cerrarPanelFlotante); } catch (e0) {}
     medirVista();
     try {
       var d = elVista.contentDocument;
@@ -1924,12 +1696,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     // La vista lleva marcas: campos sin valor, grupos sin rama y, con el editor abierto, fechas.
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
     elVista.srcdoc = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
-    var txt = r.elegidas.length ? plural(r.elegidas.length, "grupo condicional", "grupos condicionales") : "guardado en Campaign";
-    elInfo.textContent = txt;
-    elInfo.title = txt;
-    pintarRamas(r.elegidas);
-    pintarAvisos(r);
-    pintarDetalle(r);
+    pintarFicha();
     pintarFechas(r.fechas);
     aplicarVista();
     escribirURL();
@@ -1945,17 +1712,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     if (lee("muestra") === "0" && location.search.indexOf("muestra=") < 0) vista.muestra = false;
     normalizarPerfil();
-    if (panelFlota()) vista.panel = false;
-    pintarEscenario();
     pintar();
-    $("lienzo").addEventListener("mousedown", cerrarPanelFlotante);
 
     $("escritorio").onclick = function () { vista.w = 700; pintar(); };
     $("movil").onclick = function () { vista.w = 375; pintar(); };
     $("zmas").onclick = function () { vista.z = Math.min(100, vista.z + 10); pintar(); };
     $("zmenos").onclick = function () { vista.z = Math.max(50, vista.z - 10); pintar(); };
     elEditarFechas.onclick = function () { if (fechasAbierto) cerrarFechas(); else abrirFechas(); };
-    $("fechasX").onclick = cerrarFechas;
     $("fechasReset").onclick = function () {
       editados = {};
       for (var k in filasFecha) if (filasFecha.hasOwnProperty(k)) filasFecha[k].input.value = diccionario[k] || "";
@@ -1970,20 +1733,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     };
     $("restablecer").onclick = function () {
       for (var i = 0; i < det.orden.length; i++) perfil[det.orden[i]] = valorPorDefecto(det.vars[det.orden[i]]);
-      pintarEscenario();
       pintar();
-    };
-    elCerrarPanel.onclick = function () {
-      elPanel.classList.remove("panel--entra");
-      vista.panel = false;
-      aplicarVista();
-      if (!elAbrirPanel.hidden) elAbrirPanel.focus();
-    };
-    elAbrirPanel.onclick = function () {
-      elPanel.classList.add("panel--entra");
-      vista.panel = true;
-      aplicarVista();
-      elCerrarPanel.focus();
+      anunciar("Escenario por defecto");
     };
     $("descargar").onclick = function () {
       var url = URL.createObjectURL(new Blob([ultimo.html], { type: "text/html" }));
@@ -2016,15 +1767,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var t = ev.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       var modalAbierto = elModal.className.indexOf("abierto") > 0;
-      if (ev.key === "Escape") {
-        if (modalAbierto) cerrarModal();
-        else if (elPanel.contains(document.activeElement) || document.activeElement === document.body) cerrarPanelFlotante();
-        return;
+      if (ev.key === "Escape") { if (modalAbierto) cerrarModal(); return; }
+      // Con Ctrl/Cmd/Alt es un atajo del navegador (Cmd+D = marcador), no nuestro. Con el modal
+      // o dentro de las fechas tampoco: "/" sacaria el foco del dialogo.
+      if (!atajos || ev.ctrlKey || ev.metaKey || ev.altKey || modalAbierto || elFechas.contains(t)) return;
+      if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+        if (!det.orden.length) return;
+        ev.preventDefault();
+        paso(ev.key === "ArrowRight" ? 1 : -1);
       }
-      // Con Ctrl/Cmd/Alt es un atajo del navegador (Cmd+D = marcador), no nuestro. Con el modal,
-      // el menu o el panel de fechas abiertos tampoco: "/" sacaria el foco del dialogo.
-      if (!atajos || ev.ctrlKey || ev.metaKey || ev.altKey || modalAbierto || !elMenuDesc.hidden || elFechas.contains(t)) return;
-      if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
+      else if (/^[1-9]$/.test(ev.key) && +ev.key <= det.orden.length) { activa = +ev.key - 1; marcarActiva(); }
+      else if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
       else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
       else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
     };
@@ -2037,71 +1790,30 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return slug || ("template-" + (elVista && elVista.getAttribute("data-id") || "preview"));
   }
 
-  // ---------------- Menu Descargar (.html, PNG, PDF) ----------------
-  var bDesc = $("bDescargar"), elMenuDesc = $("menuDescL");
-  function itemsMenu() { return elMenuDesc.querySelectorAll("button"); }
-  function abrirMenu() {
-    elMenuDesc.hidden = false;
-    bDesc.setAttribute("aria-expanded", "true");
-    var it = itemsMenu();
-    for (var i = 0; i < it.length; i++) if (!it[i].disabled) { it[i].focus(); break; }
-  }
-  function cerrarMenu(devolverFoco) {
-    if (elMenuDesc.hidden) return;
-    elMenuDesc.hidden = true;
-    bDesc.setAttribute("aria-expanded", "false");
-    if (devolverFoco) bDesc.focus();
-  }
-  if (!elVista) bDesc.disabled = true;
-  bDesc.onclick = function () { if (elMenuDesc.hidden) abrirMenu(); else cerrarMenu(false); };
-  // Elegir una opcion cierra el menu; el onclick de la opcion corre antes (burbujeo).
-  elMenuDesc.addEventListener("click", function () { cerrarMenu(false); });
-  document.addEventListener("mousedown", function (ev) {
-    if (!elMenuDesc.hidden && !$("menuDesc").contains(ev.target)) cerrarMenu(false);
-  });
-  // Un clic dentro del correo (iframe) no llega a este documento, pero le quita el foco a la ventana.
-  window.addEventListener("blur", function () { cerrarMenu(false); });
-  $("menuDesc").addEventListener("keydown", function (ev) {
-    if (elMenuDesc.hidden) return;
-    if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); cerrarMenu(true); return; }
-    // Tab cierra el menu: el foco vuelve a Descargar y el Tab sigue desde ahi (sin preventDefault).
-    if (ev.key === "Tab") { cerrarMenu(true); return; }
-    var it = itemsMenu(), i, pos = -1, n;
-    if (ev.key === "Home" || ev.key === "End") {
-      ev.preventDefault();
-      for (i = 0; i < it.length; i++) {
-        n = ev.key === "Home" ? i : it.length - 1 - i;
-        if (!it[n].disabled) { it[n].focus(); break; }
-      }
-      return;
-    }
-    if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
-    ev.preventDefault();
-    for (i = 0; i < it.length; i++) if (it[i] === document.activeElement) pos = i;
-    for (i = 1; i <= it.length; i++) {
-      n = (pos + (ev.key === "ArrowDown" ? i : -i) + it.length * 2) % it.length;
-      if (!it[n].disabled) { it[n].focus(); break; }
-    }
-  });
+  // Sin template no hay nada que descargar.
+  if (!elVista) { $("descargar").disabled = true; $("descargarPng").disabled = true; $("descargarPdf").disabled = true; }
 
-  // Encender/apagar los atajos de una tecla. Si estan apagados, tampoco se anuncian
-  // en title ni en aria-keyshortcuts.
+  // Encender/apagar los atajos de teclado (en la ficha). Si estan apagados, tampoco se anuncian
+  // en title ni en aria-keyshortcuts, y la ayuda de teclado de la ficha se oculta.
   function pintarAtajos() {
-    $("atajos").setAttribute("aria-checked", atajos ? "true" : "false");
-    $("atajosE").textContent = atajos ? "Activados: / buscar, D escritorio, M m\u00f3vil" : "Desactivados";
+    var b = $("atajos");
+    if (b) {
+      b.setAttribute("aria-pressed", atajos ? "true" : "false");
+      b.textContent = "Atajos de teclado: " + (atajos ? "activados" : "desactivados");
+    }
     var ls = [["buscar", "Buscar template o id", "/"], ["escritorio", "Escritorio", "D"], ["movil", "M\u00f3vil", "M"]];
     for (var i = 0; i < ls.length; i++) {
       var el = $(ls[i][0]);
       el.title = atajos ? ls[i][1] + " (tecla " + ls[i][2] + ")" : ls[i][1];
       if (atajos) el.setAttribute("aria-keyshortcuts", ls[i][2]); else el.removeAttribute("aria-keyshortcuts");
     }
+    pintarAyuda();
   }
-  $("atajos").onclick = function () {
+  if ($("atajos")) $("atajos").onclick = function () {
     atajos = !atajos;
     guarda("atajos", atajos ? "1" : "0");
     pintarAtajos();
     anunciar(atajos ? "Atajos de teclado activados" : "Atajos de teclado desactivados", true);
-    bDesc.focus();   // el menu se cierra al elegir; el foco no queda en un boton oculto
   };
   pintarAtajos();
 
@@ -2315,7 +2027,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pngFallidas = [];
       PNG_ANCHOS.forEach(function (v) {
         cadena = cadena.then(function () {
-          cambiarTexto(bDesc, "Generando " + v.n + "\u2026");
+          cambiarTexto(boton, "Generando " + v.n + "\u2026");
           return renderEn(html, v.w).then(function (r) {
             return capturar(r, v.w).then(function (c) {
               r.f.remove();
@@ -2342,10 +2054,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
     var conBoton = function (boton, trabajo) {
       if (!ultimo || boton.disabled) return;
-      var previo = bDesc.textContent;
-      bPng.disabled = true; bPdf.disabled = true; bDesc.disabled = true;
+      var previo = boton.textContent, bHtml = $("descargar");
+      bPng.disabled = true; bPdf.disabled = true; bHtml.disabled = true;
       trabajo().then(null, errorCaptura).then(function () {
-        bPng.disabled = false; bPdf.disabled = false; bDesc.disabled = false; cambiarTexto(bDesc, previo, true);
+        bPng.disabled = false; bPdf.disabled = false; bHtml.disabled = false; cambiarTexto(boton, previo, true);
       });
     };
 
@@ -2414,7 +2126,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     bPdf.onclick = function () {
       conBoton(bPdf, function () {
         return generarCapturas(bPdf).then(function (caps) {
-          bDesc.textContent = "Armando PDF\u2026";
+          cambiarTexto(bPdf, "Armando PDF\u2026");
           var url = URL.createObjectURL(pdfDesdeCapturas(caps)), a = document.createElement("a");
           a.href = url; a.download = nombreArchivo() + ".pdf";
           document.body.appendChild(a); a.click(); a.remove();
@@ -2539,10 +2251,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var el = $("accion");
     if (!el) return;
     el.hidden = false;
-    el.className = "avisos cinta__accion" + (ok ? " cinta__accion--ok" : " avisos--error");
+    el.className = "accion" + (ok ? " accion--ok" : " accion--error");
     anunciar(texto, true);
     void el.offsetWidth;   // reinicia el fundido si llega un aviso tras otro
-    el.className += " avisos--nuevo";
+    el.className += " accion--nuevo";
     el.textContent = "";
     var s = document.createElement("span");
     s.textContent = texto;
@@ -2558,7 +2270,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     var b = document.createElement("button");
     b.type = "button";
-    b.className = "avisos__b";
+    b.className = "accion__b";
     b.textContent = "Cerrar";
     b.onclick = function () { el.hidden = true; el.textContent = ""; };
     el.appendChild(b);
@@ -2568,17 +2280,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   if (bWf) {
     if (!WORKFRONT_ACTIVO) {
       bWf.disabled = true;
-      bWf.title = "El env\u00edo a Workfront est\u00e1 desactivado por ahora. Usa Descargar (.html, PNG o PDF).";
+      bWf.title = "El env\u00edo a Workfront est\u00e1 desactivado por ahora. Usa .html, PNG o PDF.";
     } else if (!WORKFRONT_URL) {
       bWf.textContent = "Workfront no configurado";   // al cargar: sin animacion
       // aria-disabled y no disabled: sigue enfocable y al pulsarlo explica el motivo.
       bWf.setAttribute("aria-disabled", "true");
-      bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y subelo a mano.";
+      bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, descarga el .html y subelo a mano.";
     }
     bWf.onclick = function () {
       if (!WORKFRONT_ACTIVO) return;
       if (!WORKFRONT_URL) {
-        avisoWf(false, "Workfront no est\u00e1 configurado: falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y s\u00fabelo a mano.");
+        avisoWf(false, "Workfront no est\u00e1 configurado: falta la URL del webhook en el .jssp. Mientras tanto, descarga el .html y s\u00fabelo a mano.");
         return;
       }
       abrirModal();

@@ -36,46 +36,43 @@ Para saber qué le falta a un template ya subido, usa la skill `/evaluar-templat
 
 Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<%= datosLista %>`, `<%= selAttr %>`, `<%= datosHtml %>` (HTML de correo pasado por `encodeURIComponent`) y `<%= datosFrg %>`. Quita los `<% if/else %>` y sirve el resultado con `python3 -m http.server`. La parte de servidor y el proxy solo se pueden probar en Campaign.
 - El correo de prueba debe traer lo que la UI tiene que mostrar: dos o más grupos `[acr-dc-*]`, uno sin rama `else` y metido en una `<table>` (así prueba la nota "sin rama activa" en una celda), un `targetData.X` sin valor también dentro de un `href`, fechas `FEC…` y ancho de 600 px para el aviso de desborde en Móvil.
-- En Chrome, `resize_window` no achica el viewport. Para probar ≤900 px, carga la página dentro de un `<iframe width="800">` del mismo origen.
+- En Chrome, `resize_window` no achica el viewport. Para probar anchos chicos (≤1080 px la ficha pasa arriba del correo), carga la página dentro de un `<iframe width="800">` del mismo origen.
 - Antes de abrir el modal de Workfront, reemplaza `window.fetch` por una función que rechace o que devuelva `{ok:false,status:500}`. Nunca envíes de verdad desde una prueba local.
 - Workfront está pausado (`WORKFRONT_ACTIVO = false`). Para probar el modal en local, ponlo en `true` solo en la copia.
 
 ## Estructura de `previewFragment.jssp`
 
 1. **Servidor** (hasta `<!DOCTYPE html>`). Consulta `nms:includeView`: `@type=1` son los templates y `@type=2` los fragmentos. Resuelve `<%@ include fragment="VIEWnnn" %>` en `frgResuelve` con un mapa nombre→id (`frgCargaMapa`) y `load(id)`, de forma recursiva y con topes. El token usa el **`@name`**, no el `@id`. Las consultas filtradas por `@name` nunca funcionaron en esta instancia, así que no las reintentes. Corre con `logonEscalation("neolane")`, que va fuera del `try`. No toques esta parte sin que te lo pidan.
-2. **HTML + CSS.** Los tokens de diseño son variables en `:root`; usa esas, no colores sueltos. Las clases siguen BEM en español (`.barra__btn`, `.vars__seg`, `.fechas__f`…).
+2. **HTML + CSS.** Los tokens de diseño son variables en `:root`; usa esas, no colores sueltos. Las clases siguen BEM en español (`.barra__btn`, `.var__g`, `.fechas__f`…). El diseño es la "Ficha del destinatario" (maqueta en `design/maqueta-ficha-destinatario.html`, contrato en `.impeccable/surfaces/`): el correo al centro es el protagonista.
    - **Tipografía.** Escala `--fs-xxs` 11 px (solo metadatos: id del template, rótulos en mayúsculas, número de fecha), `--fs-xs` 12 px (etiquetas), `--fs-sm` 13 px (controles) y `--fs-md` 14 px (cuerpo). No uses tamaños sueltos ni bajes de 11 px.
-   - **Contraste.** `--text-muted` es `#5b6678` (≥5:1 sobre blanco y sobre `--vars-bg`); `--wf-bg` es `#0369a1` (5.9:1 con texto blanco). El placeholder del combo usa `--bar-fg-muted`. `--ok-bg`/`--ok-fg` son el verde de "todo resuelto" y de los resultados correctos. Si cambias un color, comprueba que el texto siga en 4.5:1 o más.
-   - **Barra.** El combo tiene `flex:1 1 220px` para que la barra quepa en una línea desde 1280 px. Si agregas algo a la barra, vuelve a medir a 1280 px.
-   - **Cinta** (`#cinta`, arriba del marco). Tiene tres zonas:
-     - `.cinta__estado`, a la izquierda: etiqueta de muestra/campos (`#cintaEtq`), fechas editadas, desborde en Móvil (`#desborde`) y los pendientes (`#avisos`, que se mueve ahí por JS). Esta zona puede partirse en varias líneas.
-     - `.cinta__acc`, a la derecha: Editar fechas y Ver campos. No se parte.
-     - `#accion`, en una línea propia: el resultado de Workfront, PNG o PDF.
-     Los pendientes y el resultado de una acción no comparten contenedor: un fallo de Workfront no debe borrar los pendientes.
+   - **Contraste.** `--text-muted` es `#5b6678` (≥4.5:1 sobre blanco, `--vars-bg` y la mesa `--canvas-bg`). La barra es `--bar-bg` `#14275f` con texto blanco; `--acento` `#1f3a93` es el azul de los valores elegidos, el foco y el botón del modal. El placeholder del combo usa `--bar-fg-muted`. `--ok-bg`/`--ok-fg` son el verde de "todo resuelto" y de los resultados correctos. Si cambias un color, comprueba que el texto siga en 4.5:1 o más.
+   - **Barra** (44 px, azul oscuro): título, combo, Escritorio/Móvil, zoom, `.html` / `PNG` / `PDF` como botones directos (no hay menú Descargar), Copiar enlace y Workfront. Tiene que caber en una línea desde 1280 px; si le agregas algo, vuelve a medir.
+   - **Mesa** (`#lienzo`, el contenedor con scroll): grid de tres columnas, `minmax(300px,1fr) auto minmax(0,1fr)`. A la izquierda la **ficha** (`.ficha`, sticky, con `max-height` y scroll propio); al centro `#centro` con la línea de estado (`#cintaEtq` datos de muestra/campos, `#cintaTxt` fechas editadas, `#desborde`), `#accion` (resultado de Workfront, PNG o PDF) y el marco con el iframe. La derecha queda libre.
+     - `#centro` mide siempre el ancho de escritorio (`anchoCentro`, 700 o el mayor medido): la ficha queda junto al correo y **no se mueve al pasar a Móvil**. No la ancles al borde de la ventana (Marcos lo rechazó).
+     - Bajo 1080 px la grilla pasa a una columna y la ficha va arriba del correo.
+   - **Ficha:** "PARA" + "escenario n de N"; cada variable es un bloque `.var` con su grilla de botones `.var__g` (dos columnas; el elegido va relleno de `--acento`). Debajo: Por defecto, Ver campos, Fechas de muestra (el editor de fechas `#fechas` se despliega dentro de la ficha), la ayuda de teclado `#ayuda` y el interruptor de atajos `#atajos`.
+   - **Sin pendientes en pantalla por ahora:** Marcos pidió quitar el sello/panel de pendientes (se evalúa con `/evaluar-template`). Los problemas siguen marcados dentro del correo (`senalarFaltas`) y en la revisión del modal de Workfront (`pendientes()`).
    - **Movimiento.** Tokens en `:root`: `--ease-out: cubic-bezier(0.23,1,0.32,1)` y las duraciones `--dur-xs` (120ms), `--dur-sm` (150ms), `--dur-md` (180ms) y `--dur-lg` (200ms). No escribas ms ni curvas sueltas. Todo vive en el bloque `/* ---------- movimiento ---------- */`:
      - Hover: solo `background-color`/`color` con `--dur-xs ease`.
-     - Respuesta al clic: `:active { transform:scale(0.97) }`. En filas de ancho completo es más leve: `.menu__lista button` usa 0.98 y `.vars__sw` usa 0.985. Si agregas un botón, súmalo a las listas de `transition` y `:active`.
-     - Entradas con keyframes (`entra-menu`, `entra-fechas`, `entra-modal`, `entra-detalle`, `entra-panel`, `funde`): parten de `opacity:0` más un `scale(0.96–0.97)` o un desplazamiento de 4 a 12 px, nunca `scale(0)`. `transform-origin` va hacia el disparador: el menú desde arriba a la derecha, el panel de fechas desde abajo a la derecha. El modal queda centrado.
+     - Respuesta al clic: `:active { transform:scale(0.97) }`. Si agregas un botón, súmalo a las listas de `transition` y `:active`.
+     - Entradas con keyframes (`entra-fechas`, `entra-modal`, `funde`): parten de `opacity:0` más un `scale(0.96)` o un desplazamiento de 4 px, nunca `scale(0)`. Las fechas bajan desde su botón; el modal queda centrado.
      - La salida siempre es instantánea (`hidden` o quitar la clase).
      - Solo se animan `transform` y `opacity`. Nada de `transition: all`, `ease-in` ni duraciones de más de 300ms.
-     - **Sin animación a propósito:** la lista del combo, el zoom, escritorio/móvil (también se accionan con teclado: `/`, `D`, `M`), el repintado del correo al cambiar el escenario y el panel de Escenario en escritorio (va en el flujo y el lienzo se reacomoda de golpe). No los animes.
-     - `cambiarTexto(boton, txt, reposo)` cambia el texto de un botón sin mover la barra: durante los estados pasajeros el `min-width` solo crece y el texto entra con `.cambia` (un blur leve). Al volver al texto normal, pasa `reposo=true` para soltar el `min-width`; si no, el botón queda inflado para siempre y la barra (que hace wrap) puede quedar en dos líneas. Úsala siempre que un botón de la barra cambie de texto (Copiar enlace, Workfront, Descargar).
-     - El panel flotante (≤900px) solo se anima con `.panel--entra`, que se pone al abrirlo con el riel. No lo animes en la carga: elegir un template recarga la página.
-     - `.avisos--nuevo` (un fundido) solo se pone en `avisoWf`. No lo pongas en `pintarAvisos`, que corre en cada repintado.
+     - **Sin animación a propósito:** la lista del combo, el zoom, escritorio/móvil y el cambio de escenario (se accionan en ráfagas o con teclado: `/`, `D`, `M`, flechas, 1–9) y el repintado del correo. No los animes.
+     - `cambiarTexto(boton, txt, reposo)` cambia el texto de un botón sin mover la barra: durante los estados pasajeros el `min-width` solo crece y el texto entra con `.cambia` (un blur leve). Al volver al texto normal, pasa `reposo=true` para soltar el `min-width`; si no, el botón queda inflado para siempre y la barra (que hace wrap) puede quedar en dos líneas. Úsala siempre que un botón de la barra cambie de texto (Copiar enlace, Workfront, PNG, PDF: durante la exportación el botón pulsado dice "Generando escritorio…").
+     - `.accion--nuevo` (un fundido) solo se pone en `avisoWf`, nunca en algo que corra en cada repintado.
      - `@media (prefers-reduced-motion:reduce)` va **al final del `<style>`**, para ganarles a los media queries de ancho. Las entradas usan `--ease-out`, también las que son solo un fundido. Deja solo fundidos y mantiene la respuesta al clic, porque es un scale en su lugar que no desplaza nada.
 3. **Script de cliente** (ES5: `var` y `function`, sin arrow functions, `let`/`const` ni template literals). La lógica pura de poda vive entre `// BEGIN-PODA` y `// END-PODA`:
    - `podar(src, perfil, opciones)` elige una rama por grupo `[acr-dc-start-group]`…`[acr-dc-end-group]` con un evaluador propio, sin `eval` ni `Function`. Después reemplaza los tokens `<%= targetData.X %>` y `<%@ include view='X' %>` por `valorMuestra(k)` o por `[X]`. Devuelve `{html, elegidas, noEval, sinValor, includes, fechas}`.
    - Prioridad de `valorMuestra`: fecha editada (`editados`) > valor dinámico (`valorDinamico`: `PLASTICO` sale del `CODPRODUCTO` elegido) > `diccionario`. Los datos de muestra son ficticios; no pongas datos reales del banco.
-   - `pintar()` guarda el resultado limpio en `ultimo`. `ultimo.html` es lo que usan Descargar (.html, PNG y PDF) y Workfront. El iframe de la vista se pinta con `senalar:true`: los campos sin valor van entre `⟪…⟫` y los grupos sin rama dejan un comentario `pv-sin-rama N`, y `senalarFaltas()` los convierte en marcas ámbar al cargar. Mientras el editor de fechas está abierto lleva además las marcas `⟦KEY⟧…⟦/⟧`. Ninguna de estas marcas debe llegar a `ultimo.html`.
+   - `pintar()` guarda el resultado limpio en `ultimo`. `ultimo.html` es lo que usan .html, PNG, PDF y Workfront. El iframe de la vista se pinta con `senalar:true`: los campos sin valor van entre `⟪…⟫` y los grupos sin rama dejan un comentario `pv-sin-rama N`, y `senalarFaltas()` los convierte en marcas ámbar al cargar. Mientras el editor de fechas está abierto lleva además las marcas `⟦KEY⟧…⟦/⟧`. Ninguna de estas marcas debe llegar a `ultimo.html`.
    - Estado en la URL (`leerURL`/`escribirURL`): `frgId`, `v.VAR` (escenario), `d.CAMPO` (fechas editadas), `muestra=0`, `w=375`, `z=NN`.
    - La vista mide el alto y el ancho reales del correo (`medirVista`). En escritorio, el marco crece si el correo pide más de 700 px (por ejemplo, `body{min-width:750px}`). Para medir el alto, encoge el iframe a 0, lee `scrollHeight` y le devuelve su alto en la misma tarea, guardando y reponiendo el scroll del lienzo. Con el alto actual puesto, `scrollHeight` nunca baja de ese alto y un correo corto no podría achicarse. `pintar()` conserva el alto anterior hasta que mide el correo nuevo; `ALTO_VISTA` (3000) solo se usa en la primera vista.
    - En los campos de contacto (`DESCORREO…`, `DESNBRE…`, `DESCELULAR…EENNPRINCIPAL`), las condiciones se omiten al elegir variantes, pero sus valores ficticios sí se muestran.
    - Las fechas de muestra se calculan con `fechaMuestra(dias)`: el inicio es hoy y los fines son hoy + 30 días, en `dd/mm/aaaa`. Nunca pongas una fecha fija: con el tiempo queda vencida y en el PNG parece un error del correo.
    - **Avisos.**
-     - `pintarAvisos(r)` corre en cada repintado. Junta en una línea los grupos sin rama, las condiciones no evaluables, los fragmentos no resueltos y los campos sin valor (estos, solo con datos de muestra). Con pendientes lleva `.avisos--falta` (rojo y "⚠"); si solo hay información, sale en el tono normal.
-     - `avisoWf(ok, texto, detalle)` escribe solo en `#accion`. El detalle técnico va plegado en un `<details>`.
-     - El lector de pantalla no escucha `#avisos` directamente: `anunciar(txt, forzar)` escribe en `#anuncio` (`.sr`, `role=status`) solo cuando el texto cambia.
-   - **Detalle** (`pintarDetalle`): solo muestra columnas con contenido, en orden de gravedad: grupos sin rama, condiciones no evaluables, fragmentos no resueltos, campos sin valor y fragmentos resueltos.
+     - `avisoWf(ok, texto, detalle)` escribe solo en `#accion` (clases `.accion--ok` / `.accion--error`). El detalle técnico va plegado en un `<details>`.
+     - `anunciar(txt, forzar)` escribe en `#anuncio` (`.sr`, `role=status`) solo cuando el texto cambia; se usa al cambiar el escenario y en las acciones.
    - **Modal de Workfront.**
      - `pendientes()` arma la lista de revisión y `revision(p)` la pinta: roja si hay pendientes, verde ("✓ Todo resuelto") si no.
      - Con pendientes, el foco empieza en Cancelar y el botón dice "Enviar de todos modos". Sin pendientes, el foco va a "Enviar ahora".
@@ -86,15 +83,15 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
        - Sin respuesta (red o CORS): "pudo llegar, revisa antes de reintentar".
        - Tope de 30 s: el mismo aviso de "revisa antes de reintentar".
    - **Lenguaje de la UI.**
-     - Los chips de ramas y el modal pasan cada condición por `legible()`: `targetData.CODPRODUCTO == 'TCRPLL'` sale como "PRODUCTO = LATAM Platinum", y el original queda en el `title`.
+     - El modal pasa cada condición por `legible()`: `targetData.CODPRODUCTO == 'TCRPLL'` sale como "PRODUCTO = LATAM Platinum", y el original queda en el `title`.
      - Los códigos se traducen con `traducirUI`, también en los `aria-label`.
      - Los plurales se arman con `plural(n, uno, varios)`; nada de "(s)" ni "(es)".
      - Al usuario se le dice "campo", no "token".
      - Los botones nombran su acción: "Por defecto", "Fechas originales", "Ver campos" / "Ver datos de muestra".
-   - **Panel flotante (≤900 px).** Arranca cerrado (`panelFlota()` al cargar). `cerrarPanelFlotante()` lo cierra con Escape, con un clic en el lienzo o con un clic dentro del correo (el `mousedown` se registra en el documento del iframe en `seguirVista`).
+   - **Ficha y teclado.** `pintarFicha()` corre en cada `pintar()`. `valoresDe(n)` ofrece solo los valores reales que compara el template (sin "otro valor"); una bandera de presencia ofrece "con dato" (`VAL_OTRO`) o "(vacío)". `activa` es la variable que cambian ← / → (`paso`); 1–9 la eligen (`marcarActiva`). Los botones de la grilla tienen id `vb-<n.º de variable>-<n.º de valor>` para devolverles el foco tras repintar.
    - **Desborde en Móvil.** Si el correo es más ancho que 375 px, `medirVista` muestra `#desborde`: "El correo mide N px: en 375 px se corta a la derecha".
    - **Combo.** Al abrirlo, el nombre actual queda seleccionado y no filtra (`pintarLista` lo trata como búsqueda vacía). Los atajos van en `title` y `aria-keyshortcuts`.
-   - **Atajos** (`/`, `D`, `M`). Se apagan desde el último ítem del menú Descargar (`menuitemcheckbox` `#atajos`, guardado en localStorage como `prevTpl.atajos`), por WCAG 2.1.4. `pintarAtajos()` quita el `title` y el `aria-keyshortcuts` cuando están apagados. No se disparan con Ctrl/Cmd/Alt ni con el modal, el menú o el panel de fechas abiertos.
+   - **Atajos** (`/`, `D`, `M`, `1`–`9`, ← / →). Se apagan con el botón `#atajos` de la ficha (`aria-pressed`, guardado en localStorage como `prevTpl.atajos`), por WCAG 2.1.4. `pintarAtajos()` quita el `title` y el `aria-keyshortcuts` y oculta la ayuda de la ficha cuando están apagados. No se disparan con Ctrl/Cmd/Alt, con el modal abierto ni dentro de las fechas.
    - **Zoom.** "+" se desactiva en 100% y "−" en 50%.
 
 ## Reglas duras (cada una viene de un problema real)
@@ -117,12 +114,9 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
   - la medición del alto con correos cortos, largos con imágenes y con `height:100%`;
   - las animaciones y la respuesta al clic;
   - las marcas ámbar con correos reales;
-  - la cinta nueva;
-  - el panel flotante a ≤900 px;
+  - el rediseño "Ficha del destinatario" (2026-09-25): ficha, teclado, fechas dentro de la ficha, PNG/PDF desde sus botones y anchos ≤1080 px;
   - las fechas relativas.
 - Pendientes de la segunda crítica (`.impeccable/critique/2026-09-26…`):
-  - **P2:** el Detalle se abre arriba de toda la página, lejos de su botón. Falta que muestre la condición legible de cada grupo y que cada ítem baje hasta su marca en el correo.
   - **P2:** el modal de Workfront no incluye el desborde en Móvil en `pendientes()`.
-  - **P3:** una variable con un solo valor se ve como botón presionado; debería ser texto fijo.
   - **Descartados a propósito:** la franja superior de 3 px en `.fechas` y `.marco--muestra` es la señal de "datos de muestra", aunque el detector la marque. El `overflow:hidden` del body es parte del layout.
 - La exportación PNG/PDF (SVG `foreignObject` → canvas) no funciona en Safari (`SecurityError`); se usa Chrome o Edge. No incrusta `url()` dentro de `<style>` ni fuentes externas.
