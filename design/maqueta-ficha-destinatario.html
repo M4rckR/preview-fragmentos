@@ -45,6 +45,23 @@ button[aria-disabled="true"] { cursor:not-allowed; }
 .btn:hover { background:var(--papel-2); }
 .btn--post { background:var(--postal); border-color:var(--postal); color:#fff; }
 .btn--post[aria-disabled="true"] { background:#5f6670; border-color:#5f6670; }
+/* Barra en azul postal: el mismo azul de la ficha, en superficie. */
+.barra { background:var(--postal); border-bottom-color:#172c70; color:#fff; }
+.barra :focus-visible { outline-color:#fff; }
+.barra .combo { background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.28); }
+.barra .combo:focus-within { border-color:#fff; box-shadow:0 0 0 1px #fff; }
+.barra .combo input { color:#fff; }
+.barra .combo__id { color:rgba(255,255,255,.78); }
+.barra .btn { background:transparent; border-color:rgba(255,255,255,.34); color:#fff; }
+.barra .btn:hover { background:rgba(255,255,255,.12); }
+.barra .btn--post { background:#fff; border-color:#fff; color:var(--postal); }
+.barra .btn--post[aria-disabled="true"] { background:rgba(255,255,255,.16); border-color:transparent; color:#fff; }
+.barra .seg { border-color:rgba(255,255,255,.34); }
+.barra .seg button { color:rgba(255,255,255,.88); }
+.barra .seg button[aria-pressed="true"] { background:#fff; color:var(--postal); }
+.barra .zoom button { background:transparent; border-color:rgba(255,255,255,.34); color:#fff; }
+.barra .zoom output { color:rgba(255,255,255,.88); }
+.barra__sep { background:rgba(255,255,255,.3); }
 .seg { display:inline-flex; padding:2px; border:1px solid var(--linea); border-radius:7px; }
 .seg button { height:24px; padding:0 9px; border:0; border-radius:5px; background:none; font-size:var(--fs-xs); font-weight:600; color:var(--tinta-2); }
 .seg button[aria-pressed="true"] { background:var(--tinta); color:#fff; }
@@ -666,9 +683,12 @@ h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
   var atajos = true, activa = 0, ultimo = null, ultimoN = -1;
 
   // ---------- modelo ----------
+  var SIN_OTRO = { CODSUBSEGMENTO: 1 };
   function valoresDe(v) {
     var d = det.vars[v];
-    return d.tipo === "valores" ? d.reales.concat([VAL_OTRO]) : ["S", ""];
+    if (d.tipo !== "valores") return ["S", ""];
+    // El segmento no ofrece "otro valor": fuera de los segmentos del template no hay cliente real.
+    return SIN_OTRO[v] ? d.reales.slice() : d.reales.concat([VAL_OTRO]);
   }
   function etiqVal(v, val) {
     if (val === VAL_OTRO) return "otro valor";
