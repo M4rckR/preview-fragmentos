@@ -641,7 +641,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   </div>
 <script>
 (function () {
-  // URL del webhook de Workfront. Dejala VACIA en el repo; pegala solo en Campaign.
+  // Webhook y credenciales de Workfront. Pendiente: moverlos al servidor (el repo es publico).
   // Envio a Workfront pausado por ahora: el boton se ve pero queda desactivado.
   // Para reactivarlo, poner true (la URL y el resto del flujo siguen aqui).
   var WORKFRONT_ACTIVO = false;
@@ -833,8 +833,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function traducirUI(clave) {
       return DICCIONARIO_UI[clave] || clave;
   }
-  // Fechas de muestra: el operador puede cambiarlas desde "Editar fechas" (van en la URL como d.CAMPO).
-  // Etiquetas de los datos de muestra editables; lo que no este aqui se muestra con su codigo.
+  // Etiquetas de los datos de muestra editables (el operador los cambia en el panel "Datos de
+  // muestra" y van en la URL como d.CAMPO); lo que no este aqui se muestra con su codigo.
   var ETIQ_FECHA = {
     "FECINICIOVIGENCIACAMPANIA": "Inicio de vigencia de la campa\u00f1a",
     "FECFINVIGENCIACAMPANIA": "Fin de vigencia de la campa\u00f1a",
@@ -855,7 +855,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var editados = {};
   function esFecha(k) { return /^FEC|FECHA/i.test(k); }
   function hayEditados() { for (var k in editados) if (editados.hasOwnProperty(k)) return true; return false; }
-  // Marcas de texto para ubicar cada fecha en la vista; nunca llegan a ultimo.html.
+  // Marcas de texto para ubicar cada dato de muestra en la vista; nunca llegan a ultimo.html.
   var MK_A = "\u27E6", MK_B = "\u27E7", MK_FIN = "\u27E6/\u27E7";
   var MF_A = "\u27EA", MF_B = "\u27EB";
   // Valores que dependen del escenario: PLASTICO es la tarjeta del PRODUCTO elegido en el panel.
@@ -872,13 +872,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
   }
 
-  // opciones: { todas:bool, muestra:bool, marcar:bool, senalar:bool }
+  // opciones: { muestra:bool (true por defecto), marcar:bool, senalar:bool }
+  // marcar: rodea cada campo impreso con MK_A clave MK_B ... MK_FIN (marcarFechas los numera).
   // senalar (solo la vista): envuelve cada campo sin valor en MF_A..MF_B y deja un comentario
   // pv-sin-rama donde un grupo no tuvo rama; senalarFaltas los convierte en marcas ambar.
-  // devuelve { html, elegidas:[{grupo,label}], noEval, noEvalTextos:[], includes:[], sinValor:[], fechas:[] }
+  // devuelve { html, elegidas:[{grupo,label,sin?}], noEval, noEvalTextos:[], includes:[],
+  //            sinValor:[], fechas:[] (solo FEC...), campos:[] (todo lo impreso) }
   function podar(src, perfil, opciones) {
     opciones = opciones || {};
-    var todas = !!opciones.todas;
     var conMuestra = opciones.muestra !== false;
     var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [], fechas = [], campos = [];
     var nGrupo = 0, guard = 0, out = src, prev;
@@ -891,6 +892,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     // En modo [CAMPOS] todos van sin valor a proposito: solo se senalan con datos de muestra.
     function falta(x) { return (opciones.senalar && conMuestra) ? MF_A + x + MF_B : x; }
+    // Cambia un campo por su dato de muestra, o por [etiqueta] si no tiene.
+    function sustituir(key, etiqueta) {
+      var v = key ? valorMuestra(key) : null;
+      if (key && v === null) anota(sinValor, key);
+      return token(key, (conMuestra && v !== null) ? v : falta("[" + etiqueta + "]"));
+    }
     do {
       prev = out;
       out = out.replace(reGrupo(), function (m, body) {
@@ -906,15 +913,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         if (!ramas.length) return m;
         nGrupo++;
         var k, pick = -1;
-        if (todas) {
-          var acc = "";
-          for (k = 0; k < ramas.length; k++) {
-            acc += "<div style='font:11px Arial,sans-serif;background:#eef2ff;color:#4338ca;padding:2px 8px;'>RAMA: " +
-                   esc(ramas[k].label) + "</div>" + ramas[k].html;
-          }
-          elegidas.push({ grupo: nGrupo, label: "todas", todas: true });
-          return acc;
-        }
         for (k = 0; k < ramas.length; k++) {
           if (ramas[k].cond === undefined) { pick = k; break; }
           try {
@@ -933,11 +931,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     // Limpieza del codigo de Campaign que queda
     out = out.replace(rx(O + "\\/\\*[\\s\\S]*?\\*\\/" + C), "");
     out = out.replace(rx(O + "@\\s*include\\s+view\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
-      function (m, n) {
-        if (valorMuestra(n) === null) anota(sinValor, n);
-        var x = conMuestra ? valorMuestra(n) : null;
-        return token(n, x !== null ? x : falta("[" + esc(n) + "]"));
-      });
+      function (m, n) { return sustituir(n, esc(n)); });
     out = out.replace(rx(O + "@\\s*include\\s+fragment\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
       function (m, n) {
         var motivo = frgMotivo(n);
@@ -948,10 +942,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     out = out.replace(rx(O + "=([\\s\\S]*?)" + C),
       function (m, e) {
         var t = /(?:targetData|recipient)\.(\w+)/.exec(e) || /(\b[a-zA-Z_]\w*\b)/.exec(e);
-        var key = t ? t[1] : null;
-        if (key && valorMuestra(key) === null) anota(sinValor, key);
-        var x = (conMuestra && key) ? valorMuestra(key) : null;
-        return token(key, x !== null ? x : falta("[" + (key || "...") + "]"));
+        return sustituir(t ? t[1] : null, t ? t[1] : "...");
       });
     out = out.replace(rx(O + "[\\s\\S]*?" + C), "");
     return { html: out, elegidas: elegidas, noEval: noEval, noEvalTextos: noEvalTextos,
@@ -991,49 +982,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return { orden: orden, vars: vars, n: conds.length, omitidas: omitidas };
   }
 
-  // Agrupa banderas de presencia que se parecen (prefijo largo, o prefijo + sufijo comunes),
-  // p.ej. DESCORREOEENNPRINCIPAL / DESNBREENNPRINCIPAL / DESCELULAREENNPRINCIPAL.
-  // Devuelve [{ prefijo, sufijo, etiqueta, nombres:[] }]; las sueltas van en grupos de uno.
-  function comunIni(a, b) {
-    var n = Math.min(a.length, b.length), i = 0;
-    while (i < n && a.charAt(i) === b.charAt(i)) i++;
-    return a.slice(0, i);
-  }
-  function comunFin(a, b) {
-    var n = Math.min(a.length, b.length), i = 0;
-    while (i < n && a.charAt(a.length - 1 - i) === b.charAt(b.length - 1 - i)) i++;
-    return i ? a.slice(a.length - i) : "";
-  }
-  function parecidos(a, b) {
-    var p = comunIni(a, b).length, sf = comunFin(a, b).length;
-    return p >= 4 || (p >= 3 && sf >= 6);
-  }
-  // URL a la que navega el buscador al elegir un template.
-  function urlTemplate(id) { return "?frgId=" + encodeURIComponent(id); }
-
-  function agrupar(nombres) {
-    var usados = {}, salida = [], i, j;
-    for (i = 0; i < nombres.length; i++) {
-      if (usados[nombres[i]]) continue;
-      usados[nombres[i]] = 1;
-      var grupo = [nombres[i]];
-      for (j = i + 1; j < nombres.length; j++) {
-        if (usados[nombres[j]]) continue;
-        if (parecidos(nombres[i], nombres[j])) { usados[nombres[j]] = 1; grupo.push(nombres[j]); }
-      }
-      var pre = grupo[0], suf = grupo[0];
-      for (j = 1; j < grupo.length; j++) { pre = comunIni(pre, grupo[j]); suf = comunFin(suf, grupo[j]); }
-      if (grupo.length < 2) { pre = ""; suf = ""; }
-      salida.push({
-        prefijo: pre,
-        sufijo: suf,
-        nombres: grupo,
-        etiqueta: grupo.length < 2 ? grupo[0]
-          : (pre + "\u2026" + (suf.length >= 4 ? suf : ""))
-      });
-    }
-    return salida;
-  }
   // END-PODA
   function plural(n, uno, varios) { return n + " " + (n === 1 ? uno : varios); }
 
@@ -1086,7 +1034,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
   function lee(k) { try { return localStorage.getItem("prevTpl." + k); } catch (e) { return null; } }
-  // Atajos de una tecla (/, D, M, 1-9) y flechas. WCAG 2.1.4 pide poder apagarlos: se hace desde la ficha.
+  // Atajos de una tecla (/, D, M, 1-9) y flechas. WCAG 2.1.4 pide poder apagarlos: se hace desde el panel "?".
   var atajos = lee("atajos") !== "0";
 
   (function cargarTemplates() {
@@ -1100,19 +1048,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
   })();
 
-  // Traza de fragmentos del servidor: llena FRG_VIA y deja aparte los que si se
-  // resolvieron, con el camino que los trajo, para verlos en el panel Detalle.
-  var FRG_OK = [];
+  // Traza de fragmentos del servidor: nombre -> como quedo (FRG_VIA, lo usa frgMotivo).
   (function cargarFrgVia() {
     if (!elVista) return;
-    var CAMINO = { mapa: "mapa de nombres + carga por id" };
     var lista = (elVista.getAttribute("data-frg") || "").split(",");
     for (var i = 0; i < lista.length; i++) {
       if (!lista[i]) continue;
       var p = lista[i].split("|");
       var n = decodeURIComponent(p[0]), via = p[1] || "";
       FRG_VIA[n] = via;
-      if (CAMINO[via]) FRG_OK.push(n + " - " + CAMINO[via]);
     }
   })();
 
@@ -1166,9 +1110,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   var verTodos = false;
   function filtrar(q) {
     q = norm(q).replace(/^\s+|\s+$/g, "");
-    var total = TEMPLATES.length + " template" + (TEMPLATES.length === 1 ? "" : "s");
+    var total = plural(TEMPLATES.length, "template", "templates");
     if (!q && verTodos) return { titulo: "Todos \u00b7 " + total, items: TEMPLATES };
-    if (!q) return { titulo: recientes().length ? "Recientes" : "Todos", items: recientes().length ? recientes() : TEMPLATES.slice(0, 50) };
+    if (!q) {
+      var rc = recientes();
+      return rc.length ? { titulo: "Recientes", items: rc } : { titulo: "Todos", items: TEMPLATES.slice(0, 50) };
+    }
     var partes = q.split(/\s+/), out = [], n = 0, i, j, ok;
     for (i = 0; i < TEMPLATES.length; i++) {
       ok = true;
@@ -1291,13 +1238,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elCombo.className = "combo";
     elBuscar.setAttribute("aria-expanded", "false");
     elBuscar.removeAttribute("aria-activedescendant");
-    var t = null, i;
-    for (i = 0; i < TEMPLATES.length; i++) if (TEMPLATES[i].id === actual) t = TEMPLATES[i];
-    elBuscar.value = t ? t.nom : "";
+    elBuscar.value = nombreActual();
   }
   function ir(id) {
     anotarReciente(id);
-    location.href = location.pathname + urlTemplate(id);
+    location.href = location.pathname + "?frgId=" + encodeURIComponent(id);
   }
   elBuscar.onfocus = abrir;
   elBuscar.oninput = function () { verTodos = false; if (!abierto) abrir(); else pintarLista(); };
@@ -1321,19 +1266,18 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   };
 
   // ---------------- Ficha del destinatario ----------------
-  var ETIQ_VACIO = "(vac\u00edo)", ETIQ_OTRO = "(otro valor)", VAL_OTRO = "otro";
+  var ETIQ_VACIO = "(vac\u00edo)", VAL_OTRO = "otro";
   var activa = 0;   // variable que cambian las flechas izquierda/derecha (1-9 la eligen)
 
   function valorPorDefecto(v) { return v.reales.length ? v.reales[0] : VAL_OTRO; }
 
-  // Para variables de tipo "valores" el escenario solo puede ser uno de los valores reales.
-  function normalizarPerfil() {
+  // Pone el valor por defecto en las variables sin valor y en las de tipo "valores" cuyo valor no es
+  // uno de los reales (p.ej. uno viejo que llega por la URL). todas=true: escenario por defecto.
+  function completarPerfil(todas) {
     for (var i = 0; i < det.orden.length; i++) {
       var n = det.orden[i], v = det.vars[n];
-      if (v.tipo !== "valores") continue;
-      var ok = false;
-      for (var j = 0; j < v.reales.length; j++) if (perfil[n] === v.reales[j]) ok = true;
-      if (!ok) perfil[n] = valorPorDefecto(v);
+      if (todas || perfil[n] === undefined || (v.tipo === "valores" && v.reales.indexOf(perfil[n]) < 0))
+        perfil[n] = valorPorDefecto(v);
     }
   }
 
@@ -1416,14 +1360,18 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     // Una sola parada de Tab por variable (el valor elegido); dentro, las flechas.
     b.tabIndex = perfil[n] === val ? 0 : -1;
     b.onfocus = function () { if (activa !== i) { activa = i; marcarActiva(); } };
-    b.onclick = function () {
-      perfil[n] = val;
-      activa = i;
-      pintar();
-      if ($("vb-" + i + "-" + j)) $("vb-" + i + "-" + j).focus();
-      anunciar(etiqVar(n) + ": " + etiqValor(n, val));
-    };
+    b.onclick = function () { elegirValor(i, j, true); };
     return b;
+  }
+  // Elige el valor j (indice en valoresDe) de la variable i, repinta y lo anuncia.
+  // enfocar: devuelve el foco al boton, que se rehace en cada pintar().
+  function elegirValor(i, j, enfocar) {
+    var n = det.orden[i], val = valoresDe(n)[j], b;
+    perfil[n] = val;
+    activa = i;
+    pintar();
+    if (enfocar && (b = $("vb-" + i + "-" + j))) b.focus();
+    anunciar(etiqVar(n) + ": " + etiqValor(n, val));
   }
   function cajaVariable(n, i) {
     var d = document.createElement("div");
@@ -1493,11 +1441,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var n = det.orden[activa], vals = valoresDe(n), i = vals.indexOf(perfil[n]);
     if (vals.length < 2) return;
     var enGrilla = document.activeElement && /^vb-/.test(document.activeElement.id || "");
-    i = (i + dir + vals.length) % vals.length;
-    perfil[n] = vals[i];
-    pintar();
-    if (enGrilla && $("vb-" + activa + "-" + i)) $("vb-" + activa + "-" + i).focus();
-    anunciar(etiqVar(n) + ": " + etiqValor(n, vals[i]));
+    elegirValor(activa, (i + dir + vals.length) % vals.length, enGrilla);
   }
 
   // ---------------- Por revisar ----------------
@@ -1522,7 +1466,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (!b) return;
     var p = problemas();
     b.hidden = !p.length;
-    b.textContent = "\u26A0 " + plural(p.length, "por revisar", "por revisar");
+    b.textContent = "\u26A0 " + p.length + " por revisar";
     anunciar(p.length ? plural(p.length, "cosa por revisar", "cosas por revisar") : "");
     if (!p.length) { cerrarRevisar(false); return; }
     l.textContent = "";
@@ -1575,7 +1519,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       .replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
   }
 
-  // ---------------- Editor de fechas de muestra ----------------
+  // ---------------- Panel de datos de muestra ----------------
   // El panel de datos de muestra siempre esta (a la derecha o como cajon): la vista siempre lleva las marcas.
   var fechasAbierto = !!$("fechas"), fechaFoco = "", fechasLista = [], filasFecha = {}, tFechas = null;
   function texto(s) { return document.createTextNode(s); }
@@ -1587,7 +1531,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       elEditarFechas.title = lista.length ? "Cambiar los datos de muestra de este correo" : "Este correo no imprime datos en esta vista";
     }
     if (!fechasAbierto) return;
-    // Orden fijo: primero las conocidas (inicio, fin...), luego el resto como aparezcan.
+    // La lista llega en orden de aparicion; si no cambio, solo se actualiza el estado de cada fila.
     if (lista.join("|") === fechasLista.join("|") && elFechasL.firstChild) { estadoFechas(); return; }
     fechasLista = lista.slice(); filasFecha = {};
     elFechasL.textContent = "";
@@ -1651,7 +1595,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function estadoFechas() {
     for (var k in filasFecha) if (filasFecha.hasOwnProperty(k)) filasFecha[k].ed.textContent = editados.hasOwnProperty(k) ? "editada" : "";
   }
-  // Resalta en el correo la fecha k (y en el panel su fila); desplazar=true la trae a la vista.
+  // Resalta en el correo el dato k (y en el panel su fila); desplazar=true lo trae a la vista.
   function enfocarFecha(k, desplazar) {
     fechaFoco = k;
     for (var c in filasFecha) if (filasFecha.hasOwnProperty(c)) filasFecha[c].fila.className = "fechas__f" + (c === k ? " fechas__f--foco" : "");
@@ -1664,7 +1608,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     if (desplazar && primero && primero.scrollIntoView) primero.scrollIntoView({ block: "center" });
   }
-  // Texto alrededor de la fecha dentro de su bloque (p, td...), para mostrar "donde" en el panel.
+  // Texto alrededor del dato dentro de su bloque (p, td...), para mostrar "donde" en el panel.
   function contextoFecha(d, mk) {
     var b = mk.parentNode;
     while (b && b.nodeType === 1 && !/^(P|TD|TH|LI|DIV|H[1-6]|BODY)$/.test(b.nodeName)) b = b.parentNode;
@@ -1682,6 +1626,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     m.textContent = mk.textContent;
     s.appendChild(texto(antes)); s.appendChild(m); s.appendChild(texto(despues));
     return s;
+  }
+  // Texto que no se ve como contenido: ahi las marcas solo se quitan, no se convierten en elementos.
+  var RE_SIN_MARCA = /^(STYLE|TITLE|SCRIPT|TEXTAREA|OPTION)$/;
+  function inyectarEstilo(d, css) {
+    var st = d.createElement("style");
+    st.textContent = css;
+    (d.head || d.documentElement).appendChild(st);
   }
   // Marcas ambar de lo que falta (solo la vista): campos sin valor y grupos sin rama activa.
   function senalarFaltas() {
@@ -1716,7 +1667,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     for (i = 0; i < textos.length; i++) {
       n = textos[i];
       if (!n.parentNode) continue;
-      if (/^(STYLE|TITLE|SCRIPT|TEXTAREA|OPTION)$/.test(n.parentNode.nodeName)) { n.data = n.data.replace(reQ, ""); continue; }
+      if (RE_SIN_MARCA.test(n.parentNode.nodeName)) { n.data = n.data.replace(reQ, ""); continue; }
       var frag = d.createDocumentFragment(), txt = n.data, ult = 0, mm;
       re.lastIndex = 0;
       while ((mm = re.exec(txt))) {
@@ -1749,15 +1700,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pa.replaceChild(nodo, n);
     }
     if (!textos.length && !comentarios.length && !enAtr) return;
-    var st = d.createElement("style");
-    st.textContent = "[data-pv-falta]{background:#fef3c7;color:#92400e;outline:2px solid #d97706;outline-offset:1px;border-radius:2px}" +
+    inyectarEstilo(d, "[data-pv-falta]{background:#fef3c7;color:#92400e;outline:2px solid #d97706;outline-offset:1px;border-radius:2px}" +
       "[data-pv-atr]{outline:2px dashed #d97706;outline-offset:3px}" +
       "[data-pv-flash]{animation:pvf 1.2s cubic-bezier(0.23,1,0.32,1)}" +
       "@keyframes pvf{0%,40%{box-shadow:0 0 0 6px rgba(217,119,6,.5)}100%{box-shadow:0 0 0 0 rgba(217,119,6,0)}}" +
       "@media (prefers-reduced-motion:reduce){[data-pv-flash]{animation:none;box-shadow:0 0 0 4px rgba(217,119,6,.5)}}" +
       "[data-pv-rama]{display:block;margin:4px 0;padding:4px 8px;border:2px dashed #d97706;border-radius:3px;" +
-      "background:#fffbeb;color:#92400e;font:600 11px/1.4 Arial,sans-serif;text-align:center}";
-    (d.head || raiz).appendChild(st);
+      "background:#fffbeb;color:#92400e;font:600 11px/1.4 Arial,sans-serif;text-align:center}");
   }
   // Cambia las marcas de texto por <mark> numerados dentro de la vista (solo la vista, no ultimo.html).
   function marcarFechas() {
@@ -1778,7 +1727,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     for (i = 0; i < nodos.length; i++) {
       n = nodos[i];
       if (!n.parentNode) continue;
-      if (/^(STYLE|TITLE|SCRIPT|TEXTAREA|OPTION)$/.test(n.parentNode.nodeName)) { n.data = quitaMarcas(n.data); continue; }
+      if (RE_SIN_MARCA.test(n.parentNode.nodeName)) { n.data = quitaMarcas(n.data); continue; }
       var frag = d.createDocumentFragment(), txt = n.data, ult = 0, mm;
       re.lastIndex = 0;
       while ((mm = re.exec(txt))) {
@@ -1787,7 +1736,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         if (!num[mm[1]]) { frag.appendChild(d.createTextNode(mm[2])); ult = re.lastIndex; continue; }
         var mk = d.createElement("mark");
         mk.setAttribute("data-fecha", mm[1]);
-        mk.setAttribute("data-n", num[mm[1]] || "?");
+        mk.setAttribute("data-n", num[mm[1]]);
         mk.textContent = mm[2];
         frag.appendChild(mk);
         (porClave[mm[1]] = porClave[mm[1]] || []).push(mk);
@@ -1796,14 +1745,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       if (ult < txt.length) frag.appendChild(d.createTextNode(quitaMarcas(txt.slice(ult))));
       n.parentNode.replaceChild(frag, n);
     }
-    var st = d.createElement("style");
     // Sin marca visible: el panel siempre esta y el correo se ve limpio. Solo el dato que se
     // senala o edita en el panel se resalta, con su numero.
-    st.textContent = "mark[data-fecha]{background:transparent;color:inherit;padding:0}" +
+    inyectarEstilo(d, "mark[data-fecha]{background:transparent;color:inherit;padding:0}" +
       "mark[data-fecha][data-activo]{background:#fcd34d;outline:3px solid #1f3a93;outline-offset:1px;border-radius:2px}" +
       "mark[data-fecha][data-activo]::after{content:attr(data-n);display:inline-block;margin-left:3px;padding:0 4px;border-radius:7px;" +
-      "background:#1f3a93;color:#fff;font:700 9px/14px Arial,sans-serif;vertical-align:super}";
-    (d.head || raiz).appendChild(st);
+      "background:#1f3a93;color:#fff;font:700 9px/14px Arial,sans-serif;vertical-align:super}");
     for (var k in filasFecha) {
       if (!filasFecha.hasOwnProperty(k)) continue;
       var ms = porClave[k] || [], donde = filasFecha[k].donde;
@@ -1817,9 +1764,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // Cajon de datos de muestra (bajo 1400 px). En pantallas anchas el panel queda fijo a la derecha.
   var mqDatos = window.matchMedia ? window.matchMedia("(max-width:1400px)") : null;
   function datosCajon() { return !!(mqDatos && mqDatos.matches); }
+  // Borde inferior de la barra: ahi empiezan el cajon de datos y el panel "?".
+  function bajoBarra() { return document.querySelector(".barra").getBoundingClientRect().bottom; }
   function abrirDatos() {
     var a = $("datosAside");
-    a.style.setProperty("--datos-top", Math.round(document.querySelector(".barra").getBoundingClientRect().bottom) + "px");
+    a.style.setProperty("--datos-top", Math.round(bajoBarra()) + "px");
     a.classList.add("datos--abierto");
     elEditarFechas.setAttribute("aria-expanded", "true");
     if (fechasLista.length && filasFecha[fechasLista[0]]) filasFecha[fechasLista[0]].input.focus();
@@ -1833,10 +1782,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
   // Orden de aparicion en el template: posicion de la primera marca de cada dato en la vista.
   function ordenAparicion(lista, html) {
-    return lista.slice().sort(function (a, b) {
-      var ia = html.indexOf(MK_A + a + MK_B), ib = html.indexOf(MK_A + b + MK_B);
-      return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
-    });
+    var pos = {};
+    for (var i = 0; i < lista.length; i++) {
+      var p = html.indexOf(MK_A + lista[i] + MK_B);
+      pos[lista[i]] = p < 0 ? 1e9 : p;
+    }
+    return lista.slice().sort(function (a, b) { return pos[a] - pos[b]; });
   }
   // Datos de muestra editables: todo lo que el correo imprime, salvo PLASTICO (sale del producto
   // elegido) y las variables que ya se eligen en la ficha (producto, segmento...).
@@ -1914,7 +1865,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         elVista.style.height = altoPrevio;
         elLienzo.scrollTop = top;
         h = Math.min(Math.max(h, 200), ALTO_MAX);
-        if (h > 0 && Math.abs(h - altoMedido) > 2) {
+        if (Math.abs(h - altoMedido) > 2) {
           altoMedido = h;
           elVista.style.height = h + "px";
         }
@@ -1953,7 +1904,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     // Hasta que el correo nuevo cargue y se mida se conserva el alto anterior: volver al
     // respaldo en cada repintado hacia saltar el scroll. ALTO_VISTA solo en la primera vista.
     if (!elVista.style.height) elVista.style.height = ALTO_VISTA + "px";
-    // La vista lleva marcas: campos sin valor, grupos sin rama y, con el editor abierto, fechas.
+    // La vista lleva marcas: campos sin valor, grupos sin rama y los datos de muestra.
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
     var hv = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
     elVista.srcdoc = hv;
@@ -1968,15 +1919,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   if (elVista) {
     det = detectar(original);
     leerURL();
-    for (var q = 0; q < det.orden.length; q++) {
-      var nq = det.orden[q];
-      if (perfil[nq] === undefined) perfil[nq] = valorPorDefecto(det.vars[nq]);
-    }
+    completarPerfil(false);
     if (lee("muestra") === "0" && location.search.indexOf("muestra=") < 0) vista.muestra = false;
-    normalizarPerfil();
     pintar();
     $("fichaRes").onclick = function () {
-      var abre = elFicha.className.indexOf("ficha--abierta") < 0;
+      var abre = !elFicha.classList.contains("ficha--abierta");
       elFicha.classList.toggle("ficha--abierta", abre);
       this.setAttribute("aria-expanded", abre ? "true" : "false");
     };
@@ -1990,8 +1937,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       if (!$("revisarL").hidden && !$("revisarL").contains(ev.target) && ev.target !== $("revisar")) cerrarRevisar(false);
     });
 
-    $("escritorio").onclick = function () { vista.w = 700; pintar(); };
-    $("movil").onclick = function () { vista.w = 375; pintar(); };
+    $("escritorio").onclick = function () { ponerAncho(700); };
+    $("movil").onclick = function () { ponerAncho(375); };
     $("zmas").onclick = function () { vista.z = Math.min(100, vista.z + 10); pintar(); };
     $("zmenos").onclick = function () { vista.z = Math.max(50, vista.z - 10); pintar(); };
     elEditarFechas.onclick = function () { if ($("datosAside").classList.contains("datos--abierto")) cerrarDatos(false); else abrirDatos(); };
@@ -2009,19 +1956,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       pintar();
     };
     $("restablecer").onclick = function () {
-      for (var i = 0; i < det.orden.length; i++) perfil[det.orden[i]] = valorPorDefecto(det.vars[det.orden[i]]);
+      completarPerfil(true);
       pintar();
       anunciar("Escenario por defecto");
     };
     $("descargar").onclick = function () {
-      var url = URL.createObjectURL(new Blob([ultimo.html], { type: "text/html" }));
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = nombreArchivo() + ".html";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+      bajarBlob(new Blob([ultimo.html], { type: "text/html" }), nombreArchivo() + ".html");
     };
     var tEnlace;
     $("enlace").onclick = function () {
@@ -2061,8 +2001,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       }
       else if (ev.key === "?") { ev.preventDefault(); abrirAyuda(); }
       else if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
-      else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
-      else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
+      else if (ev.key === "d" || ev.key === "D") ponerAncho(700);
+      else if (ev.key === "m" || ev.key === "M") ponerAncho(375);
     };
   }
 
@@ -2073,18 +2013,33 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return slug || ("template-" + (elVista && elVista.getAttribute("data-id") || "preview"));
   }
 
-  // Sin template no hay nada que descargar.
-  if (!elVista) { $("descargar").disabled = true; $("descargarPng").disabled = true; $("descargarPdf").disabled = true; }
+  function ponerAncho(w) { vista.w = w; pintar(); }
+  // Descarga un Blob con ese nombre de archivo (.html, PNG, PDF).
+  function bajarBlob(blob, nombre) {
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+  }
+  function descargasActivas(si) {
+    $("descargar").disabled = $("descargarPng").disabled = $("descargarPdf").disabled = !si;
+  }
 
-  // Encender/apagar los atajos de teclado (en la ficha). Si estan apagados, tampoco se anuncian
-  // en title ni en aria-keyshortcuts, y la ayuda de teclado de la ficha se oculta.
+  // Sin template no hay nada que descargar.
+  if (!elVista) descargasActivas(false);
+
+  // Encender/apagar los atajos de teclado (en el panel "?"). Si estan apagados, tampoco se anuncian
+  // en title ni en aria-keyshortcuts, y la ayuda se atenua y la marca de la ficha se oculta.
   function pintarAtajos() {
     var b = $("atajos");
     if (b) {
       b.setAttribute("aria-pressed", atajos ? "true" : "false");
       b.textContent = "Atajos de teclado: " + (atajos ? "activados" : "desactivados");
     }
-    if ($("ficha")) $("ficha").classList.toggle("ficha--sin-atajos", !atajos);
+    if (elFicha) elFicha.classList.toggle("ficha--sin-atajos", !atajos);
     var ls = [["buscar", "Buscar template o id", "/"], ["escritorio", "Escritorio", "D"], ["movil", "M\u00f3vil", "M"]];
     for (var i = 0; i < ls.length; i++) {
       var el = $(ls[i][0]);
@@ -2095,7 +2050,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
   function abrirAyuda() {
     var p = $("ayudaPop");
-    p.style.top = Math.round(document.querySelector(".barra").getBoundingClientRect().bottom + 4) + "px";
+    p.style.top = Math.round(bajoBarra() + 4) + "px";
     pintarAyuda();
     p.hidden = false;
     $("bAyuda").setAttribute("aria-expanded", "true");
@@ -2317,10 +2272,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         try {
           canvas.toBlob(function (blob) {
             if (!blob) { ko(new Error("canvas vac\u00edo")); return; }
-            var url = URL.createObjectURL(blob), a = document.createElement("a");
-            a.href = url; a.download = nombre;
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+            bajarBlob(blob, nombre);
             ok();
           }, "image/png");
         } catch (e) { ko(e); }
@@ -2360,10 +2312,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
     var conBoton = function (boton, trabajo) {
       if (!ultimo || boton.disabled) return;
-      var previo = boton.textContent, bHtml = $("descargar");
-      bPng.disabled = true; bPdf.disabled = true; bHtml.disabled = true;
+      var previo = boton.textContent;
+      descargasActivas(false);
       trabajo().then(null, errorCaptura).then(function () {
-        bPng.disabled = false; bPdf.disabled = false; bHtml.disabled = false; cambiarTexto(boton, previo, true);
+        descargasActivas(true);
+        cambiarTexto(boton, previo, true);
       });
     };
 
@@ -2433,10 +2386,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       conBoton(bPdf, function () {
         return generarCapturas(bPdf).then(function (caps) {
           cambiarTexto(bPdf, "Armando PDF\u2026");
-          var url = URL.createObjectURL(pdfDesdeCapturas(caps)), a = document.createElement("a");
-          a.href = url; a.download = nombreArchivo() + ".pdf";
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+          bajarBlob(pdfDesdeCapturas(caps), nombreArchivo() + ".pdf");
           avisoWf(pngFallidas.length ? "aviso" : true, "PDF descargado: p\u00e1gina 1 escritorio, p\u00e1gina 2 m\u00f3vil." + avisoImagenes());
         });
       });

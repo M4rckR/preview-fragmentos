@@ -19,7 +19,7 @@ function cargarPoda() {
   if (a < 0 || b < 0) throw new Error("No encuentro BEGIN-PODA/END-PODA");
   var cuerpo = "var perfil = {}, VAL_OTRO = 'otro';\n" + t.slice(a, b) +
     "\nreturn { podar: podar, evaluar: evaluar, tokenizar: tokenizar, detectar: detectar," +
-    " agrupar: agrupar, esc: esc, norm: norm, fechaMuestra: fechaMuestra, fechaCompacta: fechaCompacta," +
+    " esc: esc, norm: norm, fechaMuestra: fechaMuestra, fechaCompacta: fechaCompacta," +
     " frgMotivo: frgMotivo, valorMuestra: valorMuestra, FRG_VIA: FRG_VIA, diccionario: diccionario," +
     " fijarPerfil: function (p) { perfil = p; }," +
     " fijarEditados: function (e) { editados = e; } };";
@@ -177,14 +177,6 @@ test("podar: grupos anidados se resuelven de adentro hacia afuera", function () 
   assert.equal(P.podar(externo, { A: "2", B: "1" }).html, "ax");
 });
 
-test("podar: la opcion todas muestra cada rama con su rotulo", function () {
-  var P = nueva();
-  var r = P.podar(PRODUCTO, {}, { todas: true });
-  assert.match(r.html, /RAMA: LATAM Platinum<\/div><p>platinum<\/p>/);
-  assert.match(r.html, /RAMA: Resto de productos<\/div><p>resto<\/p>/);
-  assert.equal(r.elegidas[0].todas, true);
-});
-
 // ---------------- podar: campos ----------------
 
 test("podar: reemplaza campos con el dato de muestra o con [CAMPO]", function () {
@@ -284,7 +276,7 @@ test("podar: un campo dentro de un href queda en sinValor", function () {
   assert.match(r.html, /href="https:\/\/example.com\/\?u=\u27EA\[IDCLIENTE\]\u27EB"/);
 });
 
-// ---------------- detectar y agrupar ----------------
+// ---------------- detectar ----------------
 
 test("detectar: variables, valores comparados y tipo", function () {
   var P = nueva();
@@ -297,16 +289,6 @@ test("detectar: variables, valores comparados y tipo", function () {
   assert.equal(d.vars.FLGCASHBACK.tipo, "presencia");
   assert.deepEqual(d.omitidas, ["DESCORREOEENNPRINCIPAL"]);
   assert.equal(d.n, 6);
-});
-
-test("agrupar: junta nombres parecidos y deja sueltos los demas", function () {
-  var P = nueva();
-  var g = P.agrupar(["DESCORREOEENNPRINCIPAL", "TCEA", "DESNBREENNPRINCIPAL"]);
-  assert.equal(g.length, 2);
-  assert.deepEqual(g[0].nombres, ["DESCORREOEENNPRINCIPAL", "DESNBREENNPRINCIPAL"]);
-  assert.equal(g[0].prefijo, "DES");
-  assert.equal(g[0].etiqueta, "DES\u2026EENNPRINCIPAL");
-  assert.deepEqual(g[1], { prefijo: "", sufijo: "", nombres: ["TCEA"], etiqueta: "TCEA" });
 });
 
 // ---------------- auxiliares ----------------
