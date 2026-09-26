@@ -283,7 +283,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .barra__wf { display:inline-flex; align-items:center; height:30px; font:inherit; font-size:var(--fs-sm); font-weight:600; padding:0 12px;
              border:0; border-radius:var(--radius-btn); background:#fff; color:var(--bar-bg); cursor:pointer; white-space:nowrap; }
 .barra__wf:hover { background:var(--vars-bg); }
-.barra__wf:disabled, .barra__wf[aria-disabled="true"] { background:rgba(255,255,255,.16); color:#fff; cursor:not-allowed; }
+/* Pausado: se ve apagado (sin relleno) pero sigue enfocable (aria-disabled) y al pulsarlo explica por que. */
+.barra__wf:disabled, .barra__wf[aria-disabled="true"] { background:transparent; border:1px dashed var(--bar-linea); color:rgba(255,255,255,.72); cursor:not-allowed; }
 
 /* ---------- combobox ---------- */
 .combo { position:relative; flex:0 1 340px; min-width:180px; }
@@ -317,25 +318,38 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .mesa { flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:minmax(300px,1fr) auto minmax(0,1fr);
         column-gap:28px; padding:20px 20px 40px; }
 .margen { min-width:0; }
-.margen__pega { position:sticky; top:0; margin-left:auto; width:min(var(--ficha-w),100%); }
+.margen__pega { position:sticky; top:20px; margin-left:auto; width:min(var(--ficha-w),100%); }
 .centro { min-width:0; }
 .centro--vacio { grid-column:1 / -1; display:flex; }
 .espera { margin:auto; color:var(--text-muted); font-size:var(--fs-md); text-align:center; }
 
 /* ---------- ficha del destinatario ---------- */
 .ficha { background:var(--panel-bg); border-radius:4px; padding:12px 16px 14px;
-         max-height:calc(100vh - var(--barra-h) - 40px); overflow:auto;
+         max-height:calc(100vh - var(--barra-h) - 60px); overflow:auto;
          box-shadow:0 1px 1px rgba(31,36,48,.08), 0 6px 18px rgba(31,36,48,.10); }
 .ficha__cab { display:flex; align-items:baseline; gap:8px; }
 .ficha__para { font-size:var(--fs-xxs); font-weight:700; letter-spacing:.12em; color:var(--vars-label); }
 .ficha__n { margin-left:auto; font-family:var(--font-mono); font-size:var(--fs-xxs); color:var(--text-muted); }
 .ficha__nota { margin:8px 0 0; font-size:var(--fs-xs); color:var(--text-muted); }
-.vars { margin:10px 0 12px; }
-.var { padding:10px 10px 12px; border:1px solid var(--vars-border); border-radius:7px; background:var(--vars-fondo); }
-.var + .var { margin-top:10px; }
+/* Resumen plegado: solo en pantallas angostas (ver el media query de 1080 px). */
+.ficha__res { display:none; width:100%; margin-top:6px; align-items:center; gap:8px; padding:8px 10px; font:inherit; font-size:var(--fs-sm);
+              font-weight:600; color:var(--vars-label); text-align:left; background:var(--vars-bg); border:1px solid var(--vars-border);
+              border-radius:6px; cursor:pointer; }
+.ficha__res span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ficha__res::after { content:"\25BE"; flex:none; }
+.ficha--abierta .ficha__res::after { content:"\25B4"; }
+.vars { margin:6px 0 12px; }
+.var { padding:10px 0 12px; }
+.var + .var { border-top:1px solid var(--linea); }
 .var__t { display:flex; align-items:center; gap:6px; margin:0 0 8px; font-size:var(--fs-xs); font-weight:700; letter-spacing:.06em; color:var(--vars-label); }
 .var__n { font-family:var(--font-mono); font-size:var(--fs-xxs); font-weight:500; color:var(--text-muted); }
-.var--activa .var__t::after { content:""; flex:1; height:2px; margin-left:4px; border-radius:1px; background:var(--vars-label); opacity:.35; }
+/* La variable activa (la que mueven las flechas) lleva su marca; se oculta si los atajos estan apagados. */
+.var--activa .var__t::after { content:"\2190\00a0\2192"; margin-left:auto; padding:1px 6px; font:500 var(--fs-xxs)/1.4 var(--font-mono);
+  letter-spacing:0; color:var(--vars-label); background:var(--vars-bg); border:1px solid var(--vars-border); border-radius:3px; }
+.ficha--sin-atajos .var--activa .var__t::after { display:none; }
+.var__fam { margin:8px 0 4px; font-size:var(--fs-xxs); font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+.var__fam:first-child { margin-top:0; }
+.var__fijo { display:block; padding:6px 0; font-size:var(--fs-sm); font-weight:600; color:var(--text); }
 .var__g { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .var__g--uno { grid-template-columns:1fr; }
 .var__g button { min-height:34px; padding:6px 8px; font:inherit; font-size:var(--fs-sm); line-height:1.2; color:var(--text); cursor:pointer;
@@ -343,12 +357,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .var__g button:hover { background:var(--vars-bg); }
 .var__g button[aria-pressed="true"] { background:var(--vars-label); border-color:var(--vars-label); color:#fff; font-weight:600; }
 .ficha__acc { display:flex; flex-wrap:wrap; gap:4px 14px; }
-.lnk { border:0; background:none; padding:2px 0; font:inherit; font-size:var(--fs-xs); color:var(--text-muted); cursor:pointer;
+.lnk { display:inline-flex; align-items:center; min-height:24px; border:0; background:none; padding:2px 0; font:inherit; font-size:var(--fs-xs); color:var(--text-muted); cursor:pointer;
        text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--linea); }
 .lnk:hover { color:var(--text); text-decoration-color:currentColor; }
 .lnk[aria-expanded="true"] { color:var(--vars-label); }
 .lnk:disabled { opacity:.5; cursor:not-allowed; }
-.ficha__ayuda { margin:10px 0 0; font-size:var(--fs-xxs); color:var(--text-muted); }
+.ficha__ayuda { margin:10px 0 0; font-size:var(--fs-xs); color:var(--text-muted); }
 .ficha__ayuda kbd { font-family:var(--font-mono); font-size:var(--fs-xxs); padding:0 4px; border:1px solid var(--linea); border-radius:3px; background:var(--hover-bg); }
 .ficha__atajos { margin-top:4px; }
 
@@ -374,7 +388,23 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .fechas__pie { padding:6px 0 0; }
 
 /* ---------- correo ---------- */
-.centro__cab { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; margin:0 0 8px; font-size:var(--fs-xs); color:var(--text-muted); }
+.centro__cab { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; margin:0 0 8px; font-size:var(--fs-xs); color:var(--text-muted); }
+/* "Por revisar": chico, junto a la etiqueta, solo si hay algo. La lista flota: no empuja el correo. */
+.revisar { display:inline-flex; align-items:center; min-height:24px; padding:1px 8px; font:inherit; font-size:var(--fs-xs); font-weight:700;
+           color:var(--warn-fg); background:var(--warn-bg); border:1px solid rgba(146,64,14,.3); border-radius:12px; cursor:pointer; }
+.revisar[hidden] { display:none; }
+.revisar:hover { background:#fde68a; }
+.revisar__l { position:absolute; left:0; top:calc(100% + 4px); z-index:20; width:min(440px,100%); max-height:60vh; overflow:auto;
+              padding:10px 12px; background:#fff; color:var(--text); border-radius:8px; box-shadow:0 10px 30px rgba(15,23,42,.22); }
+.revisar__l[hidden] { display:none; }
+.revisar__l:not([hidden]) { transform-origin:top left; animation:entra-lista var(--dur-sm) var(--ease-out); }
+.revisar__l ul { list-style:none; margin:0; padding:0; }
+.revisar__l li + li { margin-top:4px; }
+.revisar__i { display:block; width:100%; padding:6px 8px; font:inherit; font-size:var(--fs-xs); line-height:1.35; text-align:left; color:var(--text);
+              background:var(--hover-bg); border:0; border-radius:4px; cursor:pointer; word-break:break-word; }
+.revisar__i:hover { background:var(--warn-bg); }
+.revisar__i:disabled { cursor:default; background:var(--hover-bg); }
+.revisar__ley { margin:10px 0 0; font-size:var(--fs-xs); color:var(--text-muted); }
 .centro__muestra b { color:var(--warn-fg); font-weight:700; }
 .centro__desborde { flex:1 1 100%; color:var(--err-fg); font-weight:600; }
 .marco { margin:0 auto; background:#fff; transform-origin:top center; display:flex; flex-direction:column;
@@ -382,11 +412,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .marco iframe { display:block; border:0; background:#fff; }
 
 /* ---------- resultado de una accion (Workfront, PNG, PDF) ---------- */
-.accion { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:0 0 10px; padding:6px 10px; border-radius:6px;
-          font-size:var(--fs-xs); }
+/* Sticky: el resultado queda a la vista aunque se haya bajado en el correo. */
+.accion { position:sticky; top:0; z-index:15; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:0 0 10px; padding:6px 10px;
+          border-radius:6px; font-size:var(--fs-xs); box-shadow:0 2px 8px rgba(31,36,48,.12); }
 .accion[hidden] { display:none; }
 .accion--ok { background:var(--ok-bg); color:var(--ok-fg); }
 .accion--error { background:var(--err-bg); color:var(--err-fg); }
+.accion--aviso { background:var(--warn-bg); color:var(--warn-fg); }
 .accion details { font-weight:400; }
 .accion summary { cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .accion__b { margin-left:auto; font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
@@ -422,14 +454,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
    Solo transform y opacity (mas el color del hover). Respuesta al clic y entrada de fechas y modal;
    la salida es instantanea. La lista del combo, el zoom, el cambio escritorio/movil y el cambio de
    escenario van sin animacion a proposito: se usan en rafagas o con teclado. */
-.barra__btn, .barra__wf, .lnk, .var__g button, .accion__b, .combo__acc button, .modal__pie button, .modal__x {
+.barra__btn, .barra__wf, .lnk, .var__g button, .accion__b, .revisar, .revisar__i, .ficha__res, .combo__acc button, .modal__pie button, .modal__x {
   transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
 .combo__item { transition:background-color var(--dur-xs) ease; }
 .barra__btn:active:not(:disabled), .barra__wf:active:not(:disabled), .accion__b:active, .combo__acc button:active,
-.var__g button:active, .modal__pie button:active:not(:disabled), .modal__x:active { transform:scale(0.97); }
+.var__g button:active, .revisar:active, .modal__pie button:active:not(:disabled), .modal__x:active { transform:scale(0.97); }
+.revisar__i:active:not(:disabled), .ficha__res:active { transform:scale(0.985); }
 /* Cambio de texto en un boton (Copiar enlace, Workfront, PNG, PDF): el texto nuevo se enfoca desde un leve blur. */
 .cambia { animation:resuelve var(--dur-md) var(--ease-out); }
 @keyframes entra-fechas { from { opacity:0; transform:translateY(-4px); } }
+@keyframes entra-lista { from { opacity:0; transform:scale(0.97) translateY(-2px); } }
 @keyframes entra-modal { from { opacity:0; transform:scale(0.96); } }
 @keyframes funde { from { opacity:0; } }
 @keyframes resuelve { from { opacity:.6; filter:blur(2px); } }
@@ -442,6 +476,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   .margen { width:100%; max-width:760px; }
   .margen__pega { position:static; width:100%; margin:0; }
   .ficha { max-height:none; }
+  /* Plegada en una linea: el correo se ve de entrada; la grilla se abre a pedido. */
+  .ficha__res { display:flex; }
+  .ficha:not(.ficha--abierta) .ficha__cuerpo { display:none; }
   .centro { max-width:100%; overflow-x:auto; }
 }
 @media (max-width:900px) {
@@ -451,7 +488,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* Movimiento reducido: solo fundidos. Va al final para ganarle a los media queries de ancho.
    La respuesta al clic (scale en su lugar) se mantiene: no desplaza nada. */
 @media (prefers-reduced-motion:reduce) {
-  .fechas:not([hidden]), .modal--abierto .modal__caja { animation:funde var(--dur-sm) var(--ease-out); }
+  .fechas:not([hidden]), .revisar__l:not([hidden]), .modal--abierto .modal__caja { animation:funde var(--dur-sm) var(--ease-out); }
 }
 </style>
 </head>
@@ -496,7 +533,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     <aside class="margen" aria-label="Escenario">
       <div class="margen__pega">
         <div class="ficha" id="ficha">
+          <h2 class="sr">Escenario</h2>
           <div class="ficha__cab"><span class="ficha__para">PARA</span><span class="ficha__n" id="fichaN"></span></div>
+          <button type="button" class="ficha__res" id="fichaRes" aria-expanded="false" aria-controls="fichaCuerpo"><span id="fichaResT"></span></button>
+          <div class="ficha__cuerpo" id="fichaCuerpo">
           <div class="vars" id="vars"></div>
           <div class="ficha__acc">
             <button type="button" class="lnk" id="restablecer" title="Vuelve al escenario por defecto">Por defecto</button>
@@ -512,6 +552,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           </section>
           <p class="ficha__ayuda" id="ayuda"></p>
           <button type="button" class="lnk ficha__atajos" id="atajos" aria-pressed="true">Atajos de teclado: activados</button>
+          </div>
         </div>
       </div>
     </aside>
@@ -519,6 +560,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <div class="centro__cab">
         <span class="centro__muestra" id="cintaEtq"></span>
         <span id="cintaTxt"></span>
+        <button type="button" class="revisar" id="revisar" aria-expanded="false" aria-controls="revisarL" hidden></button>
+        <div class="revisar__l" id="revisarL" role="region" aria-label="Por revisar" hidden></div>
         <span class="centro__desborde" id="desborde" hidden></span>
       </div>
       <!-- Resultado de una accion (Workfront, PNG, PDF): linea propia sobre el correo. -->
@@ -731,16 +774,16 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       "CODPRODUCTO": "PRODUCTO",
       "M1N": "CONSUMO",
       "X1N": "BEX",
-      "TCRCLL": "LATAM Clasica",
+      "TCRCLL": "LATAM Cl\u00e1sica",
       "TCRORL": "LATAM Oro",
       "TCRPLL": "LATAM Platinum",
       "TCRPL1": "LATAM Signature",
       "TCRBA7": "LATAM Sapphire",
-      "AMXCLL": "Amex Clasica",
+      "AMXCLL": "Amex Cl\u00e1sica",
       "AMXGLL": "Amex Oro",
       "AMXPLL": "Amex Platinum",
       "AMXGRE": "Amex Black",
-      "TCRLY5": "Qore Clasica",
+      "TCRLY5": "Qore Cl\u00e1sica",
       "TCRLY4": "Qore Platinum",
       "TCRLY3": "Qore Oro",
       "TCRLY2": "Qore Signature",
@@ -964,7 +1007,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     ultAnuncio = txt;
     elAnuncio.textContent = txt;
   }
-  var elVars = $("vars"), elFichaN = $("fichaN"), elAyuda = $("ayuda");
+  var elVars = $("vars"), elFichaN = $("fichaN"), elAyuda = $("ayuda"), elFicha = $("ficha");
   var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
   var elVista = $("vista"), elMarco = $("marco"), elCentro = $("centro"), elCintaTxt = $("cintaTxt");
   var elLienzo = $("lienzo");
@@ -1241,12 +1284,38 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
   }
 
-  // Solo los valores que el template compara de verdad: "(otro valor)" caia siempre en la rama
-  // por defecto y confundia. Una bandera de presencia ofrece "con dato" o "(vacio)".
-  function valoresDe(n) { var v = det.vars[n]; return v.tipo === "valores" ? v.reales.slice() : [VAL_OTRO, ""]; }
+  // Solo los valores que el template compara de verdad: "(otro valor)" ca\u00EDa siempre en la rama
+  // por defecto y confund\u00EDa. Una bandera de presencia ofrece "con valor" o "sin valor".
+  // Con muchas opciones de varias familias (LATAM, Amex, Qore) se ordenan por familia, as\u00ED las
+  // flechas recorren una familia entera antes de pasar a la siguiente.
+  function familia(n, val) { return etiqValor(n, val).split(" ")[0]; }
+  function porFamilia(n, vals) {
+    if (vals.length < 6) return null;
+    var fams = [], grupos = {}, i;
+    for (i = 0; i < vals.length; i++) {
+      var f = familia(n, vals[i]);
+      if (!grupos[f]) { grupos[f] = []; fams.push(f); }
+      grupos[f].push(vals[i]);
+    }
+    return (fams.length >= 2 && fams.length < vals.length) ? { fams: fams, grupos: grupos } : null;
+  }
+  function valoresDe(n) {
+    var v = det.vars[n];
+    if (v.tipo !== "valores") return [VAL_OTRO, ""];
+    var vals = v.reales.slice(), pf = porFamilia(n, vals);
+    if (!pf) return vals;
+    var out = [];
+    for (var i = 0; i < pf.fams.length; i++) out = out.concat(pf.grupos[pf.fams[i]]);
+    return out;
+  }
   function etiqValor(n, val) {
-    if (det.vars[n].tipo !== "valores") return val === "" ? ETIQ_VACIO : "con dato";
+    if (det.vars[n].tipo !== "valores") return val === "" ? "sin valor" : "con valor";
     return traducirUI(val);
+  }
+  // Nombre de la variable para el operador: la traducci\u00F3n, o el c\u00F3digo sin prefijo t\u00E9cnico (FLGCASHBACK -> CASHBACK).
+  function etiqVar(n) {
+    var t = traducirUI(n);
+    return t !== n ? t : n.replace(/^(FLG|COD|DES|NBR|MTO|NUM)(?=[A-Z])/, "");
   }
   function totalEscenarios() {
     var t = 1;
@@ -1278,7 +1347,30 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (det.orden.length && det.omitidas.length)
       elVars.appendChild(notaFicha("Los datos de contacto no condicionan las variantes; se muestran como datos ficticios."));
     elFichaN.textContent = det.orden.length ? "escenario " + indiceEscenario() + " de " + totalEscenarios() : "";
+    // Resumen para la ficha plegada (pantallas angostas): el escenario en una l\u00EDnea.
+    var res = [];
+    for (i = 0; i < det.orden.length; i++) res.push(etiqValor(det.orden[i], perfil[det.orden[i]]));
+    $("fichaResT").textContent = res.length ? res.join(" \u00B7 ") : "Sin variables";
     pintarAyuda();
+  }
+  function botonValor(n, i, val, j) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.id = "vb-" + i + "-" + j;
+    b.textContent = etiqValor(n, val);
+    if (det.vars[n].tipo === "valores" && traducirUI(val) !== val) b.title = "C\u00F3digo " + val;
+    b.setAttribute("aria-pressed", perfil[n] === val ? "true" : "false");
+    // Una sola parada de Tab por variable (el valor elegido); dentro, las flechas.
+    b.tabIndex = perfil[n] === val ? 0 : -1;
+    b.onfocus = function () { if (activa !== i) { activa = i; marcarActiva(); } };
+    b.onclick = function () {
+      perfil[n] = val;
+      activa = i;
+      pintar();
+      if ($("vb-" + i + "-" + j)) $("vb-" + i + "-" + j).focus();
+      anunciar(etiqVar(n) + ": " + etiqValor(n, val));
+    };
+    return b;
   }
   function cajaVariable(n, i) {
     var d = document.createElement("div");
@@ -1296,30 +1388,31 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       num.textContent = String(i + 1);
       t.appendChild(num);
     }
-    t.appendChild(document.createTextNode(traducirUI(n)));
-    var g = document.createElement("div"), vals = valoresDe(n);
-    g.className = "var__g" + (vals.length < 2 ? " var__g--uno" : "");
-    for (var j = 0; j < vals.length; j++) {
-      (function (val, j) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.id = "vb-" + i + "-" + j;
-        b.textContent = etiqValor(n, val);
-        if (det.vars[n].tipo === "valores" && traducirUI(val) !== val) b.title = "C\u00f3digo " + val;
-        b.setAttribute("aria-pressed", perfil[n] === val ? "true" : "false");
-        b.onfocus = function () { if (activa !== i) { activa = i; marcarActiva(); } };
-        b.onclick = function () {
-          perfil[n] = val;
-          activa = i;
-          pintar();
-          if ($("vb-" + i + "-" + j)) $("vb-" + i + "-" + j).focus();
-          anunciar(traducirUI(n) + ": " + etiqValor(n, val));
-        };
-        g.appendChild(b);
-      })(vals[j], j);
-    }
+    t.appendChild(document.createTextNode(etiqVar(n)));
     d.appendChild(t);
-    d.appendChild(g);
+    var vals = valoresDe(n), j;
+    // Un solo valor no es una elecci\u00F3n: se muestra como texto fijo.
+    if (vals.length === 1) {
+      var fijo = document.createElement("span");
+      fijo.className = "var__fijo";
+      fijo.textContent = etiqValor(n, vals[0]);
+      d.appendChild(fijo);
+      return d;
+    }
+    var pf = porFamilia(n, det.vars[n].tipo === "valores" ? det.vars[n].reales : []);
+    var g = null, famAct = null;
+    for (j = 0; j < vals.length; j++) {
+      if (pf && familia(n, vals[j]) !== famAct) {
+        famAct = familia(n, vals[j]);
+        var ft = document.createElement("div");
+        ft.className = "var__fam";
+        ft.textContent = famAct;
+        d.appendChild(ft);
+        g = null;
+      }
+      if (!g) { g = document.createElement("div"); g.className = "var__g"; d.appendChild(g); }
+      g.appendChild(botonValor(n, i, vals[j], j));
+    }
     return d;
   }
   function marcarActiva() {
@@ -1327,23 +1420,89 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     for (var i = 0; i < vs.length; i++) vs[i].className = "var" + (i === activa ? " var--activa" : "");
     pintarAyuda();
   }
-  // Ayuda de teclado bajo la ficha; se oculta si los atajos estan apagados.
+  // Ayuda de teclado bajo la ficha; se oculta si los atajos est\u00E1n apagados.
   function pintarAyuda() {
     if (!elAyuda || !det) return;
     elAyuda.hidden = !atajos || !det.orden.length;
     if (elAyuda.hidden) return;
-    elAyuda.innerHTML = "<kbd>\u2190</kbd> <kbd>\u2192</kbd> cambian " + esc(traducirUI(det.orden[activa]).toLowerCase()) +
-      (det.orden.length > 1 ? " \u00b7 <kbd>1</kbd>\u2013<kbd>" + Math.min(9, det.orden.length) + "</kbd> eligen la variable" : "");
+    elAyuda.innerHTML = "<kbd>\u2190</kbd> <kbd>\u2192</kbd> cambian " + esc(etiqVar(det.orden[activa]).toLowerCase()) +
+      (det.orden.length > 1 ? " \u00B7 <kbd>1</kbd>\u2013<kbd>" + Math.min(9, det.orden.length) + "</kbd> eligen la variable" : "");
   }
   // Flechas: siguiente o anterior valor de la variable activa. Si el foco estaba en la grilla, lo sigue.
   function paso(dir) {
     var n = det.orden[activa], vals = valoresDe(n), i = vals.indexOf(perfil[n]);
+    if (vals.length < 2) return;
     var enGrilla = document.activeElement && /^vb-/.test(document.activeElement.id || "");
     i = (i + dir + vals.length) % vals.length;
     perfil[n] = vals[i];
     pintar();
     if (enGrilla && $("vb-" + activa + "-" + i)) $("vb-" + activa + "-" + i).focus();
-    anunciar(traducirUI(n) + ": " + etiqValor(n, vals[i]));
+    anunciar(etiqVar(n) + ": " + etiqValor(n, vals[i]));
+  }
+
+  // ---------------- Por revisar ----------------
+  // Lo que la vista no puede mostrar sola, en una lista a pedido junto a "Datos de muestra":
+  // chico, solo si hay algo, y la lista flota sin empujar el correo. Cada \u00EDtem baja a su marca.
+  function problemas() {
+    var p = [], i, r = ultimo;
+    if (!r) return p;
+    for (i = 0; i < r.elegidas.length; i++) if (r.elegidas[i].sin)
+      p.push({ t: "Grupo " + r.elegidas[i].grupo + " sin rama activa: en su lugar no sale nada.", sel: '[data-pv-rama="' + r.elegidas[i].grupo + '"]' });
+    for (i = 0; i < r.noEvalTextos.length; i++)
+      p.push({ t: "Condici\u00F3n que no se puede evaluar (se omiti\u00F3 esa rama): " + legible(r.noEvalTextos[i]) });
+    for (i = 0; i < r.includes.length; i++) p.push({ t: "Fragmento no resuelto: " + r.includes[i] });
+    if (vista.muestra) for (i = 0; i < r.sinValor.length; i++)
+      p.push({ t: "Campo sin dato de muestra: " + r.sinValor[i] + " (solo afecta al preview)", sel: '[data-pv-k="' + r.sinValor[i] + '"]' });
+    var des = $("desborde");
+    if (des && !des.hidden) p.push({ t: des.textContent.replace(/^\u26A0\s*/, "") });
+    return p;
+  }
+  function pintarRevisar() {
+    var b = $("revisar"), l = $("revisarL");
+    if (!b) return;
+    var p = problemas();
+    b.hidden = !p.length;
+    b.textContent = "\u26A0 " + plural(p.length, "por revisar", "por revisar");
+    anunciar(p.length ? plural(p.length, "cosa por revisar", "cosas por revisar") : "");
+    if (!p.length) { cerrarRevisar(false); return; }
+    l.textContent = "";
+    var ul = document.createElement("ul");
+    for (var i = 0; i < p.length; i++) {
+      (function (it) {
+        var li = document.createElement("li"), bi = document.createElement("button");
+        bi.type = "button";
+        bi.className = "revisar__i";
+        bi.textContent = it.t;
+        if (it.sel) { bi.title = "Ir a la marca en el correo"; bi.onclick = function () { irA(it.sel); }; }
+        else bi.disabled = true;
+        li.appendChild(bi);
+        ul.appendChild(li);
+      })(p[i]);
+    }
+    l.appendChild(ul);
+    var ley = document.createElement("p");
+    ley.className = "revisar__ley";
+    ley.textContent = "En el correo: fondo \u00E1mbar = campo sin valor; contorno punteado = enlace o imagen con un campo vac\u00EDo; recuadro punteado = grupo sin rama activa.";
+    l.appendChild(ley);
+  }
+  function cerrarRevisar(foco) {
+    var l = $("revisarL"), b = $("revisar");
+    if (!l || l.hidden) return;
+    l.hidden = true;
+    b.setAttribute("aria-expanded", "false");
+    if (foco) b.focus();
+  }
+  // Baja la vista hasta la marca y la hace destellar.
+  function irA(sel) {
+    var d = docVista(), el = d && d.querySelector(sel);
+    if (!el) return;
+    var z = vista.z / 100;
+    var top = elMarco.getBoundingClientRect().top - elLienzo.getBoundingClientRect().top + elLienzo.scrollTop +
+      el.getBoundingClientRect().top * z - 80;
+    try { elLienzo.scrollTo({ top: Math.max(0, top), behavior: "smooth" }); } catch (e) { elLienzo.scrollTop = Math.max(0, top); }
+    el.removeAttribute("data-pv-flash");
+    void el.offsetWidth;
+    el.setAttribute("data-pv-flash", "");
   }
 
   // "targetData.CODPRODUCTO == 'TCRPLL'" -> "PRODUCTO = LATAM Platinum". El original queda en el title.
@@ -1466,12 +1625,23 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function senalarFaltas() {
     var d = docVista();
     if (!d || !d.documentElement) return;
-    var raiz = d.documentElement, i, j, n, reQ = /[\u27EA\u27EB]/g;
+    var raiz = d.documentElement, i, j, n, reQ = /[\u27EA\u27EB]/g, reK = /\u27EA\[(\w+)\]\u27EB/, enAtr = 0;
     var els = raiz.getElementsByTagName("*");
     for (i = 0; i < els.length; i++) {
       for (j = 0; j < els[i].attributes.length; j++) {
         var at = els[i].attributes[j];
-        if (reQ.test(at.value)) els[i].setAttribute(at.name, at.value.replace(reQ, ""));
+        if (reQ.test(at.value)) {
+          // Campo sin valor dentro de un atributo (href, src...): no se ve como texto, asi que se
+          // marca el elemento entero con un contorno ambar.
+          var mk0 = reK.exec(at.value);
+          if (mk0 && /^(A|IMG|AREA|TD|TABLE|DIV)$/.test(els[i].nodeName)) {
+            els[i].setAttribute("data-pv-atr", "");
+            els[i].setAttribute("data-pv-k", mk0[1]);
+            els[i].setAttribute("title", "Campo sin valor de muestra en " + at.name + ": " + mk0[1]);
+            enAtr++;
+          }
+          els[i].setAttribute(at.name, at.value.replace(reQ, ""));
+        }
         reQ.lastIndex = 0;
       }
     }
@@ -1491,6 +1661,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         if (mm.index > ult) frag.appendChild(d.createTextNode(txt.slice(ult, mm.index)));
         var sp = d.createElement("span");
         sp.setAttribute("data-pv-falta", "");
+        sp.setAttribute("data-pv-k", mm[1].replace(/^\[|\]$/g, ""));
         sp.title = "Sin valor de muestra";
         sp.textContent = mm[1];
         frag.appendChild(sp);
@@ -1504,7 +1675,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var pa = n.parentNode, g = n.data.replace(/^pv-sin-rama /, "");
       if (!pa) continue;
       var nota = d.createElement(/^(A|SPAN|B|STRONG|I|EM|FONT|LABEL)$/.test(pa.nodeName) ? "span" : "div");
-      nota.setAttribute("data-pv-rama", "");
+      nota.setAttribute("data-pv-rama", g);
       nota.textContent = "Grupo " + g + ": sin rama activa, aqu\u00ed no sale nada";
       var nodo = nota;
       // Dentro de una tabla el texto suelto se sale de la tabla: la nota va en su propia celda.
@@ -1515,9 +1686,13 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       }
       pa.replaceChild(nodo, n);
     }
-    if (!textos.length && !comentarios.length) return;
+    if (!textos.length && !comentarios.length && !enAtr) return;
     var st = d.createElement("style");
     st.textContent = "[data-pv-falta]{background:#fef3c7;color:#92400e;outline:2px solid #d97706;outline-offset:1px;border-radius:2px}" +
+      "[data-pv-atr]{outline:2px dashed #d97706;outline-offset:3px}" +
+      "[data-pv-flash]{animation:pvf 1.2s cubic-bezier(0.23,1,0.32,1)}" +
+      "@keyframes pvf{0%,40%{box-shadow:0 0 0 6px rgba(217,119,6,.5)}100%{box-shadow:0 0 0 0 rgba(217,119,6,0)}}" +
+      "@media (prefers-reduced-motion:reduce){[data-pv-flash]{animation:none;box-shadow:0 0 0 4px rgba(217,119,6,.5)}}" +
       "[data-pv-rama]{display:block;margin:4px 0;padding:4px 8px;border:2px dashed #d97706;border-radius:3px;" +
       "background:#fffbeb;color:#92400e;font:600 11px/1.4 Arial,sans-serif;text-align:center}";
     (d.head || raiz).appendChild(st);
@@ -1645,8 +1820,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         // En Movil el marco no crece: si el correo es mas ancho, se corta y hay que decirlo.
         var elDes = $("desborde"), swM = vista.w === 375 && d.documentElement ? d.documentElement.scrollWidth : 0;
         if (elDes) {
+          var desAntes = elDes.hidden;
           elDes.hidden = !(swM > vista.w + 1);
           if (!elDes.hidden) elDes.textContent = "\u26A0 El correo mide " + swM + " px: en " + vista.w + " px se corta a la derecha.";
+          if (desAntes !== elDes.hidden) pintarRevisar();
         }
         var altoPrevio = elVista.style.height, top = elLienzo.scrollTop;
         elVista.style.height = "0px";
@@ -1697,6 +1874,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
     elVista.srcdoc = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
     pintarFicha();
+    pintarRevisar();
     pintarFechas(r.fechas);
     aplicarVista();
     escribirURL();
@@ -1713,6 +1891,20 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (lee("muestra") === "0" && location.search.indexOf("muestra=") < 0) vista.muestra = false;
     normalizarPerfil();
     pintar();
+    $("fichaRes").onclick = function () {
+      var abre = elFicha.className.indexOf("ficha--abierta") < 0;
+      elFicha.classList.toggle("ficha--abierta", abre);
+      this.setAttribute("aria-expanded", abre ? "true" : "false");
+    };
+    $("revisar").onclick = function () {
+      var l = $("revisarL");
+      if (!l.hidden) { cerrarRevisar(false); return; }
+      l.hidden = false;
+      this.setAttribute("aria-expanded", "true");
+    };
+    document.addEventListener("mousedown", function (ev) {
+      if (!$("revisarL").hidden && !$("revisarL").contains(ev.target) && ev.target !== $("revisar")) cerrarRevisar(false);
+    });
 
     $("escritorio").onclick = function () { vista.w = 700; pintar(); };
     $("movil").onclick = function () { vista.w = 375; pintar(); };
@@ -1767,16 +1959,21 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var t = ev.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       var modalAbierto = elModal.className.indexOf("abierto") > 0;
-      if (ev.key === "Escape") { if (modalAbierto) cerrarModal(); return; }
+      if (ev.key === "Escape") { if (modalAbierto) cerrarModal(); else cerrarRevisar(true); return; }
       // Con Ctrl/Cmd/Alt es un atajo del navegador (Cmd+D = marcador), no nuestro. Con el modal
       // o dentro de las fechas tampoco: "/" sacaria el foco del dialogo.
       if (!atajos || ev.ctrlKey || ev.metaKey || ev.altKey || modalAbierto || elFechas.contains(t)) return;
       if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
-        if (!det.orden.length) return;
+        // En la barra las flechas no cambian el escenario (ahi se esta en otro control).
+        if (!det.orden.length || (t && t.closest && t.closest(".barra, .revisar__l"))) return;
         ev.preventDefault();
         paso(ev.key === "ArrowRight" ? 1 : -1);
       }
-      else if (/^[1-9]$/.test(ev.key) && +ev.key <= det.orden.length) { activa = +ev.key - 1; marcarActiva(); }
+      else if (/^[1-9]$/.test(ev.key) && +ev.key <= det.orden.length) {
+        activa = +ev.key - 1;
+        marcarActiva();
+        anunciar("Las flechas cambian " + etiqVar(det.orden[activa]), true);
+      }
       else if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
       else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
       else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
@@ -1801,6 +1998,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       b.setAttribute("aria-pressed", atajos ? "true" : "false");
       b.textContent = "Atajos de teclado: " + (atajos ? "activados" : "desactivados");
     }
+    if ($("ficha")) $("ficha").classList.toggle("ficha--sin-atajos", !atajos);
     var ls = [["buscar", "Buscar template o id", "/"], ["escritorio", "Escritorio", "D"], ["movil", "M\u00f3vil", "M"]];
     for (var i = 0; i < ls.length; i++) {
       var el = $(ls[i][0]);
@@ -2072,7 +2270,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           });
           return cadena;
         }).then(function () {
-          avisoWf(true, "PNG descargados: escritorio y m\u00f3vil." + avisoImagenes());
+          avisoWf(pngFallidas.length ? "aviso" : true, "PNG descargados: escritorio y m\u00f3vil." + avisoImagenes());
         });
       });
     };
@@ -2131,7 +2329,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           a.href = url; a.download = nombreArchivo() + ".pdf";
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-          avisoWf(true, "PDF descargado: p\u00e1gina 1 escritorio, p\u00e1gina 2 m\u00f3vil." + avisoImagenes());
+          avisoWf(pngFallidas.length ? "aviso" : true, "PDF descargado: p\u00e1gina 1 escritorio, p\u00e1gina 2 m\u00f3vil." + avisoImagenes());
         });
       });
     };
@@ -2156,7 +2354,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var p = [], i;
     for (i = 0; i < det.orden.length; i++) {
       var n = det.orden[i], v = perfil[n];
-      p.push(traducirUI(n) + " = " + (v === "" ? ETIQ_VACIO : (v === VAL_OTRO ? "con dato" : traducirUI(v))));
+      p.push(etiqVar(n) + " = " + etiqValor(n, v));
     }
     return p.length ? p.join(" \u00b7 ") : "sin variables";
   }
@@ -2189,6 +2387,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       ": " + ultimo.includes.join(", "));
     if (vista.muestra && ultimo.sinValor.length) p.push(plural(ultimo.sinValor.length, "campo sin valor", "campos sin valor") +
       ", sale como [CAMPO]: " + ultimo.sinValor.join(", "));
+    var des = $("desborde");
+    if (des && !des.hidden) p.push(des.textContent.replace(/^\u26A0\s*/, ""));
     return p;
   }
   function revision(p) {
@@ -2247,11 +2447,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var d = new Date(), m = d.getMinutes();
     return d.getHours() + ":" + (m < 10 ? "0" : "") + m;
   }
+  // ok: true (verde), false (rojo) o "aviso" (ambar: salio a medias o es informativo).
   function avisoWf(ok, texto, detalle) {
     var el = $("accion");
     if (!el) return;
     el.hidden = false;
-    el.className = "accion" + (ok ? " accion--ok" : " accion--error");
+    el.className = "accion" + (ok === "aviso" ? " accion--aviso" : (ok ? " accion--ok" : " accion--error"));
     anunciar(texto, true);
     void el.offsetWidth;   // reinicia el fundido si llega un aviso tras otro
     el.className += " accion--nuevo";
@@ -2279,7 +2480,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   if (bWf) {
     if (!WORKFRONT_ACTIVO) {
-      bWf.disabled = true;
+      // aria-disabled y no disabled: sigue enfocable y al pulsarlo explica el motivo.
+      bWf.setAttribute("aria-disabled", "true");
       bWf.title = "El env\u00edo a Workfront est\u00e1 desactivado por ahora. Usa .html, PNG o PDF.";
     } else if (!WORKFRONT_URL) {
       bWf.textContent = "Workfront no configurado";   // al cargar: sin animacion
@@ -2288,7 +2490,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, descarga el .html y subelo a mano.";
     }
     bWf.onclick = function () {
-      if (!WORKFRONT_ACTIVO) return;
+      if (!WORKFRONT_ACTIVO) {
+        avisoWf("aviso", "El env\u00EDo a Workfront est\u00E1 pausado por ahora. Usa .html, PNG o PDF y s\u00FAbelo a mano.");
+        return;
+      }
       if (!WORKFRONT_URL) {
         avisoWf(false, "Workfront no est\u00e1 configurado: falta la URL del webhook en el .jssp. Mientras tanto, descarga el .html y s\u00fabelo a mano.");
         return;

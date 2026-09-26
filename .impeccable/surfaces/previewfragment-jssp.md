@@ -23,6 +23,11 @@ FORM: Ficha del destinatario, posicion 5 de la segunda lista; seed ec4ba6c6 (re-
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
+## Decisiones de Marcos posteriores al contrato (2026-09-25)
+- La frase se reemplazo por grillas de botones por variable (pedido explicito).
+- El matasellos se quito; queda un aviso chico "por revisar" junto a la etiqueta de datos de muestra, solo si hay algo.
+- Sin "otro valor" en las variables. Barra azul oscuro #14275f. La ficha queda junto al correo y no se mueve al pasar a movil.
+
 ## Pendiente
 - Maqueta en design/maqueta-ficha-destinatario.html; la Hoja de contactos (design/maqueta-hoja-contactos.html) queda como alternativa descartada por espacio.
 - El JSSP no se toca hasta que Marcos apruebe.

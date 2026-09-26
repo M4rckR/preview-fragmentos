@@ -49,9 +49,9 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
    - **Barra** (44 px, azul oscuro): título, combo, Escritorio/Móvil, zoom, `.html` / `PNG` / `PDF` como botones directos (no hay menú Descargar), Copiar enlace y Workfront. Tiene que caber en una línea desde 1280 px; si le agregas algo, vuelve a medir.
    - **Mesa** (`#lienzo`, el contenedor con scroll): grid de tres columnas, `minmax(300px,1fr) auto minmax(0,1fr)`. A la izquierda la **ficha** (`.ficha`, sticky, con `max-height` y scroll propio); al centro `#centro` con la línea de estado (`#cintaEtq` datos de muestra/campos, `#cintaTxt` fechas editadas, `#desborde`), `#accion` (resultado de Workfront, PNG o PDF) y el marco con el iframe. La derecha queda libre.
      - `#centro` mide siempre el ancho de escritorio (`anchoCentro`, 700 o el mayor medido): la ficha queda junto al correo y **no se mueve al pasar a Móvil**. No la ancles al borde de la ventana (Marcos lo rechazó).
-     - Bajo 1080 px la grilla pasa a una columna y la ficha va arriba del correo.
-   - **Ficha:** "PARA" + "escenario n de N"; cada variable es un bloque `.var` con su grilla de botones `.var__g` (dos columnas; el elegido va relleno de `--acento`). Debajo: Por defecto, Ver campos, Fechas de muestra (el editor de fechas `#fechas` se despliega dentro de la ficha), la ayuda de teclado `#ayuda` y el interruptor de atajos `#atajos`.
-   - **Sin pendientes en pantalla por ahora:** Marcos pidió quitar el sello/panel de pendientes (se evalúa con `/evaluar-template`). Los problemas siguen marcados dentro del correo (`senalarFaltas`) y en la revisión del modal de Workfront (`pendientes()`).
+     - Bajo 1080 px la grilla pasa a una columna y la ficha va arriba del correo, **plegada en una línea** (`#fichaRes`: "CONSUMO · LATAM Clásica ▾") que despliega `#fichaCuerpo` a pedido (`.ficha--abierta`).
+   - **Ficha:** "PARA" + "escenario n de N"; cada variable es un bloque `.var` (separados por una línea, sin caja) con su grilla de botones `.var__g` (dos columnas; el elegido va relleno de `--acento`). Con 6 o más valores de varias familias (LATAM, Amex, Qore) se agrupan con un rótulo `.var__fam` y `valoresDe` los ordena por familia. Una variable con un solo valor es texto fijo (`.var__fijo`). La variable activa lleva la marca "← →" (`.var--activa`), oculta si los atajos están apagados (`.ficha--sin-atajos`). Debajo: Por defecto, Ver campos, Fechas de muestra (el editor de fechas `#fechas` se despliega dentro de la ficha), la ayuda de teclado `#ayuda` y el interruptor de atajos `#atajos`.
+   - **Por revisar** (`#revisar`, `pintarRevisar()`, `problemas()`): Marcos quitó el sello; lo que queda es un aviso **chico** "⚠ N por revisar" junto a "Datos de muestra", que solo aparece si hay algo, y una lista flotante (`#revisarL`, no empuja el correo) con cada problema, un clic que baja a su marca (`irA`) y la leyenda de las marcas. No lo conviertas en franja ni en sello. Los campos sin valor dentro de un atributo (`href`, `src`) marcan el elemento con `data-pv-atr` (contorno ámbar punteado).
    - **Movimiento.** Tokens en `:root`: `--ease-out: cubic-bezier(0.23,1,0.32,1)` y las duraciones `--dur-xs` (120ms), `--dur-sm` (150ms), `--dur-md` (180ms) y `--dur-lg` (200ms). No escribas ms ni curvas sueltas. Todo vive en el bloque `/* ---------- movimiento ---------- */`:
      - Hover: solo `background-color`/`color` con `--dur-xs ease`.
      - Respuesta al clic: `:active { transform:scale(0.97) }`. Si agregas un botón, súmalo a las listas de `transition` y `:active`.
@@ -71,7 +71,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
    - En los campos de contacto (`DESCORREO…`, `DESNBRE…`, `DESCELULAR…EENNPRINCIPAL`), las condiciones se omiten al elegir variantes, pero sus valores ficticios sí se muestran.
    - Las fechas de muestra se calculan con `fechaMuestra(dias)`: el inicio es hoy y los fines son hoy + 30 días, en `dd/mm/aaaa`. Nunca pongas una fecha fija: con el tiempo queda vencida y en el PNG parece un error del correo.
    - **Avisos.**
-     - `avisoWf(ok, texto, detalle)` escribe solo en `#accion` (clases `.accion--ok` / `.accion--error`). El detalle técnico va plegado en un `<details>`.
+     - `avisoWf(ok, texto, detalle)` escribe solo en `#accion`, que es sticky (queda a la vista aunque se baje en el correo). `ok` es `true` (verde), `false` (rojo) o `"aviso"` (ámbar: PNG/PDF con imágenes que no se pudieron traer, Workfront pausado). El detalle técnico va plegado en un `<details>`.
      - `anunciar(txt, forzar)` escribe en `#anuncio` (`.sr`, `role=status`) solo cuando el texto cambia; se usa al cambiar el escenario y en las acciones.
    - **Modal de Workfront.**
      - `pendientes()` arma la lista de revisión y `revision(p)` la pinta: roja si hay pendientes, verde ("✓ Todo resuelto") si no.
@@ -88,7 +88,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
      - Los plurales se arman con `plural(n, uno, varios)`; nada de "(s)" ni "(es)".
      - Al usuario se le dice "campo", no "token".
      - Los botones nombran su acción: "Por defecto", "Fechas originales", "Ver campos" / "Ver datos de muestra".
-   - **Ficha y teclado.** `pintarFicha()` corre en cada `pintar()`. `valoresDe(n)` ofrece solo los valores reales que compara el template (sin "otro valor"); una bandera de presencia ofrece "con dato" (`VAL_OTRO`) o "(vacío)". `activa` es la variable que cambian ← / → (`paso`); 1–9 la eligen (`marcarActiva`). Los botones de la grilla tienen id `vb-<n.º de variable>-<n.º de valor>` para devolverles el foco tras repintar.
+   - **Ficha y teclado.** `pintarFicha()` corre en cada `pintar()`. `valoresDe(n)` ofrece solo los valores reales que compara el template (sin "otro valor"); una bandera de presencia ofrece "con dato" (`VAL_OTRO`) o "(vacío)". `activa` es la variable que cambian ← / → (`paso`); 1–9 la eligen (`marcarActiva`). Los botones de la grilla tienen id `vb-<n.º de variable>-<n.º de valor>` para devolverles el foco tras repintar, y tabindex itinerante (solo el elegido es parada de Tab). Las flechas no actúan con el foco en la barra. `etiqVar(n)` da el nombre visible de la variable (traducción o el código sin prefijo: `FLGCASHBACK` → CASHBACK); las banderas dicen "con valor"/"sin valor".
    - **Desborde en Móvil.** Si el correo es más ancho que 375 px, `medirVista` muestra `#desborde`: "El correo mide N px: en 375 px se corta a la derecha".
    - **Combo.** Al abrirlo, el nombre actual queda seleccionado y no filtra (`pintarLista` lo trata como búsqueda vacía). Los atajos van en `title` y `aria-keyshortcuts`.
    - **Atajos** (`/`, `D`, `M`, `1`–`9`, ← / →). Se apagan con el botón `#atajos` de la ficha (`aria-pressed`, guardado en localStorage como `prevTpl.atajos`), por WCAG 2.1.4. `pintarAtajos()` quita el `title` y el `aria-keyshortcuts` y oculta la ayuda de la ficha cuando están apagados. No se disparan con Ctrl/Cmd/Alt, con el modal abierto ni dentro de las fechas.
@@ -107,7 +107,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
 ## Estado y pendientes conocidos
 
 - Hoy **el preview y el proxy no piden login** (solo es aceptable en stage). El bloque `checkAuthentication` está comentado; no lo borres, porque hay que reactivarlo sin `response.write`. Antes de `logonEscalation` falta validar el operador (named right o grupo, lo decide el admin de Campaign del banco).
-- El envío a Workfront está **pausado**: `WORKFRONT_ACTIVO = false` deja el botón visible pero desactivado. Para reactivarlo, se pone en `true`.
+- El envío a Workfront está **pausado**: `WORKFRONT_ACTIVO = false` deja el botón con `aria-disabled` (enfocable, borde punteado) y al pulsarlo explica que está pausado. Para reactivarlo, se pone en `true`.
 - `WORKFRONT_URL`, `WORKFRONT_USER` y `WORKFRONT_PASS` están escritos en el cliente, y el repo en GitHub es público. Hay que moverlos al servidor.
 - Producción: cambiar `bcp-mid-stage13` por el dominio de producción en `PERMITIDOS` y en `PNG_PROXY_HOSTS`.
 - Pendiente de probar en Campaign (commits del 2026-09-25 y 26):
@@ -117,6 +117,5 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
   - el rediseño "Ficha del destinatario" (2026-09-25): ficha, teclado, fechas dentro de la ficha, PNG/PDF desde sus botones y anchos ≤1080 px;
   - las fechas relativas.
 - Pendientes de la segunda crítica (`.impeccable/critique/2026-09-26…`):
-  - **P2:** el modal de Workfront no incluye el desborde en Móvil en `pendientes()`.
   - **Descartados a propósito:** la franja superior de 3 px en `.fechas` y `.marco--muestra` es la señal de "datos de muestra", aunque el detector la marque. El `overflow:hidden` del body es parte del layout.
 - La exportación PNG/PDF (SVG `foreignObject` → canvas) no funciona en Safari (`SecurityError`); se usa Chrome o Edge. No incrusta `url()` dentro de `<style>` ni fuentes externas.
