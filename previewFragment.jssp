@@ -362,9 +362,19 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .lnk:hover { color:var(--text); text-decoration-color:currentColor; }
 .lnk[aria-expanded="true"] { color:var(--vars-label); }
 .lnk:disabled { opacity:.5; cursor:not-allowed; }
-.ficha__ayuda { margin:10px 0 0; font-size:var(--fs-xs); color:var(--text-muted); }
-.ficha__ayuda kbd { font-family:var(--font-mono); font-size:var(--fs-xxs); padding:0 4px; border:1px solid var(--linea); border-radius:3px; background:var(--hover-bg); }
-.ficha__atajos { margin-top:4px; }
+/* Ayuda de teclado: un "?" en la barra abre un panel chico; no ocupa lugar en la ficha. */
+.barra__ayuda { width:30px; padding:0; justify-content:center; font-weight:700; }
+.barra__ayuda[aria-expanded="true"] { background:#fff; color:var(--bar-bg); }
+.ayuda { position:fixed; top:48px; right:14px; z-index:50; width:320px; max-width:calc(100vw - 28px); padding:12px 14px;
+         background:#fff; color:var(--text); border-radius:8px; box-shadow:0 10px 30px rgba(15,23,42,.25); font-size:var(--fs-xs); }
+.ayuda[hidden] { display:none; }
+.ayuda:not([hidden]) { transform-origin:top right; animation:entra-lista var(--dur-sm) var(--ease-out); }
+.ayuda h2 { margin:0 0 10px; font-size:var(--fs-sm); font-weight:700; }
+.ayuda dl { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; margin:0 0 10px; align-items:baseline; }
+.ayuda dt { white-space:nowrap; }
+.ayuda dd { margin:0; color:var(--text-muted); }
+.ayuda kbd { font-family:var(--font-mono); font-size:var(--fs-xxs); padding:0 5px; border:1px solid var(--linea); border-radius:3px; background:var(--hover-bg); color:var(--text); }
+.ayuda--off dl { opacity:.5; }
 
 /* ---------- fechas de muestra (dentro de la ficha) ---------- */
 .fechas { margin-top:10px; padding-top:6px; border-top:1px dashed var(--linea); font-size:var(--fs-sm); }
@@ -524,7 +534,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     </div>
     <button type="button" class="barra__btn" id="enlace">Copiar enlace</button>
     <button type="button" class="barra__wf" id="workfront">Workfront &#x2197;</button>
+    <button type="button" class="barra__btn barra__ayuda" id="bAyuda" aria-expanded="false" aria-controls="ayudaPop"
+            aria-label="Atajos de teclado" title="Atajos de teclado (tecla ?)">?</button>
   </header>
+  <div class="ayuda" id="ayudaPop" role="dialog" aria-labelledby="ayudaT" hidden>
+    <h2 id="ayudaT">Atajos de teclado</h2>
+    <dl id="ayudaL"></dl>
+    <button type="button" class="lnk" id="atajos" aria-pressed="true">Atajos de teclado: activados</button>
+  </div>
   <span class="sr" id="anuncio" role="status"></span>
 
   <div class="mesa" id="lienzo">
@@ -550,8 +567,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
             <div id="fechasL"></div>
             <div class="fechas__pie"><button type="button" class="lnk" id="fechasReset">Fechas originales</button></div>
           </section>
-          <p class="ficha__ayuda" id="ayuda"></p>
-          <button type="button" class="lnk ficha__atajos" id="atajos" aria-pressed="true">Atajos de teclado: activados</button>
           </div>
         </div>
       </div>
@@ -1007,7 +1022,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     ultAnuncio = txt;
     elAnuncio.textContent = txt;
   }
-  var elVars = $("vars"), elFichaN = $("fichaN"), elAyuda = $("ayuda"), elFicha = $("ficha");
+  var elVars = $("vars"), elFichaN = $("fichaN"), elFicha = $("ficha");
   var elFechas = $("fechas"), elFechasL = $("fechasL"), elEditarFechas = $("editarFechas");
   var elVista = $("vista"), elMarco = $("marco"), elCentro = $("centro"), elCintaTxt = $("cintaTxt");
   var elLienzo = $("lienzo");
@@ -1420,13 +1435,20 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     for (var i = 0; i < vs.length; i++) vs[i].className = "var" + (i === activa ? " var--activa" : "");
     pintarAyuda();
   }
-  // Ayuda de teclado bajo la ficha; se oculta si los atajos est\u00E1n apagados.
+  // Panel de atajos (boton "?" de la barra). Se repinta con la variable activa; atenuado si estan apagados.
   function pintarAyuda() {
-    if (!elAyuda || !det) return;
-    elAyuda.hidden = !atajos || !det.orden.length;
-    if (elAyuda.hidden) return;
-    elAyuda.innerHTML = "<kbd>\u2190</kbd> <kbd>\u2192</kbd> cambian " + esc(etiqVar(det.orden[activa]).toLowerCase()) +
-      (det.orden.length > 1 ? " \u00B7 <kbd>1</kbd>\u2013<kbd>" + Math.min(9, det.orden.length) + "</kbd> eligen la variable" : "");
+    var l = $("ayudaL");
+    if (!l) return;
+    var f = [];
+    if (det && det.orden.length) {
+      f.push(["<kbd>\u2190</kbd> <kbd>\u2192</kbd>", "Cambian " + esc(etiqVar(det.orden[activa]).toLowerCase()) + ", la variable marcada con \u2190 \u2192 en la ficha"]);
+      if (det.orden.length > 1) f.push(["<kbd>1</kbd>\u2013<kbd>" + Math.min(9, det.orden.length) + "</kbd>", "Eligen qu\u00E9 variable cambian las flechas"]);
+    }
+    f.push(["<kbd>/</kbd>", "Busca un template"], ["<kbd>D</kbd> <kbd>M</kbd>", "Vista de escritorio o m\u00F3vil"], ["<kbd>?</kbd>", "Abre esta ayuda"]);
+    var h = "";
+    for (var i = 0; i < f.length; i++) h += "<dt>" + f[i][0] + "</dt><dd>" + f[i][1] + "</dd>";
+    l.innerHTML = h;
+    $("ayudaPop").classList.toggle("ayuda--off", !atajos);
   }
   // Flechas: siguiente o anterior valor de la variable activa. Si el foco estaba en la grilla, lo sigue.
   function paso(dir) {
@@ -1959,7 +1981,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       var t = ev.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       var modalAbierto = elModal.className.indexOf("abierto") > 0;
-      if (ev.key === "Escape") { if (modalAbierto) cerrarModal(); else cerrarRevisar(true); return; }
+      if (ev.key === "Escape") { if (modalAbierto) cerrarModal(); else if (!$("ayudaPop").hidden) cerrarAyuda(true); else cerrarRevisar(true); return; }
       // Con Ctrl/Cmd/Alt es un atajo del navegador (Cmd+D = marcador), no nuestro. Con el modal
       // o dentro de las fechas tampoco: "/" sacaria el foco del dialogo.
       if (!atajos || ev.ctrlKey || ev.metaKey || ev.altKey || modalAbierto || elFechas.contains(t)) return;
@@ -1974,6 +1996,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         marcarActiva();
         anunciar("Las flechas cambian " + etiqVar(det.orden[activa]), true);
       }
+      else if (ev.key === "?") { ev.preventDefault(); abrirAyuda(); }
       else if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
       else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
       else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
@@ -2007,6 +2030,28 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     pintarAyuda();
   }
+  function abrirAyuda() {
+    var p = $("ayudaPop");
+    p.style.top = Math.round(document.querySelector(".barra").getBoundingClientRect().bottom + 4) + "px";
+    pintarAyuda();
+    p.hidden = false;
+    $("bAyuda").setAttribute("aria-expanded", "true");
+    $("atajos").focus();
+  }
+  function cerrarAyuda(foco) {
+    var p = $("ayudaPop");
+    if (p.hidden) return;
+    p.hidden = true;
+    $("bAyuda").setAttribute("aria-expanded", "false");
+    if (foco) $("bAyuda").focus();
+  }
+  $("bAyuda").onclick = function () { if ($("ayudaPop").hidden) abrirAyuda(); else cerrarAyuda(false); };
+  $("ayudaPop").addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); cerrarAyuda(true); }
+  });
+  document.addEventListener("mousedown", function (ev) {
+    if (!$("ayudaPop").hidden && !$("ayudaPop").contains(ev.target) && ev.target !== $("bAyuda")) cerrarAyuda(false);
+  });
   if ($("atajos")) $("atajos").onclick = function () {
     atajos = !atajos;
     guarda("atajos", atajos ? "1" : "0");
