@@ -92,6 +92,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
    - **Panel flotante (≤900 px).** Arranca cerrado (`panelFlota()` al cargar). `cerrarPanelFlotante()` lo cierra con Escape, con un clic en el lienzo o con un clic dentro del correo (el `mousedown` se registra en el documento del iframe en `seguirVista`).
    - **Desborde en Móvil.** Si el correo es más ancho que 375 px, `medirVista` muestra `#desborde`: "El correo mide N px: en 375 px se corta a la derecha".
    - **Combo.** Al abrirlo, el nombre actual queda seleccionado y no filtra (`pintarLista` lo trata como búsqueda vacía). Los atajos van en `title` y `aria-keyshortcuts`.
+   - **Atajos** (`/`, `D`, `M`). Se apagan desde el último ítem del menú Descargar (`menuitemcheckbox` `#atajos`, guardado en localStorage como `prevTpl.atajos`), por WCAG 2.1.4. `pintarAtajos()` quita el `title` y el `aria-keyshortcuts` cuando están apagados. No se disparan con Ctrl/Cmd/Alt ni con el modal, el menú o el panel de fechas abiertos.
    - **Zoom.** "+" se desactiva en 100% y "−" en 50%.
 
 ## Reglas duras (cada una viene de un problema real)
@@ -121,6 +122,5 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
   - **P2:** el Detalle se abre arriba de toda la página, lejos de su botón. Falta que muestre la condición legible de cada grupo y que cada ítem baje hasta su marca en el correo.
   - **P2:** el modal de Workfront no incluye el desborde en Móvil en `pendientes()`.
   - **P3:** una variable con un solo valor se ve como botón presionado; debería ser texto fijo.
-  - **Accesibilidad:** los atajos de una sola tecla (`/`, `D`, `M`) no se pueden desactivar (WCAG 2.1.4).
   - **Descartados a propósito:** la franja superior de 3 px en `.fechas` y `.marco--muestra` es la señal de "datos de muestra", aunque el detector la marque. El `overflow:hidden` del body es parte del layout.
 - La exportación PNG/PDF (SVG `foreignObject` → canvas) no funciona en Safari (`SecurityError`); se usa Chrome o Edge. No incrusta `url()` dentro de `<style>` ni fuentes externas.

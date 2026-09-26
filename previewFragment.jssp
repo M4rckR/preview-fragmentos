@@ -228,7 +228,7 @@ for (var kv in frgVia) {
 var datosFrg = vias.join(",");
 %>
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <title>Preview de templates</title>
@@ -263,7 +263,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* ---------- barra ---------- */
 .barra { display:flex; align-items:center; gap:var(--gap); padding:var(--pad-bar);
          background:var(--bar-bg); color:var(--bar-fg); flex:none; flex-wrap:wrap; }
-.barra__t { font-weight:600; font-size:var(--fs-sm); flex:none; }
+.barra__t { margin:0; font-weight:600; font-size:var(--fs-sm); flex:none; }
 .barra__lb { font-size:var(--fs-xs); color:var(--bar-fg-muted); flex:none; }
 .barra__e { font-size:var(--fs-xs); color:var(--bar-fg-muted); flex:none;
             max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -292,6 +292,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .menu__lista button:hover, .menu__lista button:focus-visible { background:var(--vars-bg); outline:none; }
 .menu__lista button:disabled { opacity:.45; cursor:not-allowed; }
 .menu__lista small { display:block; font-size:var(--fs-xs); font-weight:400; color:var(--text-muted); }
+.menu__sep { height:1px; margin:4px 6px; background:var(--linea); }
 .barra__wf:disabled, .barra__wf[aria-disabled="true"] { background:var(--wf-disabled); color:rgba(255,255,255,.6); cursor:not-allowed; }
 
 /* ---------- combobox ---------- */
@@ -508,7 +509,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .avisos--nuevo { animation:funde var(--dur-lg) var(--ease-out); }
 
 @media (max-width:1100px) {
-  .barra__t, .barra__lb, .barra__e { display:none; }
+  .barra__lb, .barra__e { display:none; }
+  /* El h1 sigue para el lector de pantalla aunque no quepa a la vista. */
+  .barra__t { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 }
 @media (max-width:900px) {
   .panel { position:absolute; z-index:30; top:auto; left:0; height:auto; max-height:70vh;
@@ -530,8 +533,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 </style>
 </head>
 <body>
-  <div class="barra" role="toolbar" aria-label="Acciones del preview">
-    <span class="barra__t">Preview de templates</span>
+  <header class="barra" aria-label="Acciones del preview">
+    <h1 class="barra__t">Preview de templates</h1>
     <span class="barra__lb" id="lbCombo">Template</span>
     <div class="combo" id="combo" data-frags="<%= datosLista %>" data-sel="<%= selAttr %>">
       <div class="combo__campo">
@@ -561,12 +564,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         <button type="button" role="menuitem" id="descargar">Correo .html<small>El HTML tal como se ve</small></button>
         <button type="button" role="menuitem" id="descargarPng">Im&aacute;genes PNG<small>Dos archivos: escritorio 700 px y m&oacute;vil 375 px</small></button>
         <button type="button" role="menuitem" id="descargarPdf">PDF<small>Dos p&aacute;ginas: escritorio y m&oacute;vil</small></button>
+        <div class="menu__sep" role="separator"></div>
+        <button type="button" role="menuitemcheckbox" id="atajos" aria-checked="true">Atajos de teclado<small id="atajosE"></small></button>
       </div>
     </div>
     <button type="button" class="barra__btn" id="enlace">Copiar enlace</button>
     <span class="barra__sep" aria-hidden="true"></span>
     <button type="button" class="barra__wf" id="workfront">Enviar a Workfront &#x2197;</button>
-  </div>
+  </header>
 
   <div class="avisos" id="avisos" hidden></div>
   <span class="sr" id="anuncio" role="status"></span>
@@ -1077,6 +1082,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
   function guarda(k, v) { try { localStorage.setItem("prevTpl." + k, v); } catch (e) {} }
   function lee(k) { try { return localStorage.getItem("prevTpl." + k); } catch (e) { return null; } }
+  // Atajos de una tecla (/, D, M). WCAG 2.1.4 pide poder apagarlos: se hace desde el menu Descargar.
+  var atajos = lee("atajos") !== "0";
 
   (function cargarTemplates() {
     var lista = (elCombo.getAttribute("data-frags") || "").split(",");
@@ -2000,12 +2007,20 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     window.onresize = aplicarVista;
     elVista.onload = seguirVista;
     document.onkeydown = function (ev) {
-      if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
+      var t = ev.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      var modalAbierto = elModal.className.indexOf("abierto") > 0;
+      if (ev.key === "Escape") {
+        if (modalAbierto) cerrarModal();
+        else if (elPanel.contains(document.activeElement) || document.activeElement === document.body) cerrarPanelFlotante();
+        return;
+      }
+      // Con Ctrl/Cmd/Alt es un atajo del navegador (Cmd+D = marcador), no nuestro. Con el modal,
+      // el menu o el panel de fechas abiertos tampoco: "/" sacaria el foco del dialogo.
+      if (!atajos || ev.ctrlKey || ev.metaKey || ev.altKey || modalAbierto || !elMenuDesc.hidden || elFechas.contains(t)) return;
       if (ev.key === "/") { ev.preventDefault(); elBuscar.focus(); }
       else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
       else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
-      else if (ev.key === "Escape" && elModal.className.indexOf("abierto") > 0) cerrarModal();
-      else if (ev.key === "Escape" && (elPanel.contains(document.activeElement) || document.activeElement === document.body)) cerrarPanelFlotante();
     };
   }
 
@@ -2043,15 +2058,46 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   $("menuDesc").addEventListener("keydown", function (ev) {
     if (elMenuDesc.hidden) return;
     if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); cerrarMenu(true); return; }
+    // Tab cierra el menu: el foco vuelve a Descargar y el Tab sigue desde ahi (sin preventDefault).
+    if (ev.key === "Tab") { cerrarMenu(true); return; }
+    var it = itemsMenu(), i, pos = -1, n;
+    if (ev.key === "Home" || ev.key === "End") {
+      ev.preventDefault();
+      for (i = 0; i < it.length; i++) {
+        n = ev.key === "Home" ? i : it.length - 1 - i;
+        if (!it[n].disabled) { it[n].focus(); break; }
+      }
+      return;
+    }
     if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
     ev.preventDefault();
-    var it = itemsMenu(), i, pos = -1;
     for (i = 0; i < it.length; i++) if (it[i] === document.activeElement) pos = i;
     for (i = 1; i <= it.length; i++) {
-      var n = (pos + (ev.key === "ArrowDown" ? i : -i) + it.length * 2) % it.length;
+      n = (pos + (ev.key === "ArrowDown" ? i : -i) + it.length * 2) % it.length;
       if (!it[n].disabled) { it[n].focus(); break; }
     }
   });
+
+  // Encender/apagar los atajos de una tecla. Si estan apagados, tampoco se anuncian
+  // en title ni en aria-keyshortcuts.
+  function pintarAtajos() {
+    $("atajos").setAttribute("aria-checked", atajos ? "true" : "false");
+    $("atajosE").textContent = atajos ? "Activados: / buscar, D escritorio, M m\u00f3vil" : "Desactivados";
+    var ls = [["buscar", "Buscar template o id", "/"], ["escritorio", "Escritorio", "D"], ["movil", "M\u00f3vil", "M"]];
+    for (var i = 0; i < ls.length; i++) {
+      var el = $(ls[i][0]);
+      el.title = atajos ? ls[i][1] + " (tecla " + ls[i][2] + ")" : ls[i][1];
+      if (atajos) el.setAttribute("aria-keyshortcuts", ls[i][2]); else el.removeAttribute("aria-keyshortcuts");
+    }
+  }
+  $("atajos").onclick = function () {
+    atajos = !atajos;
+    guarda("atajos", atajos ? "1" : "0");
+    pintarAtajos();
+    anunciar(atajos ? "Atajos de teclado activados" : "Atajos de teclado desactivados", true);
+    bDesc.focus();   // el menu se cierra al elegir; el foco no queda en un boton oculto
+  };
+  pintarAtajos();
 
   // ---------------- Descargar PNG (escritorio + movil) ----------------
   // Sin dependencias: renderiza ultimo.html en iframes ocultos de 700 y 375 px
