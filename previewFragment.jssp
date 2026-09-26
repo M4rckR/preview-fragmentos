@@ -258,6 +258,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .mono { font-family:var(--font-mono); }
 :focus-visible { outline:2px solid var(--acento); outline-offset:2px; }
 .barra :focus-visible, .combo__campo:focus-within { outline:2px solid var(--acento-claro); outline-offset:1px; }
+.combo__campo input:focus-visible { outline:none; }   /* el anillo lo lleva .combo__campo */
 
 /* ---------- barra ---------- */
 .barra { display:flex; align-items:center; gap:var(--gap); padding:var(--pad-bar);
@@ -274,7 +275,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .barra__btn[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); }
 .barra__btn:disabled { opacity:.45; cursor:not-allowed; }
 .barra__seg, .barra__zoom { display:flex; align-items:center; gap:2px; background:var(--bar-field-bg);
-                            border:1px solid rgba(255,255,255,.14); border-radius:var(--radius-btn); padding:2px; flex:none; }
+                            border:1px solid rgba(255,255,255,.14); border-radius:var(--radius-btn); padding:3px; flex:none; }
 .barra__seg .barra__btn, .barra__zoom .barra__btn { border:0; padding:3px 9px; }
 .barra__zoom output { font-size:var(--fs-xs); min-width:38px; text-align:center; color:var(--bar-fg-muted); }
 .barra__wf { font:inherit; font-size:var(--fs-sm); font-weight:600; padding:5px 12px; border:0;
@@ -282,7 +283,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .barra__wf:hover { background:var(--wf-hover); }
 .menu { position:relative; flex:none; }
 .menu__lista { position:absolute; right:0; top:calc(100% + 4px); z-index:45; min-width:290px; padding:4px;
-               background:#fff; border:1px solid var(--frame-border); border-radius:6px;
+               background:#fff; border-radius:6px;
                box-shadow:0 10px 30px rgba(15,23,42,.25); }
 .menu__lista:not([hidden]) { transform-origin:top right; animation:entra-menu var(--dur-sm) var(--ease-out); }
 .menu__lista[hidden] { display:none; }
@@ -291,7 +292,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .menu__lista button:hover, .menu__lista button:focus-visible { background:var(--vars-bg); outline:none; }
 .menu__lista button:disabled { opacity:.45; cursor:not-allowed; }
 .menu__lista small { display:block; font-size:var(--fs-xs); font-weight:400; color:var(--text-muted); }
-.barra__wf:disabled { background:var(--wf-disabled); color:rgba(255,255,255,.6); cursor:not-allowed; }
+.barra__wf:disabled, .barra__wf[aria-disabled="true"] { background:var(--wf-disabled); color:rgba(255,255,255,.6); cursor:not-allowed; }
 
 /* ---------- combobox ---------- */
 .combo { position:relative; flex:1 1 220px; min-width:180px; max-width:420px; }
@@ -303,7 +304,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .combo__id { font-family:var(--font-mono); font-size:var(--fs-xxs); color:var(--bar-fg-muted); flex:none; }
 .combo__fl { color:var(--bar-fg-muted); font-size:var(--fs-xxs); flex:none; }
 .combo__lista { position:absolute; z-index:40; top:calc(100% + 4px); left:0; right:0; max-height:320px;
-                overflow:auto; background:#fff; color:var(--text); border:1px solid var(--frame-border);
+                overflow:auto; background:#fff; color:var(--text);
                 border-radius:6px; box-shadow:0 8px 24px rgba(15,23,42,.22); padding:4px; display:none; }
 .combo--abierto .combo__lista { display:block; }
 .combo__gt { font-size:var(--fs-xxs); letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted);
@@ -528,7 +529,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     <div class="combo" id="combo" data-frags="<%= datosLista %>" data-sel="<%= selAttr %>">
       <div class="combo__campo">
         <input id="buscar" type="text" autocomplete="off" spellcheck="false"
-               placeholder="Buscar template o id" aria-labelledby="lbCombo"
+               placeholder="Buscar template o id" title="Buscar template o id (tecla /)" aria-keyshortcuts="/" aria-labelledby="lbCombo"
                role="combobox" aria-expanded="false" aria-controls="lista" aria-autocomplete="list">
         <span class="combo__id" id="comboId"></span>
         <span class="combo__fl" aria-hidden="true">&#x25BC;</span>
@@ -538,8 +539,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     <span class="barra__e" id="info">guardado en Campaign</span>
     <span class="barra__esp"></span>
     <div class="barra__seg" role="group" aria-label="Dispositivo">
-      <button type="button" class="barra__btn" id="escritorio" aria-pressed="true">Escritorio</button>
-      <button type="button" class="barra__btn" id="movil" aria-pressed="false">M&oacute;vil</button>
+      <button type="button" class="barra__btn" id="escritorio" aria-pressed="true" title="Escritorio (tecla D)" aria-keyshortcuts="D">Escritorio</button>
+      <button type="button" class="barra__btn" id="movil" aria-pressed="false" title="M&oacute;vil (tecla M)" aria-keyshortcuts="M">M&oacute;vil</button>
     </div>
     <div class="barra__zoom" role="group" aria-label="Zoom">
       <button type="button" class="barra__btn" id="zmenos" aria-label="Alejar">&#x2212;</button>
@@ -1185,7 +1186,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return b;
   }
   function pintarLista() {
-    var r = filtrar(elBuscar.value);
+    // Al abrir, el campo muestra el template actual: eso no es una busqueda.
+    var q = elBuscar.value === nombreActual() ? "" : elBuscar.value;
+    var r = filtrar(q);
     filtrados = r.items; iActivo = -1;
     elLista.textContent = "";
     var t = document.createElement("div");
@@ -1197,7 +1200,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       v.className = "combo__vacio";
       v.appendChild(document.createTextNode("Sin resultados para "));
       var qb = document.createElement("b");
-      qb.textContent = "\u201c" + elBuscar.value.replace(/^\s+|\s+$/g, "") + "\u201d";
+      qb.textContent = "\u201c" + q.replace(/^\s+|\s+$/g, "") + "\u201d";
       v.appendChild(qb);
       v.appendChild(document.createElement("br"));
       v.appendChild(document.createTextNode("Busca por parte del nombre (sin tildes) o pega el id num\u00e9rico del template."));
@@ -1219,10 +1222,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         it.title = tpl.nom;
         var n = document.createElement("span");
         n.className = "combo__nom";
-        resaltar(n, tpl.nom, elBuscar.value);
+        resaltar(n, tpl.nom, q);
         var d = document.createElement("span");
         d.className = "combo__id";
-        resaltar(d, tpl.id, elBuscar.value);
+        resaltar(d, tpl.id, q);
         it.appendChild(n); it.appendChild(d);
         it.onmousedown = function (ev) { ev.preventDefault(); ir(tpl.id); };
         elLista.appendChild(it);
@@ -1244,6 +1247,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     abierto = true;
     elCombo.className = "combo combo--abierto";
     elBuscar.setAttribute("aria-expanded", "true");
+    // Queda seleccionado: lo que se escriba reemplaza el nombre en vez de sumarse.
+    if (elBuscar.value && elBuscar.value === nombreActual()) { try { elBuscar.select(); } catch (e) {} }
     pintarLista();
   }
   function cerrar() {
@@ -1517,10 +1522,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elDetalle.textContent = "";
     if (!detalleAbierto || !r) { elDetalle.className = "detalle"; return; }
     elDetalle.className = "detalle detalle--abierto";
-    elDetalle.appendChild(columna("Condiciones no evaluables", r.noEvalTextos, "ninguna"));
-    elDetalle.appendChild(columna("Fragmentos no resueltos", r.includes, "ninguno"));
-    elDetalle.appendChild(columna("Fragmentos resueltos", FRG_OK, "ninguno"));
-    elDetalle.appendChild(columna("Campos sin valor de muestra", r.sinValor, "ninguno"));
+    // Solo las columnas con algo, de lo mas grave a lo informativo.
+    var sinRama = [];
+    for (var g = 0; g < r.elegidas.length; g++) if (r.elegidas[g].sin) sinRama.push("Grupo " + r.elegidas[g].grupo);
+    var cols = [["Grupos sin rama activa", sinRama], ["Condiciones no evaluables", r.noEvalTextos], ["Fragmentos no resueltos", r.includes],
+                ["Campos sin valor de muestra", r.sinValor], ["Fragmentos resueltos", FRG_OK]];
+    for (var i = 0; i < cols.length; i++) if (cols[i][1].length) elDetalle.appendChild(columna(cols[i][0], cols[i][1], ""));
   }
 
   // ---------------- Editor de fechas de muestra ----------------
@@ -1792,6 +1799,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("escritorio").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
     $("movil").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
     $("zval").textContent = vista.z + "%";
+    $("zmas").disabled = vista.z >= 100;
+    $("zmenos").disabled = vista.z <= 50;
     elCintaTxt.textContent = hayEditados() ? "fechas editadas" : "";
     elCinta.firstElementChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
     $("modoMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
@@ -2479,11 +2488,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   if (bWf) {
     if (!WORKFRONT_URL) {
       bWf.textContent = "Workfront no configurado";   // al cargar: sin animacion
-      bWf.disabled = true;
+      // aria-disabled y no disabled: sigue enfocable y al pulsarlo explica el motivo.
+      bWf.setAttribute("aria-disabled", "true");
       bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y subelo a mano.";
     }
     bWf.onclick = function () {
-      if (!WORKFRONT_URL) return;
+      if (!WORKFRONT_URL) {
+        avisoWf(false, "Workfront no est\u00e1 configurado: falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y s\u00fabelo a mano.");
+        return;
+      }
       abrirModal();
     };
     $("modalX").onclick = cerrarModal;
