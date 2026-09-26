@@ -327,6 +327,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .avisos:empty, .avisos[hidden] { display:none; }
 .avisos--error { background:var(--err-bg); color:var(--err-fg); border-bottom-color:rgba(153,27,27,.22); }
 .lienzo__cinta .avisos { background:none; border:0; padding:0 0 0 10px; border-left:1px solid rgba(146,64,14,.3); gap:6px; }
+.lienzo__cinta .avisos--falta { color:var(--err-fg); font-weight:600; }
+.lienzo__cinta .avisos--falta button { font-weight:400; }
+.sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 .lienzo__cinta .avisos--error { background:var(--err-bg); color:var(--err-fg); padding:2px 8px; border:0; border-radius:4px; }
 .lienzo__cinta .avisos button { margin-left:0; }
 .avisos__b { font:inherit; font-size:var(--fs-xs); background:transparent; border:1px solid currentColor;
@@ -555,7 +558,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     <button type="button" class="barra__wf" id="workfront">Enviar a Workfront &#x2197;</button>
   </div>
 
-  <div class="avisos" id="avisos" role="status" hidden></div>
+  <div class="avisos" id="avisos" hidden></div>
+  <span class="sr" id="anuncio" role="status"></span>
   <div class="detalle" id="detalle"></div>
 
   <div class="cuerpo">
@@ -565,7 +569,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <div class="panel__cab">
         <span class="panel__t">Escenario</span>
         <span class="panel__n" id="panelN"></span>
-        <button type="button" class="panel__b" id="restablecer">Restablecer</button>
+        <button type="button" class="panel__b" id="restablecer" title="Vuelve al escenario por defecto">Por defecto</button>
         <button type="button" class="panel__b" id="cerrarPanel" aria-label="Ocultar panel"
                 aria-expanded="true" aria-controls="panel">&#x25C0;</button>
       </div>
@@ -577,9 +581,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       <!-- La cinta va FUERA del marco: el marco es solo para el correo. -->
       <div class="lienzo__cinta" id="cinta">
         <b>&#x25C6; Datos de muestra (ficticios)</b>
-        <span id="cintaTxt">muestra</span>
+        <span id="cintaTxt"></span>
         <button type="button" id="editarFechas" aria-controls="fechas" aria-expanded="false">Editar fechas</button>
-        <button type="button" id="modoMuestra">muestra / [CAMPOS]</button>
+        <button type="button" id="modoMuestra">Ver campos</button>
       </div>
       <div class="marco" id="marco">
         <!-- El atributo sandbox va con UN SOLO valor: allow-same-origin, y ninguno mas.
@@ -612,7 +616,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     <div id="fechasL"></div>
     <div class="fechas__pie">
       <span>Los cambios se usan en .html, PNG, PDF y Workfront. Siguen siendo datos ficticios.</span>
-      <button type="button" id="fechasReset">Restablecer</button>
+      <button type="button" id="fechasReset">Fechas originales</button>
     </div>
   </section>
 
@@ -818,6 +822,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function hayEditados() { for (var k in editados) if (editados.hasOwnProperty(k)) return true; return false; }
   // Marcas de texto para ubicar cada fecha en la vista; nunca llegan a ultimo.html.
   var MK_A = "\u27E6", MK_B = "\u27E7", MK_FIN = "\u27E6/\u27E7";
+  var MF_A = "\u27EA", MF_B = "\u27EB";
   // Valores que dependen del escenario: PLASTICO es la tarjeta del PRODUCTO elegido en el panel.
   function valorDinamico(k) {
     if (k === "PLASTICO") {
@@ -832,7 +837,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
   }
 
-  // opciones: { todas:bool, muestra:bool, marcar:bool }
+  // opciones: { todas:bool, muestra:bool, marcar:bool, senalar:bool }
+  // senalar (solo la vista): envuelve cada campo sin valor en MF_A..MF_B y deja un comentario
+  // pv-sin-rama donde un grupo no tuvo rama; senalarFaltas los convierte en marcas ambar.
   // devuelve { html, elegidas:[{grupo,label}], noEval, noEvalTextos:[], includes:[], sinValor:[], fechas:[] }
   function podar(src, perfil, opciones) {
     opciones = opciones || {};
@@ -846,6 +853,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       anota(fechas, key);
       return opciones.marcar ? MK_A + key + MK_B + x + MK_FIN : x;
     }
+    // En modo [CAMPOS] todos van sin valor a proposito: solo se senalan con datos de muestra.
+    function falta(x) { return (opciones.senalar && conMuestra) ? MF_A + x + MF_B : x; }
     do {
       prev = out;
       out = out.replace(reGrupo(), function (m, body) {
@@ -876,7 +885,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
             if (evaluar(ramas[k].cond, perfil)) { pick = k; break; }
           } catch (e) { noEval++; anota(noEvalTextos, String(ramas[k].cond).replace(/\s+/g, " ")); }
         }
-        if (pick < 0) { elegidas.push({ grupo: nGrupo, label: "", sin: true }); return ""; }
+        if (pick < 0) {
+          elegidas.push({ grupo: nGrupo, label: "", sin: true });
+          return opciones.senalar ? "<!--pv-sin-rama " + nGrupo + "-->" : "";
+        }
         elegidas.push({ grupo: nGrupo, label: ramas[pick].label });
         return ramas[pick].html;
       });
@@ -888,7 +900,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       function (m, n) {
         if (valorMuestra(n) === null) anota(sinValor, n);
         var x = conMuestra ? valorMuestra(n) : null;
-        return token(n, x !== null ? x : "[" + esc(n) + "]");
+        return token(n, x !== null ? x : falta("[" + esc(n) + "]"));
       });
     out = out.replace(rx(O + "@\\s*include\\s+fragment\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
       function (m, n) {
@@ -903,7 +915,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         var key = t ? t[1] : null;
         if (key && valorMuestra(key) === null) anota(sinValor, key);
         var x = (conMuestra && key) ? valorMuestra(key) : null;
-        return token(key, x !== null ? x : "[" + (key || "...") + "]");
+        return token(key, x !== null ? x : falta("[" + (key || "...") + "]"));
       });
     out = out.replace(rx(O + "[\\s\\S]*?" + C), "");
     return { html: out, elegidas: elegidas, noEval: noEval, noEvalTextos: noEvalTextos,
@@ -987,6 +999,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     return salida;
   }
   // END-PODA
+  function plural(n, uno, varios) { return n + " " + (n === 1 ? uno : varios); }
 
   // ---------------- Elementos ----------------
   var $ = function (id) { return document.getElementById(id); };
@@ -1003,7 +1016,14 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     b.classList.add("cambia");
   }
   var elCombo = $("combo"), elBuscar = $("buscar"), elLista = $("lista"), elComboId = $("comboId");
-  var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle");
+  var elInfo = $("info"), elAvisos = $("avisos"), elDetalle = $("detalle"), elAnuncio = $("anuncio");
+  // Region viva aparte: #avisos se repinta en cada cambio y no debe repetir lo mismo al lector.
+  var ultAnuncio = "";
+  function anunciar(txt, forzar) {
+    if (!elAnuncio || (txt === ultAnuncio && !forzar)) return;
+    ultAnuncio = txt;
+    elAnuncio.textContent = txt;
+  }
   // Con un template cargado, los avisos van dentro de la cinta de muestra: una sola franja amarilla.
   if ($("cinta") && $("editarFechas")) $("cinta").insertBefore(elAvisos, $("editarFechas"));
   var elPanel = $("panel"), elVars = $("vars"), elRamas = $("ramas"), elPanelN = $("panelN");
@@ -1310,19 +1330,20 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     n.title = nombre;
     var t = document.createElement("span");
     t.className = "vars__tipo";
-    t.textContent = tipo;
-    c.appendChild(n); c.appendChild(t);
+    t.textContent = tipo || "";
+    c.appendChild(n);
+    if (tipo) c.appendChild(t);
     return c;
   }
 
   function cajaValores(nombre) {
     var v = det.vars[nombre], g = document.createElement("div");
     g.className = "vars__g";
-    g.appendChild(cabecera(nombre, "valores"));
+    g.appendChild(cabecera(nombre, ""));
     var seg = document.createElement("div");
     seg.className = "vars__seg" + (v.reales.length === 1 ? " vars__seg--uno" : "");
     seg.setAttribute("role", "group");
-    seg.setAttribute("aria-label", nombre);
+    seg.setAttribute("aria-label", traducirUI(nombre));
     // Solo los valores que el template compara de verdad. "(otro valor)" y "(vacio)" caian
     // siempre en la rama por defecto, que suele estar vacia, y se veia como si no hubiera nada.
     var ops = [], i;
@@ -1332,7 +1353,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
         var b = document.createElement("button");
         b.type = "button";
         b.textContent = txt;
-        b.title = val;
+        if (txt !== val) b.title = "C\u00f3digo " + val;
         b.setAttribute("aria-pressed", perfil[nombre] === val ? "true" : "false");
         b.onclick = function () { perfil[nombre] = val; pintarEscenario(); pintar(); };
         seg.appendChild(b);
@@ -1363,7 +1384,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var g = document.createElement("div"), i;
     g.className = "vars__g";
     if (grupo.nombres.length === 1) {
-      g.appendChild(cabecera(grupo.nombres[0], "presencia"));
+      g.appendChild(cabecera(grupo.nombres[0], ""));
       var uno = interruptor("estado", false);
       uno.actualizar(perfil[grupo.nombres[0]] === "" ? "false" : "true");
       uno.onclick = function () {
@@ -1375,7 +1396,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     var conDato = 0;
     for (i = 0; i < grupo.nombres.length; i++) if (perfil[grupo.nombres[i]] !== "") conDato++;
-    g.appendChild(cabecera(grupo.etiqueta, grupo.nombres.length + " banderas \u00b7 " + conDato + "/" + grupo.nombres.length + " con dato"));
+    g.appendChild(cabecera(grupo.etiqueta, conDato + " de " + grupo.nombres.length + " con dato"));
     var todos = interruptor("todos", true);
     todos.actualizar(conDato === grupo.nombres.length ? "true" : (conDato === 0 ? "false" : "mixed"));
     todos.onclick = function () {
@@ -1419,35 +1440,49 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       g.textContent = "Grupo " + elegidas[i].grupo + " \u2192";
       var c = document.createElement("span");
       c.className = "ramas__chip" + (elegidas[i].sin ? " ramas__chip--sin" : "");
-      c.textContent = elegidas[i].sin ? "sin rama activa" : elegidas[i].label;
-      c.title = c.textContent;
+      c.textContent = elegidas[i].sin ? "sin rama activa" : legible(elegidas[i].label);
+      c.title = elegidas[i].sin ? "Ninguna condici\u00f3n se cumple: en el correo no sale nada en su lugar." : elegidas[i].label;
       f.appendChild(g); f.appendChild(c);
       elRamas.appendChild(f);
     }
+  }
+
+  // "targetData.CODPRODUCTO == 'TCRPLL'" -> "PRODUCTO = LATAM Platinum". El original queda en el title.
+  function legible(label) {
+    return String(label)
+      .replace(/(?:targetData|recipient)\.(\w+)/g, function (m, n) { return traducirUI(n); })
+      .replace(/(['"])([^'"]*)\1/g, function (m, q, v) { return v === "" ? ETIQ_VACIO : traducirUI(v); })
+      .replace(/\s*!==?\s*/g, " \u2260 ").replace(/\s*===?\s*/g, " = ")
+      .replace(/\s*&&\s*/g, " y ").replace(/\s*\|\|\s*/g, " o ")
+      .replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
   }
 
   // ---------------- Avisos y detalle ----------------
   var detalleAbierto = false;
   function pintarAvisos(r) {
     elAvisos.textContent = "";
-    var partes = [];
-    if (r.noEval) partes.push(r.noEval + " condici\u00f3n(es) no evaluable(s): se omiti\u00f3 esa rama.");
-    if (r.includes.length) partes.push(r.includes.length + " fragmento(s) no resuelto(s).");
+    var partes = [], sinRama = 0, i;
+    for (i = 0; i < r.elegidas.length; i++) if (r.elegidas[i].sin) sinRama++;
+    if (sinRama) partes.push(plural(sinRama, "grupo sin rama activa", "grupos sin rama activa"));
+    if (r.noEval) partes.push(plural(r.noEval, "condici\u00f3n no evaluable", "condiciones no evaluables") + " (se omiti\u00f3 esa rama)");
+    if (r.includes.length) partes.push(plural(r.includes.length, "fragmento no resuelto", "fragmentos no resueltos"));
+    if (vista.muestra && r.sinValor.length) partes.push(plural(r.sinValor.length, "campo sin valor de muestra", "campos sin valor de muestra"));
     // La barra tambien sale cuando todo fue bien pero hubo fragmentos: es la
     // unica forma de abrir el Detalle y ver por que camino los trajo el servidor.
-    if (!partes.length && !r.sinValor.length && !FRG_OK.length) { elAvisos.hidden = true; cerrarDetalle(); return; }
+    if (!partes.length && !FRG_OK.length) { elAvisos.hidden = true; cerrarDetalle(); anunciar(""); return; }
     elAvisos.hidden = false;
-    elAvisos.className = "avisos";
+    elAvisos.className = "avisos" + (partes.length ? " avisos--falta" : "");
     var s = document.createElement("span");
-    var suave = r.sinValor.length
-      ? r.sinValor.length + " token(s) sin valor de muestra."
-      : FRG_OK.length + " fragmento(s) resuelto(s) en el servidor.";
-    s.textContent = partes.length ? partes.join(" \u00b7 ") : suave;
+    s.textContent = partes.length
+      ? "\u26A0 " + partes.join(" \u00b7 ") + (vista.muestra && r.sinValor.length ? ". Marcados en el correo." : ".")
+      : plural(FRG_OK.length, "fragmento resuelto", "fragmentos resueltos") + " en el servidor.";
     elAvisos.appendChild(s);
+    anunciar(partes.length ? s.textContent : "");
     var b = document.createElement("button");
     b.type = "button";
     b.className = "avisos__b";
     b.textContent = detalleAbierto ? "Ocultar detalle" : "Ver detalle";
+    b.setAttribute("aria-expanded", detalleAbierto ? "true" : "false");
     b.onclick = function () { detalleAbierto = !detalleAbierto; pintarDetalle(ultimo); pintarAvisos(ultimo); };
     elAvisos.appendChild(b);
   }
@@ -1482,7 +1517,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elDetalle.appendChild(columna("Condiciones no evaluables", r.noEvalTextos, "ninguna"));
     elDetalle.appendChild(columna("Fragmentos no resueltos", r.includes, "ninguno"));
     elDetalle.appendChild(columna("Fragmentos resueltos", FRG_OK, "ninguno"));
-    elDetalle.appendChild(columna("Tokens sin valor de muestra", r.sinValor, "ninguno"));
+    elDetalle.appendChild(columna("Campos sin valor de muestra", r.sinValor, "ninguno"));
   }
 
   // ---------------- Editor de fechas de muestra ----------------
@@ -1591,6 +1626,66 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     s.appendChild(texto(antes)); s.appendChild(m); s.appendChild(texto(despues));
     return s;
   }
+  // Marcas ambar de lo que falta (solo la vista): campos sin valor y grupos sin rama activa.
+  function senalarFaltas() {
+    var d = docVista();
+    if (!d || !d.documentElement) return;
+    var raiz = d.documentElement, i, j, n, reQ = /[\u27EA\u27EB]/g;
+    var els = raiz.getElementsByTagName("*");
+    for (i = 0; i < els.length; i++) {
+      for (j = 0; j < els[i].attributes.length; j++) {
+        var at = els[i].attributes[j];
+        if (reQ.test(at.value)) els[i].setAttribute(at.name, at.value.replace(reQ, ""));
+        reQ.lastIndex = 0;
+      }
+    }
+    var w = d.createTreeWalker(raiz, 4 | 128, null, false), textos = [], comentarios = [];
+    while ((n = w.nextNode())) {
+      if (n.nodeType === 8) { if (/^pv-sin-rama /.test(n.data)) comentarios.push(n); }
+      else if (n.data.indexOf(MF_A) >= 0) textos.push(n);
+    }
+    var re = /\u27EA([\s\S]*?)\u27EB/g;
+    for (i = 0; i < textos.length; i++) {
+      n = textos[i];
+      if (!n.parentNode) continue;
+      if (/^(STYLE|TITLE|SCRIPT|TEXTAREA|OPTION)$/.test(n.parentNode.nodeName)) { n.data = n.data.replace(reQ, ""); continue; }
+      var frag = d.createDocumentFragment(), txt = n.data, ult = 0, mm;
+      re.lastIndex = 0;
+      while ((mm = re.exec(txt))) {
+        if (mm.index > ult) frag.appendChild(d.createTextNode(txt.slice(ult, mm.index)));
+        var sp = d.createElement("span");
+        sp.setAttribute("data-pv-falta", "");
+        sp.title = "Sin valor de muestra";
+        sp.textContent = mm[1];
+        frag.appendChild(sp);
+        ult = re.lastIndex;
+      }
+      if (ult < txt.length) frag.appendChild(d.createTextNode(txt.slice(ult).replace(reQ, "")));
+      n.parentNode.replaceChild(frag, n);
+    }
+    for (i = 0; i < comentarios.length; i++) {
+      n = comentarios[i];
+      var pa = n.parentNode, g = n.data.replace(/^pv-sin-rama /, "");
+      if (!pa) continue;
+      var nota = d.createElement(/^(A|SPAN|B|STRONG|I|EM|FONT|LABEL)$/.test(pa.nodeName) ? "span" : "div");
+      nota.setAttribute("data-pv-rama", "");
+      nota.textContent = "Grupo " + g + ": sin rama activa, aqu\u00ed no sale nada";
+      var nodo = nota;
+      // Dentro de una tabla el texto suelto se sale de la tabla: la nota va en su propia celda.
+      if (pa.nodeName === "TR") { nodo = d.createElement("td"); nodo.colSpan = 99; nodo.appendChild(nota); }
+      else if (/^(TABLE|TBODY|THEAD|TFOOT)$/.test(pa.nodeName)) {
+        nodo = d.createElement("tr");
+        var td = d.createElement("td"); td.colSpan = 99; td.appendChild(nota); nodo.appendChild(td);
+      }
+      pa.replaceChild(nodo, n);
+    }
+    if (!textos.length && !comentarios.length) return;
+    var st = d.createElement("style");
+    st.textContent = "[data-pv-falta]{background:#fef3c7;color:#92400e;outline:2px solid #d97706;outline-offset:1px;border-radius:2px}" +
+      "[data-pv-rama]{display:block;margin:4px 0;padding:4px 8px;border:2px dashed #d97706;border-radius:3px;" +
+      "background:#fffbeb;color:#92400e;font:600 11px/1.4 Arial,sans-serif;text-align:center}";
+    (d.head || raiz).appendChild(st);
+  }
   // Cambia las marcas de texto por <mark> numerados dentro de la vista (solo la vista, no ultimo.html).
   function marcarFechas() {
     var d = docVista();
@@ -1686,8 +1781,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("escritorio").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
     $("movil").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
     $("zval").textContent = vista.z + "%";
-    elCintaTxt.textContent = (vista.muestra ? "muestra" : "[CAMPOS]") + (hayEditados() ? " \u00b7 fechas editadas" : "");
-    elCinta.firstElementChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Tokens sin reemplazar";
+    elCintaTxt.textContent = hayEditados() ? "fechas editadas" : "";
+    elCinta.firstElementChild.textContent = vista.muestra ? "\u25C6 Datos de muestra (ficticios)" : "\u25C7 Campos sin reemplazar";
+    $("modoMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
     medirVista();   // cambiar a movil/escritorio reajusta el correo: cambia su alto
     ajustarMargen();
   }
@@ -1734,6 +1830,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   // Las imagenes del CDN llegan despues del load y estiran el correo. Nada de timers fijos:
   // se remide con el load de cada imagen y, si existe, con un ResizeObserver sobre el body.
   function seguirVista() {
+    senalarFaltas();
     medirVista();
     try {
       var d = elVista.contentDocument;
@@ -1761,10 +1858,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     // Hasta que el correo nuevo cargue y se mida se conserva el alto anterior: volver al
     // respaldo en cada repintado hacia saltar el scroll. ALTO_VISTA solo en la primera vista.
     if (!elVista.style.height) elVista.style.height = ALTO_VISTA + "px";
-    // Con el editor de fechas abierto la vista lleva marcas para ubicar cada fecha;
+    // La vista lleva marcas: campos sin valor, grupos sin rama y, con el editor abierto, fechas.
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
-    elVista.srcdoc = fechasAbierto ? podar(original, perfil, { muestra: vista.muestra, marcar: true }).html : r.html;
-    var txt = r.elegidas.length ? r.elegidas.length + " grupo(s) condicional(es)" : "guardado en Campaign";
+    elVista.srcdoc = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
+    var txt = r.elegidas.length ? plural(r.elegidas.length, "grupo condicional", "grupos condicionales") : "guardado en Campaign";
     elInfo.textContent = txt;
     elInfo.title = txt;
     pintarRamas(r.elegidas);
@@ -2127,7 +2224,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 
     var avisoImagenes = function () {
       return pngFallidas.length
-        ? " \u00b7 " + pngFallidas.length + " imagen(es) no se pudieron traer y quedaron en blanco."
+        ? " \u00b7 " + (pngFallidas.length === 1 ? "1 imagen no se pudo traer y qued\u00f3 en blanco." : pngFallidas.length + " im\u00e1genes no se pudieron traer y quedaron en blanco.")
         : "";
     };
 
@@ -2250,7 +2347,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var p = [], i;
     for (i = 0; i < ultimo.elegidas.length; i++) {
       var e = ultimo.elegidas[i];
-      p.push("Grupo " + e.grupo + " \u2192 " + (e.sin ? "sin rama activa" : e.label));
+      p.push("Grupo " + e.grupo + " \u2192 " + (e.sin ? "sin rama activa" : legible(e.label)));
     }
     return p.length ? p.join("\n") : "sin grupos condicionales";
   }
@@ -2262,7 +2359,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModal.className = "modal";
     if (focoPrevio && focoPrevio.focus) focoPrevio.focus();
   }
-  function plural(n, uno, varios) { return n + " " + (n === 1 ? uno : varios); }
   // Lo que falta resolver en el HTML que se va a enviar. Sin valor de muestra solo
   // cuenta con datos de muestra: en modo [CAMPOS] todos los tokens van sin reemplazar a proposito.
   function pendientes() {
@@ -2306,7 +2402,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModalC.appendChild(revision(p));
     elModalC.appendChild(fila("Template", nombreActual() + "  (" + actual + ")"));
     elModalC.appendChild(fila("Escenario", resumenEscenario()));
-    elModalC.appendChild(fila("Ramas", resumenRamas(), true));
+    elModalC.appendChild(fila("Ramas", resumenRamas()));
     if (hayEditados()) elModalC.appendChild(fila("Fechas editadas", resumenFechas()));
     var n = document.createElement("div");
     n.className = "modal__nota";
@@ -2337,6 +2433,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function avisoWf(ok, texto, detalle) {
     elAvisos.hidden = false;
     elAvisos.className = "avisos" + (ok ? "" : " avisos--error");
+    anunciar(texto, true);
     void elAvisos.offsetWidth;   // reinicia el fundido si llega un aviso tras otro
     elAvisos.className += " avisos--nuevo";
     elAvisos.textContent = "";
