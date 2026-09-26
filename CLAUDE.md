@@ -68,6 +68,7 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
 ## Estado y pendientes conocidos
 
 - Hoy **el preview y el proxy no piden login** (solo es aceptable en stage). El bloque `checkAuthentication` está comentado; no lo borres, porque hay que reactivarlo sin `response.write`. Antes de `logonEscalation` falta validar el operador (named right o grupo, lo decide el admin de Campaign del banco).
+- El envío a Workfront está **pausado**: `WORKFRONT_ACTIVO = false` deja el botón visible pero desactivado. Para reactivarlo, se pone en `true`.
 - `WORKFRONT_URL`, `WORKFRONT_USER` y `WORKFRONT_PASS` están escritos en el cliente, y el repo en GitHub es público. Hay que moverlos al servidor.
 - Producción: cambiar `bcp-mid-stage13` por el dominio de producción en `PERMITIDOS` y en `PNG_PROXY_HOSTS`.
 - Pendiente de probar en Campaign (commits del 2026-09-25): la nueva medición del alto con correos cortos, largos con imágenes y con `height:100%`, además de las animaciones y la respuesta al clic.

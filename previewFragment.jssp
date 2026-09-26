@@ -653,6 +653,9 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 <script>
 (function () {
   // URL del webhook de Workfront. Dejala VACIA en el repo; pegala solo en Campaign.
+  // Envio a Workfront pausado por ahora: el boton se ve pero queda desactivado.
+  // Para reactivarlo, poner true (la URL y el resto del flujo siguen aqui).
+  var WORKFRONT_ACTIVO = false;
   var WORKFRONT_URL = "https://hook.fusion.adobe.com/03eeral72w5620flcc4jtdhqjko71pcw";
   var WORKFRONT_USER = "bcp";
   var WORKFRONT_PASS = "1234";
@@ -2511,13 +2514,17 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   function estadoWf(txt, dis, reposo) { cambiarTexto(bWf, txt, reposo); bWf.disabled = !!dis; }
 
   if (bWf) {
-    if (!WORKFRONT_URL) {
+    if (!WORKFRONT_ACTIVO) {
+      bWf.disabled = true;
+      bWf.title = "El env\u00edo a Workfront est\u00e1 desactivado por ahora. Usa Descargar (.html, PNG o PDF).";
+    } else if (!WORKFRONT_URL) {
       bWf.textContent = "Workfront no configurado";   // al cargar: sin animacion
       // aria-disabled y no disabled: sigue enfocable y al pulsarlo explica el motivo.
       bWf.setAttribute("aria-disabled", "true");
       bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y subelo a mano.";
     }
     bWf.onclick = function () {
+      if (!WORKFRONT_ACTIVO) return;
       if (!WORKFRONT_URL) {
         avisoWf(false, "Workfront no est\u00e1 configurado: falta la URL del webhook en el .jssp. Mientras tanto, usa Descargar .html y s\u00fabelo a mano.");
         return;
@@ -2529,7 +2536,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModal.onmousedown = function (ev) { if (ev.target === elModal) cerrarModal(); };
     elModal.onkeydown = atraparFoco;
     elModalOk.onclick = function () {
-      if (!WORKFRONT_URL) return;
+      if (!WORKFRONT_ACTIVO || !WORKFRONT_URL) return;
       elModalOk.disabled = true;
       elModalOk.textContent = "Enviando\u2026";
       estadoWf("Enviando\u2026", true);
