@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Dos páginas JSSP (Dynamic JavaScript pages, namespace `cus`) de Adobe Campaign v8 (instancia BCP stage12). No hay build, dependencias ni servidor local.
 - `previewFragment.jssp` → `/cus/previewFragment.jssp`. Lista los templates de email, carga el HTML **guardado**, resuelve fragmentos, poda los condicionales según un escenario y muestra el correo en un iframe. Exporta .html, PNG y PDF, y envía a Workfront.
 - `proxy-images.jssp` → se publica en Campaign como **`/cus/imgProxy.jssp`** (el preview lo llama con ese nombre). Descarga imágenes de hosts sin CORS desde el servidor y devuelve texto `data:image/...;base64,...` para las exportaciones PNG/PDF.
+- `wfEnvio.jssp` → se publica como **`/cus/wfEnvio.jssp`**. Recibe el correo del preview (POST de formulario: `templateId`, `nombreTemplate`, `htmlFinal`) y lo reenvía al webhook de Workfront Fusion con `HttpClientRequest`. `WF_URL`, `WF_USER` y `WF_PASS` se pegan **solo en la copia de Campaign**; en el repo (público) quedan vacíos. Responde 200 `ok`, 400 (datos no válidos), 502 (Workfront rechazó), 503 (sin configurar) o 504 (sin respuesta: pudo llegar). `?dbg=1` dice si está configurada sin enviar nada.
 - `PRODUCT.md`: contexto de producto (usuarios, propósito, principios). Lo usa la skill `impeccable`; léelo antes de proponer cambios de diseño.
 - `.impeccable/critique/`: críticas de diseño guardadas, con fecha: 24/40, 27/40 y 26/40 (la tercera, sobre el rediseño; sus problemas ya se aplicaron el 2026-09-25). `/impeccable polish` lee de ahí los problemas prioritarios.
 - `.impeccable/surfaces/previewfragment-jssp.md`: contrato de diseño del rediseño "Ficha del destinatario" y las decisiones de Marcos posteriores.
@@ -85,8 +86,9 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
      - `atraparFoco` mantiene Tab dentro del diálogo.
      - No muestres la URL del webhook ni la fila "Vista": el HTML que se envía es siempre el mismo.
      - `fetch` tiene un tope de 30 s con `AbortController`. Hay tres mensajes de error:
-       - HTTP de error: "no se registró, puedes reintentar".
-       - Sin respuesta (red o CORS): "pudo llegar, revisa antes de reintentar".
+       - HTTP de error (502 u otro): "no se registró, puedes reintentar".
+       - 503: Workfront no está configurado en Campaign (faltan los valores en `wfEnvio.jssp`).
+       - 504 o sin respuesta (red): "pudo llegar, revisa antes de reintentar".
        - Tope de 30 s: el mismo aviso de "revisa antes de reintentar".
    - **Lenguaje de la UI.**
      - El modal pasa cada condición por `legible()`: `targetData.CODPRODUCTO == 'TCRPLL'` sale como "PRODUCTO = LATAM Platinum", y el original queda en el `title`.
@@ -108,13 +110,13 @@ Prueba visual en local: copia desde `<!DOCTYPE html>` hacia abajo y reemplaza `<
 - Los datos del servidor viajan con `encodeURIComponent` en atributos `data-*` y se pintan con `textContent` o `srcdoc`. Los únicos `<%= %>` permitidos son `datosLista`, `selAttr`, `datosHtml` y `datosFrg`. Todo valor insertado en el HTML del correo pasa por `esc()`.
 - **En los JSSP, la salida se escribe con `document.write`; nunca con `response.write`**, que da 500 `BAS-010063`, un error que esconde el detalle real. `response.sendError(n)` sí funciona. Para depurar el servidor, usa un modo `?dbg=N` que corte por pasos y escriba con `document.write`.
 - El proxy mantiene la lista cerrada `PERMITIDOS` (host y prefijo de ruta), solo acepta `https`, solo extensiones de imagen y rechaza `..`. Sin eso queda expuesto a SSRF. `HttpClientRequest` funciona sin `logonEscalation`. Si cambias los hosts, actualiza también `PNG_PROXY_HOSTS` en el preview.
-- Los únicos `fetch` son el de Workfront (`fetch(WORKFRONT_URL, …)`) y el de las imágenes para PNG/PDF (proxy o CORS). No uses recursos externos (CDN, fuentes, imágenes remotas) en la página.
+- Los únicos `fetch` son el de Workfront (`fetch(WF_ENVIO, …)`, a `/cus/wfEnvio.jssp`; el navegador nunca ve la URL del webhook ni la clave) y el de las imágenes para PNG/PDF (proxy o CORS). No uses recursos externos (CDN, fuentes, imágenes remotas) en la página.
 
 ## Estado y pendientes conocidos
 
 - Hoy **el preview y el proxy no piden login** (solo es aceptable en stage). El bloque `checkAuthentication` está comentado; no lo borres, porque hay que reactivarlo sin `response.write`. Antes de `logonEscalation` falta validar el operador (named right o grupo, lo decide el admin de Campaign del banco).
 - El envío a Workfront está **pausado**: `WORKFRONT_ACTIVO = false` deja el botón con `aria-disabled` (enfocable, borde punteado) y al pulsarlo explica que está pausado. Para reactivarlo, se pone en `true`.
-- `WORKFRONT_URL`, `WORKFRONT_USER` y `WORKFRONT_PASS` están escritos en el cliente, y el repo en GitHub es público. Hay que moverlos al servidor.
+- Las credenciales viejas de Workfront (webhook y `bcp`) quedaron en el historial público de GitHub: hay que regenerar el webhook y cambiar la clave en Fusion, y pegar los valores nuevos solo en `wfEnvio.jssp` dentro de Campaign.
 - Producción: cambiar `bcp-mid-stage13` por el dominio de producción en `PERMITIDOS` y en `PNG_PROXY_HOSTS`.
 - Pendiente de probar en Campaign (commits del 2026-09-25 y 26):
   - la medición del alto con correos cortos, largos con imágenes y con `height:100%`;

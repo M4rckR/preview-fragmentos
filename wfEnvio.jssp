@@ -1,0 +1,116 @@
+<%@ page import="xtk:shared/nl.js" %><%
+// ==========================================================================
+// Envio a Workfront para "Enviar a Workfront" de previewFragment.jssp.
+// Se publica en Campaign como /cus/wfEnvio.jssp. El preview le manda el correo
+// (POST de formulario: templateId, nombreTemplate, htmlFinal) y esta pagina lo
+// reenvia al webhook de Workfront Fusion con HttpClientRequest.
+// Asi la URL del webhook y la clave nunca llegan al navegador.
+//
+// SEGURIDAD: WF_URL, WF_USER y WF_PASS se pegan SOLO en la copia de Campaign.
+// En el repo (que es publico) quedan VACIOS. Nunca hagas commit con valores.
+// Sin valores, la pagina responde 503 y el preview avisa que falta configurarla.
+//
+// PRUEBA EN STAGE: sin login, igual que el preview y el proxy. Reactivar antes
+// de produccion (ver previewFragment.jssp).
+//
+// Respuestas (el preview arma el mensaje segun el codigo):
+//   200 "ok"  Workfront acepto el envio.
+//   400       faltan datos o no son validos.
+//   502       Workfront respondio con error: no se registro, se puede reintentar.
+//   503       falta configurar WF_URL / WF_USER / WF_PASS en esta pagina.
+//   504       no hubo respuesta de Workfront: pudo llegar, revisar antes de reintentar.
+// ?dbg=1 dice si esta configurada, sin enviar nada.
+// ==========================================================================
+var WF_URL = "";
+var WF_USER = "";
+var WF_PASS = "";
+
+var HTML_MAX = 3 * 1024 * 1024;   // mismo orden que el tope de fragmentos del preview
+
+// En los JSSP de esta instancia la salida va con document.write: response.write
+// revienta con 500 (BAS-010063). response.sendError si funciona.
+function salida(txt) { document.write(txt); }
+
+function base64(txt) {
+  var b = new MemoryBuffer();
+  b.fromString(txt, "utf-8");
+  return b.toBase64();
+}
+
+var configurada = WF_URL != "" && WF_USER != "" && WF_PASS != "";
+
+if (String(request.parameters.dbg || "") == "1") {
+  var cred = "";
+  try { cred = configurada ? (base64("a:b") == "YTpi" ? "ok" : "base64 distinto") : "-"; }
+  catch (e0) { cred = "fallo base64: " + String(e0); }
+  salida("configurada: " + (configurada ? "si" : "no") + " | credenciales: " + cred);
+  return;
+}
+
+if (!configurada) { response.sendError(503); return; }
+
+var templateId = String(request.parameters.templateId || "");
+var nombreTemplate = String(request.parameters.nombreTemplate || "").substring(0, 300);
+var htmlFinal = String(request.parameters.htmlFinal || "");
+if (!/^\d+$/.test(templateId) || htmlFinal == "" || htmlFinal.length > HTML_MAX) {
+  response.sendError(400);
+  return;
+}
+
+var credenciales = base64(WF_USER + ":" + WF_PASS);
+// Misma forma que mandaba el preview antes: el escenario de Fusion espera esto.
+var payload = [
+  {
+    "ca": null,
+    "qs": [],
+    "url": WF_URL,
+    "data": JSON.stringify({
+      templateId: templateId,
+      nombreTemplate: nombreTemplate,
+      htmlFinal: htmlFinal,
+      fechaEnvio: new Date().toISOString()
+    }),
+    "gzip": true,
+    "method": "post",
+    "headers": [
+      { "name": "Content-Type", "value": "application/json" },
+      { "name": "Accept", "value": "application/json", "Authorization": "Basic " + credenciales }
+    ],
+    "timeout": null,
+    "useMtls": false,
+    "authPass": WF_PASS,
+    "authUser": WF_USER,
+    "bodyType": "raw",
+    "retryCount": null,
+    "contentType": "application/json",
+    "shareCookies": false,
+    "parseResponse": false,
+    "followRedirect": true,
+    "useQuerystring": false,
+    "followAllRedirects": false,
+    "rejectUnauthorized": true
+  }
+];
+
+var codigo = 0;
+try {
+  var req = new HttpClientRequest(WF_URL);
+  req.method = "POST";
+  req.header["Content-Type"] = "application/json";
+  req.header["Accept"] = "application/json";
+  req.header["Authorization"] = "Basic " + credenciales;
+  req.body = JSON.stringify(payload);
+  req.execute();
+  codigo = Number(req.response.code) || 0;
+} catch (e) {
+  logWarning("wfEnvio: sin respuesta de Workfront: " + String(e));
+  response.sendError(504);
+  return;
+}
+if (codigo < 200 || codigo >= 300) {
+  logWarning("wfEnvio: Workfront respondio HTTP " + codigo);
+  response.sendError(502);
+  return;
+}
+salida("ok");
+%>

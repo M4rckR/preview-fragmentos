@@ -641,13 +641,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   </div>
 <script>
 (function () {
-  // Webhook y credenciales de Workfront. Pendiente: moverlos al servidor (el repo es publico).
   // Envio a Workfront pausado por ahora: el boton se ve pero queda desactivado.
-  // Para reactivarlo, poner true (la URL y el resto del flujo siguen aqui).
+  // Para reactivarlo, poner true. El envio lo hace /cus/wfEnvio.jssp en el servidor:
+  // la URL del webhook y la clave viven solo en esa pagina, nunca en el navegador.
   var WORKFRONT_ACTIVO = false;
-  var WORKFRONT_URL = "https://hook.fusion.adobe.com/03eeral72w5620flcc4jtdhqjko71pcw";
-  var WORKFRONT_USER = "bcp";
-  var WORKFRONT_PASS = "1234";
+  var WF_ENVIO = "/cus/wfEnvio.jssp";
 
   // ---------------- Logica pura (testeable sin DOM) ----------------
   // BEGIN-PODA
@@ -2549,19 +2547,10 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       // aria-disabled y no disabled: sigue enfocable y al pulsarlo explica el motivo.
       bWf.setAttribute("aria-disabled", "true");
       bWf.title = "El env\u00edo a Workfront est\u00e1 desactivado por ahora. Usa .html, PNG o PDF.";
-    } else if (!WORKFRONT_URL) {
-      bWf.textContent = "Workfront no configurado";   // al cargar: sin animacion
-      // aria-disabled y no disabled: sigue enfocable y al pulsarlo explica el motivo.
-      bWf.setAttribute("aria-disabled", "true");
-      bWf.title = "Falta la URL del webhook en el .jssp. Mientras tanto, descarga el .html y subelo a mano.";
     }
     bWf.onclick = function () {
       if (!WORKFRONT_ACTIVO) {
         avisoWf("aviso", "El env\u00EDo a Workfront est\u00E1 pausado por ahora. Usa .html, PNG o PDF y s\u00FAbelo a mano.");
-        return;
-      }
-      if (!WORKFRONT_URL) {
-        avisoWf(false, "Workfront no est\u00e1 configurado: falta la URL del webhook en el .jssp. Mientras tanto, descarga el .html y s\u00fabelo a mano.");
         return;
       }
       abrirModal();
@@ -2571,63 +2560,23 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     elModal.onmousedown = function (ev) { if (ev.target === elModal) cerrarModal(); };
     elModal.onkeydown = atraparFoco;
     elModalOk.onclick = function () {
-      if (!WORKFRONT_ACTIVO || !WORKFRONT_URL) return;
+      if (!WORKFRONT_ACTIVO) return;
       elModalOk.disabled = true;
       elModalOk.textContent = "Enviando\u2026";
       estadoWf("Enviando\u2026", true);
-    var credencialesBase64 = btoa(WORKFRONT_USER + ":" + WORKFRONT_PASS);
-      var payload = [
-        {
-          "ca": null,
-          "qs": [],
-          "url": WORKFRONT_URL,
-          "data": JSON.stringify({
-            templateId: elVista.getAttribute("data-id") || "",
-            nombreTemplate: nombreActual(),
-            htmlFinal: ultimo.html,
-            fechaEnvio: new Date().toISOString()
-          }),
-          "gzip": true,
-          "method": "post",
-          "headers": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Accept",
-              "value": "application/json",
-              "Authorization": "Basic " + credencialesBase64
-            }
-          ],
-          "timeout": null,
-          "useMtls": false,
-          "authPass": WORKFRONT_PASS,
-          "authUser": WORKFRONT_USER,
-          "bodyType": "raw",
-          "retryCount": null,
-          "contentType": "application/json",
-          "shareCookies": false,
-          "parseResponse": false,
-          "followRedirect": true,
-          "useQuerystring": false,
-          "followAllRedirects": false,
-          "rejectUnauthorized": true
-        }
-      ];
+      var datos = new URLSearchParams();
+      datos.append("templateId", elVista.getAttribute("data-id") || "");
+      datos.append("nombreTemplate", nombreActual());
+      datos.append("htmlFinal", ultimo.html);
 
       // Tope de 30 s: sin respuesta no se sabe si llego, y el mensaje lo dice.
       var ctl = window.AbortController ? new AbortController() : null;
       var tope = ctl ? setTimeout(function () { ctl.abort(); }, 30000) : null;
-      fetch(WORKFRONT_URL, {
+      fetch(WF_ENVIO, {
         method: "POST",
+        credentials: "same-origin",
         signal: ctl ? ctl.signal : undefined,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": "Basic " + credencialesBase64
-        },
-        body: JSON.stringify(payload)
+        body: datos
       })
         .then(function (res) {
           clearTimeout(tope);
@@ -2643,7 +2592,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           estadoWf("\u27f3 Reintentar Workfront", false);
           // Un HTTP de error es un rechazo claro. Sin respuesta (red, CORS o tope) no se sabe
           // si llego, y reintentar a ciegas puede duplicar la tarea.
-          var msg = err && err.http
+          // wfEnvio.jssp: 503 = falta configurarla, 504 = Workfront no respondio (pudo llegar).
+          var msg = err && err.http === 503
+            ? "Workfront no est\u00e1 configurado en Campaign (falta la clave en /cus/wfEnvio.jssp). Descarga el .html y s\u00fabelo a mano."
+            : err && err.http === 504
+            ? "Workfront no respondi\u00f3. El env\u00edo pudo llegar: revisa en Workfront antes de reintentar para no duplicarlo."
+            : err && err.http
             ? "Workfront rechaz\u00f3 el env\u00edo (HTTP " + err.http + "). No se registr\u00f3: puedes reintentar."
             : (err && err.name === "AbortError"
               ? "Workfront no respondi\u00f3 en 30 s. El env\u00edo pudo llegar: revisa en Workfront antes de reintentar para no duplicarlo."
