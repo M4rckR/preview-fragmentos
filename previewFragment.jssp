@@ -798,6 +798,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     var dd = d.getDate(), mm = d.getMonth() + 1;
     return (dd < 10 ? "0" : "") + dd + "/" + (mm < 10 ? "0" : "") + mm + "/" + d.getFullYear();
   }
+  // Misma fecha en aaaammdd: la usan los utm_campaign de los enlaces (targetData.YYYYMMDD).
+  function fechaCompacta(dias) {
+    var f = fechaMuestra(dias);
+    return f.slice(6) + f.slice(3, 5) + f.slice(0, 2);
+  }
   // Valores de muestra: los tokens de personalizacion se reemplazan por estos valores.
   // Lo que no este aqui se ve como [CAMPO]. Son datos FICTICIOS.
   var diccionario = {
@@ -814,7 +819,8 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     "FECINICIOVIGENCIACAMPANIA": fechaMuestra(0),
     "FECFINVIGENCIACAMPANIA": fechaMuestra(30),
     "FECFINVIGENCIACAMPANIAL": fechaMuestra(30),
-    "MTOOFERTASOL": "3,000"
+    "MTOOFERTASOL": "3,000",
+    "YYYYMMDD": fechaCompacta(0)
   };
 
   // Diccionario traduccion UI
