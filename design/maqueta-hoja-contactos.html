@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preview de templates</title>
+<style>
+:root {
+  --mesa:#dfe1e4; --mesa-linea:#c9cdd2; --papel:#fff; --papel-2:#f6f7f8;
+  --tinta:#1d2126; --tinta-2:#4f555d; --tinta-3:#5d636b;
+  --film:#16181b; --film-2:#23262a; --film-3:#2e3238; --film-txt:#eef0f2; --film-txt-2:#a9afb7;
+  --codigo:#e8a33d;
+  --lapiz:#d6372b; --lapiz-txt:#b3261e; --lapiz-bg:#fde6e3;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:17px;
+  --ease-out:cubic-bezier(0.23,1,0.32,1);
+  --dur-xs:120ms; --dur-md:180ms; --dur-lg:200ms;
+  --foto-w:112px; --foto-h:150px;
+}
+* { box-sizing:border-box; }
+html, body { height:100%; }
+body { margin:0; font:var(--fs-md)/1.45 var(--font); color:var(--tinta); background:var(--mesa);
+       display:flex; flex-direction:column; overflow:hidden; }
+::selection { background:#f7c8c2; color:var(--tinta); }
+:focus-visible { outline:2px solid var(--tinta); outline-offset:2px; }
+button { font:inherit; color:inherit; cursor:pointer; }
+button:disabled, button[aria-disabled="true"] { cursor:not-allowed; }
+.sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+.ico { width:14px; height:14px; flex:none; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+/* ---------- barra ---------- */
+.barra { flex:none; display:flex; align-items:center; gap:10px; padding:8px 16px; min-height:52px;
+         background:var(--papel); border-bottom:1px solid var(--mesa-linea); flex-wrap:wrap; }
+.barra__t { margin:0 6px 0 0; font-size:var(--fs-md); font-weight:700; letter-spacing:-0.01em; }
+.combo { display:flex; align-items:center; gap:8px; flex:0 1 380px; min-width:200px; height:34px; padding:0 10px;
+         border:1px solid var(--mesa-linea); border-radius:6px; background:var(--papel); }
+.combo:focus-within { border-color:var(--tinta); box-shadow:0 0 0 1px var(--tinta); }
+.combo input { flex:1; min-width:0; border:0; outline:0; font:inherit; font-size:var(--fs-sm); color:var(--tinta); background:none; }
+.combo__id { font-family:var(--mono); font-size:var(--fs-xxs); color:var(--tinta-3); }
+.barra__esp { flex:1 1 0; }
+.barra__grupo { display:flex; align-items:center; gap:4px; }
+.barra__lb { font-size:var(--fs-xs); color:var(--tinta-2); margin-right:4px; }
+.btn { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; font-size:var(--fs-sm); font-weight:600;
+       border:1px solid var(--mesa-linea); border-radius:6px; background:var(--papel); color:var(--tinta); white-space:nowrap; }
+.btn:hover { background:var(--papel-2); }
+.btn--tinta { background:var(--tinta); border-color:var(--tinta); color:#fff; }
+.btn--tinta:hover { background:#000; }
+.btn[aria-disabled="true"] { background:#5f6670; border-color:#5f6670; color:#fff; }
+.btn--sm { height:28px; padding:0 10px; font-size:var(--fs-xs); }
+.btn__k { font-family:var(--mono); font-size:var(--fs-xxs); font-weight:500; padding:0 4px; border-radius:3px;
+          border:1px solid currentColor; opacity:.7; }
+
+/* ---------- tira de pelicula ---------- */
+.tira { flex:none; position:relative; background:var(--film); color:var(--film-txt); padding:11px 0 13px; z-index:5; }
+/* Perforaciones del borde de la pelicula: el soporte real de una hoja de contactos. */
+.tira::before, .tira::after { content:""; position:absolute; left:0; right:0; height:5px;
+  background:repeating-linear-gradient(90deg, var(--film-3) 0 9px, transparent 9px 21px); }
+.tira::before { top:3px; } .tira::after { bottom:3px; }
+.tira__cab { display:flex; align-items:baseline; gap:12px; padding:4px 16px 8px; }
+.tira__t { margin:0; font-size:var(--fs-sm); font-weight:700; }
+.tira__res { font-size:var(--fs-xs); color:var(--film-txt-2); }
+.tira__res b { color:#ff8a7f; font-weight:600; }
+.tira__cab .esp { flex:1; }
+.tira .btn { background:var(--film-2); border-color:var(--film-3); color:var(--film-txt); height:28px; font-size:var(--fs-xs); }
+.tira .btn:hover { background:var(--film-3); }
+.tira :focus-visible { outline-color:#fff; }
+.film { display:flex; gap:28px; overflow-x:auto; padding:2px 16px 6px; scrollbar-color:var(--film-3) transparent; }
+.film::-webkit-scrollbar { height:8px; } .film::-webkit-scrollbar-thumb { background:var(--film-3); border-radius:4px; }
+.grupo { flex:none; }
+.grupo__t { font-size:var(--fs-xxs); font-weight:700; letter-spacing:.06em; color:var(--film-txt-2); margin:0 0 6px 2px; }
+.grupo__fs { display:flex; gap:12px; }
+.foto { position:relative; display:block; width:var(--foto-w); padding:0; border:0; background:none; text-align:left; }
+.foto__cod { display:flex; align-items:center; gap:6px; height:16px; font-family:var(--mono); font-size:var(--fs-xxs); color:var(--codigo); }
+.foto__tono { width:12px; height:3px; border-radius:1px; }
+.foto__img { position:relative; display:block; width:var(--foto-w); height:var(--foto-h); overflow:hidden;
+             background:var(--papel); border-radius:1px; }
+.foto__img iframe { position:absolute; top:0; left:0; border:0; transform-origin:0 0; pointer-events:none; background:#fff; }
+.foto__val { display:block; margin-top:6px; font-size:var(--fs-sm); font-weight:600; line-height:1.25; color:var(--film-txt);
+             overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; min-height:2.5em; }
+.foto:hover .foto__img { box-shadow:0 0 0 2px var(--film-txt-2); }
+/* Lapiz graso: circulo alrededor del fotograma actual, X con cifra en los que tienen pendientes. */
+.foto__circ { position:absolute; left:-7px; top:9px; width:calc(var(--foto-w) + 14px); height:calc(var(--foto-h) + 14px);
+              overflow:visible; pointer-events:none; display:none; transform:rotate(-1.5deg); }
+.foto__circ rect { x:1.5px; y:1.5px; width:calc(100% - 3px); height:calc(100% - 3px); rx:14px;
+                   fill:none; stroke:var(--lapiz); stroke-width:3; stroke-linecap:round; }
+.foto[aria-pressed="true"] .foto__circ { display:block; }
+.foto--nueva .foto__circ rect { stroke-dasharray:1; animation:traza var(--dur-lg) var(--ease-out); }
+@keyframes traza { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+.foto__x { position:absolute; top:calc(16px + var(--foto-h) - 22px); right:5px; display:none; align-items:center; gap:2px; padding:1px 5px 1px 3px;
+           background:var(--papel); color:var(--lapiz-txt); border-radius:3px; font-size:var(--fs-xxs); font-weight:700;
+           box-shadow:0 1px 2px rgba(0,0,0,.25); }
+.foto__x .ico { width:11px; height:11px; stroke-width:3; stroke:var(--lapiz); }
+.foto--falta .foto__x { display:inline-flex; }
+/* Hoja desplegada: la tira cubre el cuerpo y los fotogramas se reparten en filas por variable. */
+.tira--hoja { position:absolute; left:0; right:0; top:var(--top-tira,52px); bottom:0; overflow:auto;
+              animation:despliega var(--dur-lg) var(--ease-out); }
+@keyframes despliega { from { opacity:0; transform:translateY(-6px); } }
+.tira--hoja .film { flex-direction:column; gap:22px; overflow:visible; }
+.tira--hoja .grupo__fs { flex-wrap:wrap; gap:18px 16px; }
+.tira--hoja { --foto-w:150px; --foto-h:210px; }
+.tira--hoja::before, .tira--hoja::after { display:none; }
+
+/* ---------- cuerpo ---------- */
+.cuerpo { flex:1; min-height:0; display:grid; grid-template-columns:288px 1fr; }
+.esc { background:var(--papel); border-right:1px solid var(--mesa-linea); overflow-y:auto; }
+.esc__sec { padding:14px 16px 16px; border-bottom:1px solid var(--mesa-linea); }
+.esc__cab { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.esc__t { margin:0; font-size:var(--fs-sm); font-weight:700; flex:1; }
+.lnk { border:0; background:none; padding:2px 0; font-size:var(--fs-xs); color:var(--tinta-2); text-decoration:underline;
+       text-underline-offset:3px; text-decoration-color:var(--mesa-linea); }
+.lnk:hover { color:var(--tinta); text-decoration-color:currentColor; }
+.var + .var { margin-top:12px; }
+.var__lb { display:flex; align-items:center; gap:6px; font-size:var(--fs-xs); color:var(--tinta-2); margin-bottom:4px; }
+.var__tono { width:8px; height:8px; border-radius:50%; }
+.var select, .fecha input { width:100%; height:32px; padding:0 8px; font:inherit; font-size:var(--fs-sm); color:var(--tinta);
+  border:1px solid var(--mesa-linea); border-radius:6px; background:var(--papel); }
+.var select:focus-visible, .fecha input:focus-visible { outline:0; border-color:var(--tinta); box-shadow:0 0 0 1px var(--tinta); }
+.pend__n { font-size:var(--fs-xs); font-weight:700; color:var(--lapiz-txt); }
+.pend__l { list-style:none; margin:0; padding:0; }
+.pend__l li + li { margin-top:4px; }
+.pend__i { display:flex; align-items:flex-start; gap:8px; width:100%; padding:6px 8px; border:0; border-radius:6px; text-align:left;
+           background:var(--lapiz-bg); color:#7a1a13; font-size:var(--fs-xs); line-height:1.35; }
+.pend__i:hover { background:#fbd5d0; }
+.pend__i .ico { margin-top:1px; stroke:var(--lapiz); stroke-width:3; width:12px; height:12px; }
+.pend__i code { font-family:var(--mono); font-size:var(--fs-xxs); }
+.pend__ok { display:flex; align-items:center; gap:6px; font-size:var(--fs-xs); color:var(--tinta-2); }
+.fecha + .fecha { margin-top:10px; }
+.fecha label { display:block; font-size:var(--fs-xs); color:var(--tinta-2); margin-bottom:4px; }
+.fecha input { font-family:var(--mono); font-size:var(--fs-xs); }
+.fecha--editada input { border-color:var(--tinta); }
+.bit { list-style:none; margin:0; padding:0; font-family:var(--mono); font-size:var(--fs-xxs); color:var(--tinta-2); }
+.bit li + li { margin-top:3px; }
+.bit li:first-child { color:var(--tinta); }
+.bit time { color:var(--tinta-3); margin-right:6px; }
+
+/* ---------- lupa ---------- */
+.lupa { display:flex; flex-direction:column; min-width:0; min-height:0; }
+.lupa__cab { flex:none; display:flex; align-items:center; gap:10px; padding:8px 16px; flex-wrap:wrap; }
+.lupa__cod { font-family:var(--mono); font-size:var(--fs-xxs); color:var(--codigo); background:var(--film); padding:3px 6px; border-radius:3px; }
+.lupa__desc { font-size:var(--fs-sm); color:var(--tinta-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lupa__desc b { color:var(--tinta); font-weight:600; }
+.lupa__cab .esp { flex:1; }
+.seg { display:inline-flex; padding:2px; border:1px solid var(--mesa-linea); border-radius:7px; background:var(--papel); }
+.seg button { height:26px; padding:0 10px; border:0; border-radius:5px; background:none; font-size:var(--fs-xs); font-weight:600; color:var(--tinta-2); }
+.seg button[aria-pressed="true"] { background:var(--tinta); color:#fff; }
+.zoom { display:inline-flex; align-items:center; gap:2px; }
+.zoom button { width:28px; height:28px; border:1px solid var(--mesa-linea); border-radius:6px; background:var(--papel); display:inline-flex; align-items:center; justify-content:center; }
+.zoom button:disabled { opacity:.4; }
+.zoom output { min-width:42px; text-align:center; font-family:var(--mono); font-size:var(--fs-xxs); color:var(--tinta-2); }
+.mesa { flex:1; min-height:0; overflow:auto; padding:6px 16px 32px; }
+.hoja { position:relative; margin:0 auto; background:#fff; box-shadow:0 1px 2px rgba(29,33,38,.12), 0 10px 30px rgba(29,33,38,.14); }
+.hoja iframe { position:absolute; top:0; left:0; border:0; transform-origin:0 0; display:block; }
+.muestra-lb { font-size:var(--fs-xxs); color:var(--tinta-3); text-align:center; margin:10px 0 0; }
+
+/* ---------- movimiento ---------- */
+.btn, .seg button, .zoom button, .pend__i, .lnk { transition:background-color var(--dur-xs) ease, color var(--dur-xs) ease, transform var(--dur-xs) var(--ease-out); }
+.btn:active:not([aria-disabled="true"]), .seg button:active, .zoom button:active:not(:disabled) { transform:scale(0.97); }
+.foto:active .foto__img { transform:scale(0.98); }
+.pend__i:active { transform:scale(0.985); }
+
+@media (max-width:900px) {
+  body { overflow-x:hidden; overflow-y:auto; height:auto; }
+  .cuerpo { grid-template-columns:minmax(0,1fr); }
+  .lupa { order:1; } .esc { order:2; border-right:0; border-top:1px solid var(--mesa-linea); }
+  .mesa { overflow-x:auto; overflow-y:visible; padding:6px 12px 24px; }
+  .lupa__desc { white-space:normal; flex:1 1 100%; order:-1; }
+  .barra__lb, .combo__id { display:none; }
+  .combo { flex:1 1 100%; order:5; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .foto--nueva .foto__circ rect { animation:none; }
+  .tira--hoja { animation:funde var(--dur-lg) var(--ease-out); }
+  @keyframes funde { from { opacity:0; } }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5"/></symbol>
+  <symbol id="i-mas" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-menos" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+  <symbol id="i-bajar" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></symbol>
+  <symbol id="i-enlace" viewBox="0 0 16 16"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.8 2.8 0 014 4l-1 1M9 11.5l-1 1a2.8 2.8 0 01-4-4l1-1"/></symbol>
+  <symbol id="i-envia" viewBox="0 0 16 16"><path d="M5 11l6-6M6 5h5v5"/></symbol>
+</svg>
+
+<header class="barra" id="barra">
+  <h1 class="barra__t">Preview</h1>
+  <div class="combo">
+    <label class="sr" for="buscar">Template</label>
+    <input id="buscar" type="text" value="BCP - Incremento de l&iacute;nea TC (maqueta)" autocomplete="off" spellcheck="false"
+           title="Buscar template o id (tecla /)" aria-keyshortcuts="/">
+    <span class="combo__id">11104969</span>
+  </div>
+  <span class="barra__esp"></span>
+  <div class="barra__grupo" role="group" aria-labelledby="lbDesc">
+    <span class="barra__lb" id="lbDesc">Descargar</span>
+    <button type="button" class="btn" id="bHtml" title="El HTML tal como se ve">.html</button>
+    <button type="button" class="btn" id="bPng" title="Dos archivos: escritorio 700 px y m&oacute;vil 375 px">PNG</button>
+    <button type="button" class="btn" id="bPdf" title="Dos p&aacute;ginas: escritorio y m&oacute;vil">PDF</button>
+  </div>
+  <button type="button" class="btn" id="bEnlace"><svg class="ico"><use href="#i-enlace"/></svg>Copiar enlace</button>
+  <button type="button" class="btn btn--tinta" id="bWf" aria-disabled="true" title="El env&iacute;o a Workfront est&aacute; pausado">Enviar a Workfront<svg class="ico"><use href="#i-envia"/></svg></button>
+</header>
+
+<section class="tira" id="tira" aria-labelledby="tiraT">
+  <div class="tira__cab">
+    <h2 class="tira__t" id="tiraT">Variantes</h2>
+    <span class="tira__res" id="tiraRes"></span>
+    <span class="esp"></span>
+    <button type="button" class="btn" id="bHoja" aria-expanded="false" aria-keyshortcuts="H">Desplegar hoja <span class="btn__k">H</span></button>
+  </div>
+  <div class="film" id="film"></div>
+</section>
+
+<div class="cuerpo">
+  <aside class="esc" aria-label="Escenario">
+    <section class="esc__sec">
+      <div class="esc__cab"><h2 class="esc__t">Escenario</h2><button type="button" class="lnk" id="bDef">Por defecto</button></div>
+      <div id="vars"></div>
+    </section>
+    <section class="esc__sec" aria-labelledby="pendT">
+      <div class="esc__cab"><h2 class="esc__t" id="pendT">Pendientes</h2><span class="pend__n" id="pendN"></span></div>
+      <div id="pend"></div>
+    </section>
+    <section class="esc__sec" id="secFechas" aria-labelledby="fechasT">
+      <div class="esc__cab"><h2 class="esc__t" id="fechasT">Fechas de muestra</h2><button type="button" class="lnk" id="bFechasReset" hidden>Fechas originales</button></div>
+      <div id="fechas"></div>
+    </section>
+    <section class="esc__sec" aria-labelledby="bitT">
+      <div class="esc__cab"><h2 class="esc__t" id="bitT">Bit&aacute;cora</h2></div>
+      <ol class="bit" id="bit"></ol>
+    </section>
+  </aside>
+  <main class="lupa">
+    <div class="lupa__cab">
+      <span class="lupa__cod" id="lupaCod"></span>
+      <span class="lupa__desc" id="lupaDesc"></span>
+      <span class="esp"></span>
+      <button type="button" class="btn btn--sm" id="bMuestra">Ver campos</button>
+      <div class="seg" role="group" aria-label="Dispositivo">
+        <button type="button" id="bDesk" aria-pressed="true" title="Escritorio (tecla D)" aria-keyshortcuts="D">Escritorio</button>
+        <button type="button" id="bMov" aria-pressed="false" title="M&oacute;vil (tecla M)" aria-keyshortcuts="M">M&oacute;vil</button>
+      </div>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" id="zMenos" aria-label="Alejar"><svg class="ico"><use href="#i-menos"/></svg></button>
+        <output id="zVal">100%</output>
+        <button type="button" id="zMas" aria-label="Acercar"><svg class="ico"><use href="#i-mas"/></svg></button>
+      </div>
+    </div>
+    <div class="mesa" id="mesa">
+      <div class="hoja" id="hoja"><iframe id="vista" sandbox="allow-same-origin" referrerpolicy="no-referrer" title="Vista del correo"></iframe></div>
+      <p class="muestra-lb" id="muestraLb">Datos de muestra ficticios</p>
+    </div>
+  </main>
+</div>
+<span class="sr" id="anuncio" role="status"></span>
+
+<!-- Correo de prueba con la sintaxis de Campaign. Datos ficticios. -->
+<script type="text/plain" id="fuente"><!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<style>
+body{margin:0;background:#eef1f5;font-family:Arial,Helvetica,sans-serif;color:#222}
+.w{width:600px;margin:0 auto;background:#fff}
+.hd{background:#0b2a6f;color:#fff;padding:20px 32px;font-size:18px;font-weight:bold;letter-spacing:.04em}
+.tx{padding:28px 32px 8px;font-size:15px;line-height:1.55}
+h1{margin:0 0 12px;font-size:24px;line-height:1.25;color:#0b2a6f}
+.tj{width:260px;height:160px;border-radius:12px;margin:18px auto;color:#fff;padding:18px;font-size:13px;box-sizing:border-box}
+.cta{display:inline-block;background:#ff7a00;color:#fff;text-decoration:none;font-weight:bold;padding:13px 28px;border-radius:24px}
+.bx{background:#f3f6fb;border-radius:8px;padding:14px 18px;margin:0 0 16px;font-size:14px}
+.ft{padding:20px 32px 28px;font-size:11px;color:#777;line-height:1.5}
+@media (max-width:480px){.w{width:100%!important}.tx,.ft{padding-left:20px!important;padding-right:20px!important}}
+</style></head>
+<body>
+<table class="w" cellpadding="0" cellspacing="0" role="presentation">
+<tr><td class="hd">BANCO DEMO</td></tr>
+<tr><td class="tx">
+<p><%@ include view='bcpSaludoEnaltaPrivVIEW6' %>,</p>
+<%/* [acr-dc-start-group(g1)] */%><% if (targetData.CODPRODUCTO == 'TCRPLL') { %><%/* [acr-dc-start-cond(LATAM Platinum,1,a)] */%>
+<h1>Tu <%= targetData.PLASTICO %> ahora tiene m&aacute;s l&iacute;nea</h1>
+<div class="tj" style="background:linear-gradient(135deg,#4a4f57,#9aa0a8)">LATAM Platinum<br><br><br>**** 4821</div>
+<%/* [acr-dc-end-cond] */%><% } else if (targetData.CODPRODUCTO == 'TCRORL') { %><%/* [acr-dc-start-cond(LATAM Oro,2,a)] */%>
+<h1>Tu <%= targetData.PLASTICO %> sube de nivel</h1>
+<div class="tj" style="background:linear-gradient(135deg,#9a6b12,#e0b44c)">LATAM Oro<br><br><br>**** 4821</div>
+<%/* [acr-dc-end-cond] */%><% } else if (targetData.CODPRODUCTO == 'AMXPLL') { %><%/* [acr-dc-start-cond(Amex Platinum,3,a)] */%>
+<h1>Tu <%= targetData.PLASTICO %> te da m&aacute;s</h1>
+<div class="tj" style="background:linear-gradient(135deg,#6b7c8f,#c7d0da)">Amex Platinum<br><br><br>**** 1007</div>
+<%/* [acr-dc-end-cond] */%><% } else { %><%/* [acr-dc-start-cond(Resto de productos,4,a)] */%>
+<h1>Tu tarjeta <%= targetData.PLASTICO %> tiene m&aacute;s l&iacute;nea</h1>
+<%/* [acr-dc-end-cond] */%><% } %><%/* [acr-dc-end-group] */%>
+<p>Te ofrecemos un incremento de l&iacute;nea de hasta <b>S/ <%= targetData.MTOOFERTASOL %></b>, con una TCEA referencial de <%= targetData.TCEA %>%.</p>
+</td></tr>
+<tr><td style="padding:0 32px">
+<%/* [acr-dc-start-group(g2)] */%><% if (targetData.CODSUBSEGMENTO == 'M1N') { %><%/* [acr-dc-start-cond(Consumo,1,a)] */%>
+<div class="bx"><b>Solo para ti:</b> acepta hoy y paga tu primera cuota en 60 d&iacute;as.</div>
+<%/* [acr-dc-end-cond] */%><% } else if (targetData.CODSUBSEGMENTO == 'X1N') { %><%/* [acr-dc-start-cond(BEX,2,a)] */%>
+<div class="bx"><b>Banca Exclusiva:</b> tu funcionario <%= targetData.NBRFUNCIONARIO %> te acompa&ntilde;a en el proceso.</div>
+<%/* [acr-dc-end-cond] */%><% } %><%/* [acr-dc-end-group] */%>
+</td></tr>
+<tr><td class="tx" style="padding-top:8px">
+<%/* [acr-dc-start-group(g3)] */%><% if (targetData.FLGCASHBACK != '') { %><%/* [acr-dc-start-cond(Con cashback,1,a)] */%>
+<p>Adem&aacute;s, recibe <b>5% de cashback</b> en tus compras del primer mes.</p>
+<%/* [acr-dc-end-cond] */%><% } else { %><%/* [acr-dc-start-cond(Sin cashback,2,a)] */%>
+<p>Usa tu nueva l&iacute;nea en compras, viajes y pagos del d&iacute;a a d&iacute;a.</p>
+<%/* [acr-dc-end-cond] */%><% } %><%/* [acr-dc-end-group] */%>
+<p style="text-align:center;margin:26px 0"><a class="cta" href="https://example.com/oferta?c=<%= targetData.CODCAMPANA %>">Acepta tu nueva l&iacute;nea</a></p>
+<p>V&aacute;lido del <%= targetData.FECINICIOVIGENCIACAMPANIA %> al <%= targetData.FECFINVIGENCIACAMPANIA %>.</p>
+</td></tr>
+<tr><td class="ft">Correo de prueba con datos ficticios. Si tienes dudas, escr&iacute;benos a <%= targetData.DESCORREOFUNCIONARIO %>.</td></tr>
+</table>
+</body></html></script>
+
+<script>
+(function () {
+  var perfil = {}, VAL_OTRO = "otro";
+  // BEGIN-PODA
+  // Traza que manda el servidor: nombre del fragmento -> como quedo. Se llena
+  // una vez al cargar la pagina (cargarFrgVia) y no cambia al podar.
+  var FRG_VIA = {};
+  function frgMotivo(n) {
+    var v = FRG_VIA[n];
+    if (v === "peso") return "se cort\u00f3 por tama\u00f1o";
+    if (v === "ciclo") return "ciclo o profundidad";
+    if (v === "sinhtml") return "existe pero no trae html";
+    if (v === "errorconsulta") return "fall\u00f3 la consulta de fragmentos; revisar log del servidor";
+    if (v === "errorcarga") return "fall\u00f3 la carga por id; revisar log del servidor";
+    if (v === "mapavacio") return "la consulta no devolvi\u00f3 fragmentos";
+    if (v === "mapalimite") return "no encontrado en las primeras 1000 filas; consulta incompleta";
+    if (v === "noexiste") return "no encontrado en el mapa de fragmentos";
+    return "sin diagn\u00f3stico del servidor";
+  }
+  // Los delimitadores se arman por partes para que el servidor no los tome por codigo.
+  var O = "<" + "%", C = "%" + ">";
+  function rx(s, f) { return new RegExp(s, f || "g"); }
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  // Quita tildes y pasa a minusculas, para buscar sin acentos.
+  function norm(s) {
+    s = String(s).toLowerCase();
+    var de = "\u00e1\u00e0\u00e4\u00e2\u00e9\u00e8\u00eb\u00ea\u00ed\u00ec\u00ef\u00ee\u00f3\u00f2\u00f6\u00f4\u00fa\u00f9\u00fc\u00fb\u00f1\u00e7";
+    var a  = "aaaaeeeeiiiioooouuuunc";
+    var o = "", i, j;
+    for (i = 0; i < s.length; i++) { j = de.indexOf(s.charAt(i)); o += j < 0 ? s.charAt(i) : a.charAt(j); }
+    return o;
+  }
+
+  // Mini evaluador SEGURO: solo targetData.X / recipient.X, textos, ==, !=, ===, !==, &&, ||, !, ( )
+  // No usa eval ni Function: el contenido guardado no puede ejecutar codigo aqui.
+  function tokenizar(s) {
+    s = String(s).replace(/^\s+|\s+$/g, "");
+    var re = /\s*(?:('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)|(\d+(?:\.\d+)?)|(===|!==|==|!=|&&|\|\||!|\(|\)))\s*/g;
+    var out = [], pos = 0, m;
+    while (pos < s.length) {
+      re.lastIndex = pos;
+      m = re.exec(s);
+      if (!m || m.index !== pos) throw new Error("token");
+      if (m[1] !== undefined) out.push({ t: "str", v: m[1].slice(1, -1).replace(/\\(.)/g, "$1") });
+      else if (m[2] !== undefined) out.push({ t: "id", v: m[2] });
+      else if (m[3] !== undefined) out.push({ t: "num", v: m[3] });
+      else out.push({ t: "op", v: m[4] });
+      pos = re.lastIndex;
+    }
+    return out;
+  }
+
+  // Solo estas tres variables se omiten al elegir variantes del preview.
+  // Sus valores de muestra se siguen sustituyendo en el HTML por separado.
+  function esContactoMuestra(nombre) {
+    return nombre === "DESCORREOEENNPRINCIPAL" || nombre === "DESNBREENNPRINCIPAL" ||
+      nombre === "DESCELULAREENNPRINCIPAL";
+  }
+
+  function evaluar(cond, perfil) {
+    var tk = tokenizar(cond), i = 0;
+    var OMITIDO = {};
+    // Quitar un predicado no equivale a true: en un OR activaria Consumo.
+    // Se conserva el otro operando en AND/OR y se propaga la omision en NOT/comparaciones.
+    function combinar(a, b, esAnd) {
+      if (a === OMITIDO) return b;
+      if (b === OMITIDO) return a;
+      return esAnd ? a && b : a || b;
+    }
+    function esOp(v) { var t = tk[i]; return !!t && t.t === "op" && t.v === v; }
+    function pOr() { var a = pAnd(); while (esOp("||")) { i++; var b = pAnd(); a = combinar(a, b, false); } return a; }
+    function pAnd() { var a = pNot(); while (esOp("&&")) { i++; var b = pNot(); a = combinar(a, b, true); } return a; }
+    function pNot() {
+      if (esOp("!")) { i++; var a = pNot(); return a === OMITIDO ? OMITIDO : !a; }
+      return pCmp();
+    }
+    function pCmp() {
+      var a = pPrim(), t = tk[i];
+      if (t && t.t === "op" && (t.v === "==" || t.v === "===" || t.v === "!=" || t.v === "!==")) {
+        i++;
+        var b = pPrim();
+        if (a === OMITIDO || b === OMITIDO) return OMITIDO;
+        var eq = String(a) === String(b);
+        return (t.v === "==" || t.v === "===") ? eq : !eq;
+      }
+      return a;
+    }
+    function pPrim() {
+      var t = tk[i++];
+      if (!t) throw new Error("fin");
+      if (t.t === "op" && t.v === "(") {
+        var v = pOr();
+        if (!esOp(")")) throw new Error("paren");
+        i++;
+        return v;
+      }
+      if (t.t === "str" || t.t === "num") return t.v;
+      if (t.t === "id") {
+        var m = /^(?:targetData|recipient)\.(\w+)$/.exec(t.v);
+        if (m) {
+          if (esContactoMuestra(m[1])) return OMITIDO;
+          return perfil[m[1]] === undefined ? "" : perfil[m[1]];
+        }
+        if (t.v === "true") return true;
+        if (t.v === "false") return false;
+        if (t.v === "null") return "";
+      }
+      throw new Error("no soportado");
+    }
+    var r = pOr();
+    if (i !== tk.length) throw new Error("sobra");
+    // Si solo habia condiciones de contacto, mostrar la primera variante.
+    return r === OMITIDO || !!r;
+  }
+
+  function reGrupo() {
+    return rx(O + "\\/\\*\\s*\\[acr-dc-start-group\\([^)]*\\)\\]\\s*\\*\\/" + C +
+      "((?:(?!" + O + "\\/\\*\\s*\\[acr-dc-start-group)[\\s\\S])*?)" +
+      O + "\\/\\*\\s*\\[acr-dc-end-group\\]\\s*\\*\\/" + C);
+  }
+  function reRama() {
+    return rx(O + "\\s*\\}?\\s*(?:else\\s+)?(?:if\\s*\\(([\\s\\S]*?)\\)\\s*)?\\{\\s*" + C +
+      "\\s*" + O + "\\/\\*\\s*\\[acr-dc-start-cond\\(([\\s\\S]*?)\\)\\]\\s*\\*\\/" + C +
+      "([\\s\\S]*?)" + O + "\\/\\*\\s*\\[acr-dc-end-cond\\]\\s*\\*\\/" + C);
+  }
+
+  // Fechas de muestra relativas a hoy (dd/mm/aaaa): una fecha fija acaba vencida y parece un error del correo.
+  function fechaMuestra(dias) {
+    var d = new Date();
+    d.setDate(d.getDate() + dias);
+    var dd = d.getDate(), mm = d.getMonth() + 1;
+    return (dd < 10 ? "0" : "") + dd + "/" + (mm < 10 ? "0" : "") + mm + "/" + d.getFullYear();
+  }
+  // Valores de muestra: los tokens de personalizacion se reemplazan por estos valores.
+  // Lo que no este aqui se ve como [CAMPO]. Son datos FICTICIOS.
+  var diccionario = {
+    "firstName": "Ana",
+    "bcpSaludoEnaltaPrivVIEW6": "Estimada Ana",
+    "bcpSoloPrimerNombre": "Ana",
+    "DESNBREENNPRINCIPAL": "MARIA LOPEZ DEMO",
+    "NBRFUNCIONARIO": "PEDRO GOMEZ DEMO",
+    "DESCORREOEENNPRINCIPAL": "ejecutivo@example.com",
+    "DESCORREOFUNCIONARIO": "ejecutivo@example.com",
+    "DESCELULAREENNPRINCIPAL": "987654321",
+    "NUMTELEFONOFUNCIONARIO": "987654321",
+    "TCEA": "45.8",
+    "FECINICIOVIGENCIACAMPANIA": fechaMuestra(0),
+    "FECFINVIGENCIACAMPANIA": fechaMuestra(30),
+    "FECFINVIGENCIACAMPANIAL": fechaMuestra(30),
+    "MTOOFERTASOL": "3,000"
+  };
+
+  // Diccionario traduccion UI
+  var DICCIONARIO_UI = {
+      "CODSUBSEGMENTO": "SEGMENTO",
+      "CODPRODUCTO": "PRODUCTO",
+      "M1N": "CONSUMO",
+      "X1N": "BEX",
+      "TCRCLL": "LATAM Clasica",
+      "TCRORL": "LATAM Oro",
+      "TCRPLL": "LATAM Platinum",
+      "TCRPL1": "LATAM Signature",
+      "TCRBA7": "LATAM Sapphire",
+      "AMXCLL": "Amex Clasica",
+      "AMXGLL": "Amex Oro",
+      "AMXPLL": "Amex Platinum",
+      "AMXGRE": "Amex Black",
+      "TCRLY5": "Qore Clasica",
+      "TCRLY4": "Qore Platinum",
+      "TCRLY3": "Qore Oro",
+      "TCRLY2": "Qore Signature",
+      "TCRLY1": "Qore Infinite"
+  };
+
+  // Funcion auxiliar para obtener la etiqueta visible
+  function traducirUI(clave) {
+      return DICCIONARIO_UI[clave] || clave;
+  }
+  // Fechas de muestra: el operador puede cambiarlas desde "Editar fechas" (van en la URL como d.CAMPO).
+  var ETIQ_FECHA = {
+    "FECINICIOVIGENCIACAMPANIA": "Inicio de vigencia de la campa\u00f1a",
+    "FECFINVIGENCIACAMPANIA": "Fin de vigencia de la campa\u00f1a",
+    "FECFINVIGENCIACAMPANIAL": "Fin de vigencia de la campa\u00f1a (variante L)"
+  };
+  var editados = {};
+  function esFecha(k) { return /^FEC|FECHA/i.test(k); }
+  function hayEditados() { for (var k in editados) if (editados.hasOwnProperty(k)) return true; return false; }
+  // Marcas de texto para ubicar cada fecha en la vista; nunca llegan a ultimo.html.
+  var MK_A = "\u27E6", MK_B = "\u27E7", MK_FIN = "\u27E6/\u27E7";
+  var MF_A = "\u27EA", MF_B = "\u27EB";
+  // Valores que dependen del escenario: PLASTICO es la tarjeta del PRODUCTO elegido en el panel.
+  function valorDinamico(k) {
+    if (k === "PLASTICO") {
+      var c = perfil.CODPRODUCTO;
+      if (c && c !== VAL_OTRO) return traducirUI(c);
+    }
+    return undefined;
+  }
+  function valorMuestra(k) {
+    var din = valorDinamico(k);
+    var v = editados.hasOwnProperty(k) ? editados[k] : (din !== undefined ? din : diccionario[k]);
+    return (v !== undefined && v !== null && v !== "") ? esc(v) : null;
+  }
+
+  // opciones: { todas:bool, muestra:bool, marcar:bool, senalar:bool }
+  // senalar (solo la vista): envuelve cada campo sin valor en MF_A..MF_B y deja un comentario
+  // pv-sin-rama donde un grupo no tuvo rama; senalarFaltas los convierte en marcas ambar.
+  // devuelve { html, elegidas:[{grupo,label}], noEval, noEvalTextos:[], includes:[], sinValor:[], fechas:[] }
+  function podar(src, perfil, opciones) {
+    opciones = opciones || {};
+    var todas = !!opciones.todas;
+    var conMuestra = opciones.muestra !== false;
+    var elegidas = [], noEval = 0, noEvalTextos = [], includes = [], sinValor = [], fechas = [];
+    var nGrupo = 0, guard = 0, out = src, prev;
+    function anota(lista, v) { if (lista.indexOf(v) < 0) lista.push(v); }
+    function token(key, x) {
+      if (!key || !esFecha(key)) return x;
+      anota(fechas, key);
+      return opciones.marcar ? MK_A + key + MK_B + x + MK_FIN : x;
+    }
+    // En modo [CAMPOS] todos van sin valor a proposito: solo se senalan con datos de muestra.
+    function falta(x) { return (opciones.senalar && conMuestra) ? MF_A + x + MF_B : x; }
+    do {
+      prev = out;
+      out = out.replace(reGrupo(), function (m, body) {
+        var ramas = [], r = reRama(), mm;
+        while ((mm = r.exec(body))) {
+          var partes = mm[2].split(",");
+          ramas.push({
+            cond: mm[1],
+            label: partes.slice(0, Math.max(1, partes.length - 2)).join(","),
+            html: mm[3]
+          });
+        }
+        if (!ramas.length) return m;
+        nGrupo++;
+        var k, pick = -1;
+        if (todas) {
+          var acc = "";
+          for (k = 0; k < ramas.length; k++) {
+            acc += "<div style='font:11px Arial,sans-serif;background:#eef2ff;color:#4338ca;padding:2px 8px;'>RAMA: " +
+                   esc(ramas[k].label) + "</div>" + ramas[k].html;
+          }
+          elegidas.push({ grupo: nGrupo, label: "todas", todas: true });
+          return acc;
+        }
+        for (k = 0; k < ramas.length; k++) {
+          if (ramas[k].cond === undefined) { pick = k; break; }
+          try {
+            if (evaluar(ramas[k].cond, perfil)) { pick = k; break; }
+          } catch (e) { noEval++; anota(noEvalTextos, String(ramas[k].cond).replace(/\s+/g, " ")); }
+        }
+        if (pick < 0) {
+          elegidas.push({ grupo: nGrupo, label: "", sin: true });
+          return opciones.senalar ? "<!--pv-sin-rama " + nGrupo + "-->" : "";
+        }
+        elegidas.push({ grupo: nGrupo, label: ramas[pick].label });
+        return ramas[pick].html;
+      });
+    } while (out !== prev && ++guard < 20);
+
+    // Limpieza del codigo de Campaign que queda
+    out = out.replace(rx(O + "\\/\\*[\\s\\S]*?\\*\\/" + C), "");
+    out = out.replace(rx(O + "@\\s*include\\s+view\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
+      function (m, n) {
+        if (valorMuestra(n) === null) anota(sinValor, n);
+        var x = conMuestra ? valorMuestra(n) : null;
+        return token(n, x !== null ? x : falta("[" + esc(n) + "]"));
+      });
+    out = out.replace(rx(O + "@\\s*include\\s+fragment\\s*=\\s*['\"]([^'\"]+)['\"]\\s*" + C),
+      function (m, n) {
+        var motivo = frgMotivo(n);
+        anota(includes, n + " - " + motivo);
+        return "<div style='font:11px Arial,sans-serif;background:#fef3c7;color:#92400e;padding:6px 8px;text-align:center;'>[fragmento " +
+               esc(n) + " no resuelto: " + esc(motivo) + "]</div>";
+      });
+    out = out.replace(rx(O + "=([\\s\\S]*?)" + C),
+      function (m, e) {
+        var t = /(?:targetData|recipient)\.(\w+)/.exec(e) || /(\b[a-zA-Z_]\w*\b)/.exec(e);
+        var key = t ? t[1] : null;
+        if (key && valorMuestra(key) === null) anota(sinValor, key);
+        var x = (conMuestra && key) ? valorMuestra(key) : null;
+        return token(key, x !== null ? x : falta("[" + (key || "...") + "]"));
+      });
+    out = out.replace(rx(O + "[\\s\\S]*?" + C), "");
+    return { html: out, elegidas: elegidas, noEval: noEval, noEvalTextos: noEvalTextos,
+             includes: includes, sinValor: sinValor, fechas: fechas };
+  }
+
+  // Variables usadas en las condiciones y los valores con que se comparan
+  function detectar(src) {
+    var conds = [], m;
+    var r = rx(O + "\\s*\\}?\\s*(?:else\\s+)?if\\s*\\(([\\s\\S]*?)\\)\\s*\\{\\s*" + C +
+               "\\s*" + O + "\\/\\*\\s*\\[acr-dc-start-cond");
+    while ((m = r.exec(src))) conds.push(m[1]);
+    var vars = {}, orden = [], omitidas = [], k, mm;
+    for (k = 0; k < conds.length; k++) {
+      var rv = /(?:targetData|recipient)\.(\w+)/g;
+      while ((mm = rv.exec(conds[k]))) {
+        if (esContactoMuestra(mm[1])) {
+          if (omitidas.indexOf(mm[1]) < 0) omitidas.push(mm[1]);
+          continue;
+        }
+        if (!vars[mm[1]]) { vars[mm[1]] = { lits: [] }; orden.push(mm[1]); }
+      }
+      var rl = /(?:targetData|recipient)\.(\w+)\s*(?:===?|!==?)\s*(?:'([^']*)'|"([^"]*)")/g;
+      while ((mm = rl.exec(conds[k]))) {
+        if (esContactoMuestra(mm[1])) continue;
+        var lit = mm[2] !== undefined ? mm[2] : mm[3];
+        if (vars[mm[1]].lits.indexOf(lit) < 0) vars[mm[1]].lits.push(lit);
+      }
+    }
+    // tipo: "valores" si se compara con textos no vacios; "presencia" si solo con ''
+    for (k = 0; k < orden.length; k++) {
+      var lits = vars[orden[k]].lits, reales = [];
+      for (var j = 0; j < lits.length; j++) if (lits[j] !== "") reales.push(lits[j]);
+      vars[orden[k]].reales = reales;
+      vars[orden[k]].tipo = reales.length ? "valores" : "presencia";
+    }
+    return { orden: orden, vars: vars, n: conds.length, omitidas: omitidas };
+  }
+
+  // Agrupa banderas de presencia que se parecen (prefijo largo, o prefijo + sufijo comunes),
+  // p.ej. DESCORREOEENNPRINCIPAL / DESNBREENNPRINCIPAL / DESCELULAREENNPRINCIPAL.
+  // Devuelve [{ prefijo, sufijo, etiqueta, nombres:[] }]; las sueltas van en grupos de uno.
+  function comunIni(a, b) {
+    var n = Math.min(a.length, b.length), i = 0;
+    while (i < n && a.charAt(i) === b.charAt(i)) i++;
+    return a.slice(0, i);
+  }
+  function comunFin(a, b) {
+    var n = Math.min(a.length, b.length), i = 0;
+    while (i < n && a.charAt(a.length - 1 - i) === b.charAt(b.length - 1 - i)) i++;
+    return i ? a.slice(a.length - i) : "";
+  }
+  function parecidos(a, b) {
+    var p = comunIni(a, b).length, sf = comunFin(a, b).length;
+    return p >= 4 || (p >= 3 && sf >= 6);
+  }
+  // URL a la que navega el buscador al elegir un template.
+  function urlTemplate(id) { return "?frgId=" + encodeURIComponent(id); }
+
+  function agrupar(nombres) {
+    var usados = {}, salida = [], i, j;
+    for (i = 0; i < nombres.length; i++) {
+      if (usados[nombres[i]]) continue;
+      usados[nombres[i]] = 1;
+      var grupo = [nombres[i]];
+      for (j = i + 1; j < nombres.length; j++) {
+        if (usados[nombres[j]]) continue;
+        if (parecidos(nombres[i], nombres[j])) { usados[nombres[j]] = 1; grupo.push(nombres[j]); }
+      }
+      var pre = grupo[0], suf = grupo[0];
+      for (j = 1; j < grupo.length; j++) { pre = comunIni(pre, grupo[j]); suf = comunFin(suf, grupo[j]); }
+      if (grupo.length < 2) { pre = ""; suf = ""; }
+      salida.push({
+        prefijo: pre,
+        sufijo: suf,
+        nombres: grupo,
+        etiqueta: grupo.length < 2 ? grupo[0]
+          : (pre + "\u2026" + (suf.length >= 4 ? suf : ""))
+      });
+    }
+    return salida;
+  }
+  // END-PODA
+  DICCIONARIO_UI.FLGCASHBACK = "CASHBACK";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var original = $("fuente").textContent;
+  var det = detectar(original);
+  var vista = { w: 700, z: 100, muestra: true, hoja: false };
+  var atajos = true;
+  var ultimo = null, foco = -1, fotos = [], altoVista = 0;
+
+  // ---------- modelo ----------
+  function valoresDe(v) {
+    var d = det.vars[v];
+    return d.tipo === "valores" ? d.reales.concat([VAL_OTRO]) : ["S", ""];
+  }
+  function etiqVal(v, val) {
+    if (val === VAL_OTRO) return "(otro valor)";
+    if (det.vars[v].tipo === "presencia") return val ? "con valor" : "(vac\u00EDo)";
+    return traducirUI(val);
+  }
+  function porDefecto() { for (var i = 0; i < det.orden.length; i++) perfil[det.orden[i]] = valoresDe(det.orden[i])[0]; }
+  // Tono estable por valor: el mismo en su fotograma, su control y la cabecera de la lupa.
+  function tono(v, val) {
+    var s = v + "=" + val, h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return "hsl(" + h + ",48%,52%)";
+  }
+  function plural(n, uno, varios) { return n + " " + (n === 1 ? uno : varios); }
+  // Poda con un perfil prestado: valorDinamico (PLASTICO) lee la variable perfil.
+  function podarCon(p, op) {
+    var bak = perfil; perfil = p;
+    try { return podar(original, p, op); } finally { perfil = bak; }
+  }
+  function copia(o) { var c = {}; for (var k in o) if (o.hasOwnProperty(k)) c[k] = o[k]; return c; }
+  function faltas(r) {
+    var n = r.noEval + r.includes.length + (vista.muestra ? r.sinValor.length : 0);
+    for (var i = 0; i < r.elegidas.length; i++) if (r.elegidas[i].sin) n++;
+    return n;
+  }
+
+  // ---------- tira ----------
+  function armarTira() {
+    var film = $("film"), n = 0;
+    film.textContent = "";
+    fotos = [];
+    for (var i = 0; i < det.orden.length; i++) {
+      var v = det.orden[i], vals = valoresDe(v);
+      var g = document.createElement("div"); g.className = "grupo";
+      var t = document.createElement("div"); t.className = "grupo__t"; t.textContent = traducirUI(v);
+      var fs = document.createElement("div"); fs.className = "grupo__fs"; fs.setAttribute("role", "group"); fs.setAttribute("aria-label", traducirUI(v));
+      g.appendChild(t); g.appendChild(fs);
+      for (var j = 0; j < vals.length; j++) {
+        n++;
+        var f = { v: v, val: vals[j], cod: (n < 10 ? "0" : "") + n + "A", html: null, faltas: 0 };
+        f.el = crearFoto(f, fotos.length);
+        fs.appendChild(f.el);
+        fotos.push(f);
+      }
+      film.appendChild(g);
+    }
+  }
+  function crearFoto(f, idx) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "foto";
+    b.innerHTML = '<span class="foto__cod"><span class="foto__tono"></span></span>' +
+      '<span class="foto__img"><iframe tabindex="-1" aria-hidden="true" sandbox="allow-same-origin" width="600"></iframe></span>' +
+      '<span class="foto__val"></span>' +
+      '<span class="foto__x"><svg class="ico"><use href="#i-x"/></svg><span></span></span>' +
+      '<svg class="foto__circ" aria-hidden="true"><rect pathLength="1"/></svg>';
+    b.querySelector(".foto__cod").appendChild(document.createTextNode(f.cod));
+    b.querySelector(".foto__tono").style.background = tono(f.v, f.val);
+    b.querySelector(".foto__val").textContent = etiqVal(f.v, f.val);
+    var ifr = b.querySelector("iframe");
+    ifr.onload = function () { encajar(ifr, b.querySelector(".foto__img")); };
+    b.onclick = function () { aplicar(idx, false); };
+    return b;
+  }
+  // La miniatura muestra el correo entero: se escala para caber en el fotograma.
+  function encajar(ifr, caja) {
+    var d = ifr.contentDocument;
+    if (!d || !d.documentElement) return;
+    ifr.style.height = "10px";
+    var h = d.documentElement.scrollHeight, w = Math.max(600, d.documentElement.scrollWidth);
+    ifr.style.height = h + "px"; ifr.style.width = w + "px";
+    var cw = caja.clientWidth, ch = caja.clientHeight, s = Math.min(cw / w, ch / h);
+    ifr.style.transform = "scale(" + s + ")";
+    ifr.style.left = Math.round((cw - w * s) / 2) + "px";
+  }
+  function pintarTira() {
+    var conFalta = 0;
+    for (var i = 0; i < fotos.length; i++) {
+      var f = fotos[i], p = copia(perfil);
+      p[f.v] = f.val;
+      var r = podarCon(p, { muestra: vista.muestra });
+      f.faltas = faltas(r);
+      if (f.faltas) conFalta++;
+      if (r.html !== f.html) { f.html = r.html; f.el.querySelector("iframe").srcdoc = r.html; }
+      var actual = perfil[f.v] === f.val;
+      f.el.setAttribute("aria-pressed", actual ? "true" : "false");
+      f.el.className = "foto" + (f.faltas ? " foto--falta" : "") + (actual && i === foco && f.el.getAttribute("data-nueva") ? " foto--nueva" : "");
+      f.el.removeAttribute("data-nueva");
+      f.el.querySelector(".foto__x span").textContent = f.faltas;
+      f.el.setAttribute("aria-label", "Fotograma " + f.cod + ": " + traducirUI(f.v) + " " + etiqVal(f.v, f.val) +
+        (actual ? ", actual" : "") + (f.faltas ? ", " + plural(f.faltas, "pendiente", "pendientes") : ""));
+    }
+    $("tiraRes").innerHTML = "";
+    $("tiraRes").appendChild(document.createTextNode(plural(fotos.length, "fotograma", "fotogramas") + " \u00B7 "));
+    var b = document.createElement("b");
+    b.textContent = conFalta ? plural(conFalta, "con pendientes", "con pendientes") : "ninguno con pendientes";
+    if (!conFalta) b.style.color = "inherit";
+    $("tiraRes").appendChild(b);
+  }
+  function aplicar(idx, desdeTeclado) {
+    var f = fotos[idx];
+    if (!f) return;
+    var cambia = perfil[f.v] !== f.val;
+    foco = idx;
+    perfil[f.v] = f.val;
+    f.el.setAttribute("data-nueva", "1");
+    if (vista.hoja) plegar();
+    pintar();
+    if (desdeTeclado || document.activeElement && document.activeElement.className.indexOf("foto") === 0) f.el.focus();
+    f.el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (cambia) anunciar(traducirUI(f.v) + ": " + etiqVal(f.v, f.val));
+  }
+
+  // ---------- escenario ----------
+  function pintarVars() {
+    var cont = $("vars");
+    cont.textContent = "";
+    for (var i = 0; i < det.orden.length; i++) {
+      (function (v) {
+        var d = document.createElement("div"); d.className = "var";
+        var id = "sel-" + v;
+        var lb = document.createElement("label"); lb.className = "var__lb"; lb.htmlFor = id;
+        var dot = document.createElement("span"); dot.className = "var__tono"; dot.style.background = tono(v, perfil[v]);
+        lb.appendChild(dot); lb.appendChild(document.createTextNode(traducirUI(v)));
+        var s = document.createElement("select"); s.id = id;
+        var vals = valoresDe(v);
+        for (var j = 0; j < vals.length; j++) {
+          var o = document.createElement("option"); o.value = vals[j]; o.textContent = etiqVal(v, vals[j]);
+          if (vals[j] === perfil[v]) o.selected = true;
+          s.appendChild(o);
+        }
+        s.onchange = function () {
+          for (var k = 0; k < fotos.length; k++) if (fotos[k].v === v && fotos[k].val === s.value) { aplicar(k, false); s.focus(); return; }
+        };
+        d.appendChild(lb); d.appendChild(s);
+        cont.appendChild(d);
+      })(det.orden[i]);
+    }
+  }
+  function pintarPendientes(r) {
+    var cont = $("pend"), items = [], i;
+    for (i = 0; i < r.elegidas.length; i++) if (r.elegidas[i].sin)
+      items.push({ t: "Grupo " + r.elegidas[i].grupo + ": ninguna rama cumple con este escenario", sel: '[data-pv-sinrama="' + r.elegidas[i].grupo + '"]' });
+    for (i = 0; i < r.noEvalTextos.length; i++) items.push({ t: "Condici\u00F3n que no se puede evaluar", code: r.noEvalTextos[i] });
+    for (i = 0; i < r.includes.length; i++) items.push({ t: "Fragmento no resuelto", code: r.includes[i] });
+    if (vista.muestra) for (i = 0; i < r.sinValor.length; i++)
+      items.push({ t: "Campo sin valor de muestra", code: r.sinValor[i], sel: '[data-pv-k="' + r.sinValor[i] + '"]' });
+    cont.textContent = "";
+    $("pendN").textContent = items.length ? items.length : "";
+    if (!items.length) {
+      cont.innerHTML = '<p class="pend__ok"><svg class="ico"><use href="#i-ok"/></svg>Todo resuelto en este escenario</p>';
+      return;
+    }
+    var ol = document.createElement("ol"); ol.className = "pend__l";
+    for (i = 0; i < items.length; i++) {
+      (function (it) {
+        var li = document.createElement("li"), b = document.createElement("button");
+        b.type = "button"; b.className = "pend__i";
+        b.innerHTML = '<svg class="ico"><use href="#i-x"/></svg><span></span>';
+        var sp = b.querySelector("span");
+        sp.appendChild(document.createTextNode(it.t));
+        if (it.code) { sp.appendChild(document.createTextNode(" ")); var c = document.createElement("code"); c.textContent = it.code; sp.appendChild(c); }
+        if (it.sel) b.onclick = function () { irA(it.sel); }; else b.disabled = true;
+        li.appendChild(b); ol.appendChild(li);
+      })(items[i]);
+    }
+    cont.appendChild(ol);
+  }
+  // Baja la lupa hasta la marca del pendiente y la hace destellar.
+  function irA(sel) {
+    var d = $("vista").contentDocument, el = d && d.querySelector(sel);
+    if (!el) return;
+    var z = vista.z / 100, top = el.getBoundingClientRect().top * z + $("hoja").offsetTop - 60;
+    $("mesa").scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    el.removeAttribute("data-pv-flash"); void el.offsetWidth; el.setAttribute("data-pv-flash", "");
+  }
+  var ETIQ = { FECINICIOVIGENCIACAMPANIA: "Inicio de vigencia", FECFINVIGENCIACAMPANIA: "Fin de vigencia" };
+  function pintarFechas(lista) {
+    var cont = $("fechas");
+    $("secFechas").hidden = !lista.length;
+    if (cont.getAttribute("data-k") === lista.join(",")) return;
+    cont.setAttribute("data-k", lista.join(","));
+    cont.textContent = "";
+    for (var i = 0; i < lista.length; i++) {
+      (function (k) {
+        var d = document.createElement("div"); d.className = "fecha";
+        var lb = document.createElement("label"); lb.htmlFor = "f-" + k; lb.textContent = ETIQ[k] || k;
+        var inp = document.createElement("input"); inp.id = "f-" + k; inp.value = diccionario[k] || "";
+        inp.setAttribute("inputmode", "numeric"); inp.placeholder = "dd/mm/aaaa";
+        inp.oninput = function () {
+          if (inp.value === (diccionario[k] || "")) delete editados[k]; else editados[k] = inp.value;
+          d.className = "fecha" + (editados.hasOwnProperty(k) ? " fecha--editada" : "");
+          pintar();
+        };
+        d.appendChild(lb); d.appendChild(inp); cont.appendChild(d);
+      })(lista[i]);
+    }
+  }
+
+  // ---------- lupa ----------
+  function marcar(d) {
+    var st = d.createElement("style");
+    st.textContent = "[data-pv-falta]{background:#fde6e3;color:#8c1d15;box-shadow:inset 0 -2px #d6372b;border-radius:2px}" +
+      "[data-pv-k]{outline:2px dashed #d6372b;outline-offset:3px}" +
+      ".pv-nota{display:block;margin:6px 0 14px;padding:7px 10px;font:600 12px/1.35 -apple-system,Segoe UI,sans-serif;color:#8c1d15;background:#fde6e3;border:1px dashed #d6372b;border-radius:4px}" +
+      "[data-pv-flash]{animation:pvf 1.2s cubic-bezier(0.23,1,0.32,1)}" +
+      "@keyframes pvf{0%,40%{box-shadow:0 0 0 6px rgba(214,55,43,.45)}100%{box-shadow:0 0 0 0 rgba(214,55,43,0)}}" +
+      "@media (prefers-reduced-motion:reduce){[data-pv-flash]{animation:none;box-shadow:0 0 0 4px rgba(214,55,43,.45)}}";
+    d.head.appendChild(st);
+    var reQ = /[\u27EA\u27EB]/g, reK = /\u27EA\[(\w+)\]\u27EB/, els = d.getElementsByTagName("*"), i, j;
+    for (i = 0; i < els.length; i++) for (j = 0; j < els[i].attributes.length; j++) {
+      var at = els[i].attributes[j], m = reK.exec(at.value);
+      if (m) els[i].setAttribute("data-pv-k", m[1]);
+      if (at.value.indexOf("\u27EA") >= 0) els[i].setAttribute(at.name, at.value.replace(reQ, ""));
+    }
+    var w = d.createTreeWalker(d.body, 4 | 128, null, false), n, textos = [], coms = [];
+    while ((n = w.nextNode())) {
+      if (n.nodeType === 8) { if (/^pv-sin-rama /.test(n.data)) coms.push(n); }
+      else if (n.data.indexOf("\u27EA") >= 0) textos.push(n);
+    }
+    for (i = 0; i < textos.length; i++) {
+      n = textos[i];
+      var frag = d.createDocumentFragment(), txt = n.data, ult = 0, mm, re = /\u27EA([\s\S]*?)\u27EB/g;
+      while ((mm = re.exec(txt))) {
+        if (mm.index > ult) frag.appendChild(d.createTextNode(txt.slice(ult, mm.index)));
+        var sp = d.createElement("span");
+        sp.setAttribute("data-pv-falta", ""); sp.setAttribute("data-pv-k", mm[1].replace(/^\[|\]$/g, ""));
+        sp.style.outline = "none"; sp.textContent = mm[1]; frag.appendChild(sp);
+        ult = re.lastIndex;
+      }
+      if (ult < txt.length) frag.appendChild(d.createTextNode(txt.slice(ult)));
+      n.parentNode.replaceChild(frag, n);
+    }
+    for (i = 0; i < coms.length; i++) {
+      n = coms[i];
+      var g = n.data.replace(/^pv-sin-rama /, ""), nota = d.createElement("span");
+      nota.className = "pv-nota"; nota.setAttribute("data-pv-sinrama", g);
+      nota.textContent = "Grupo " + g + ": ninguna rama cumple con este escenario";
+      n.parentNode.replaceChild(nota, n);
+    }
+  }
+  function medir() {
+    var ifr = $("vista"), d = ifr.contentDocument;
+    if (!d || !d.documentElement) return;
+    var mesa = $("mesa"), sc = mesa.scrollTop;
+    ifr.style.height = "0px";
+    altoVista = d.documentElement.scrollHeight;
+    var ancho = Math.max(vista.w, d.documentElement.scrollWidth);
+    ifr.style.height = altoVista + "px"; ifr.style.width = ancho + "px";
+    var z = vista.z / 100;
+    ifr.style.transform = "scale(" + z + ")";
+    $("hoja").style.width = Math.round(ancho * z) + "px";
+    $("hoja").style.height = Math.round(altoVista * z) + "px";
+    mesa.scrollTop = sc;
+  }
+  function pintarLupa() {
+    var r = podar(original, perfil, { muestra: vista.muestra, senalar: true });
+    ultimo = podar(original, perfil, { muestra: vista.muestra });
+    var ifr = $("vista");
+    ifr.onload = function () { marcar(ifr.contentDocument); medir(); };
+    ifr.srcdoc = r.html;
+    var partes = [], i;
+    for (i = 0; i < det.orden.length; i++) partes.push("<b>" + esc(traducirUI(det.orden[i])) + "</b> " + esc(etiqVal(det.orden[i], perfil[det.orden[i]])));
+    $("lupaDesc").innerHTML = partes.join(" \u00B7 ");
+    var cod = "";
+    for (i = 0; i < fotos.length; i++) if (perfil[fotos[i].v] === fotos[i].val && (i === foco || !cod)) cod = fotos[i].cod;
+    $("lupaCod").textContent = cod;
+    pintarPendientes(r);
+    pintarFechas(r.fechas);
+    $("bFechasReset").hidden = !hayEditados();
+  }
+
+  function pintar() {
+    pintarLupa();
+    pintarTira();
+    pintarVars();
+    $("bMuestra").textContent = vista.muestra ? "Ver campos" : "Ver datos de muestra";
+    $("muestraLb").textContent = vista.muestra ? "Datos de muestra ficticios" : "Campos sin reemplazar";
+    $("bDesk").setAttribute("aria-pressed", vista.w === 700 ? "true" : "false");
+    $("bMov").setAttribute("aria-pressed", vista.w === 375 ? "true" : "false");
+    $("zVal").textContent = vista.z + "%";
+    $("zMas").disabled = vista.z >= 100; $("zMenos").disabled = vista.z <= 50;
+  }
+
+  // ---------- hoja desplegada ----------
+  function desplegar() {
+    vista.hoja = true;
+    document.documentElement.style.setProperty("--top-tira", $("barra").offsetHeight + "px");
+    $("tira").className = "tira tira--hoja";
+    $("bHoja").setAttribute("aria-expanded", "true");
+    $("bHoja").firstChild.nodeValue = "Plegar hoja ";
+    for (var i = 0; i < fotos.length; i++) encajar(fotos[i].el.querySelector("iframe"), fotos[i].el.querySelector(".foto__img"));
+  }
+  function plegar() {
+    vista.hoja = false;
+    $("tira").className = "tira";
+    $("bHoja").setAttribute("aria-expanded", "false");
+    $("bHoja").firstChild.nodeValue = "Desplegar hoja ";
+    for (var i = 0; i < fotos.length; i++) encajar(fotos[i].el.querySelector("iframe"), fotos[i].el.querySelector(".foto__img"));
+  }
+
+  // ---------- bitacora y anuncios ----------
+  var ultAnuncio = "";
+  function anunciar(t) { if (t !== ultAnuncio) { ultAnuncio = t; $("anuncio").textContent = t; } }
+  function bitacora(t) {
+    var d = new Date(), m = d.getMinutes(), li = document.createElement("li"), tm = document.createElement("time");
+    tm.textContent = d.getHours() + ":" + (m < 10 ? "0" : "") + m;
+    li.appendChild(tm); li.appendChild(document.createTextNode(t));
+    var ol = $("bit"); ol.insertBefore(li, ol.firstChild);
+    while (ol.children.length > 5) ol.removeChild(ol.lastChild);
+    anunciar(t);
+  }
+
+  // ---------- acciones ----------
+  $("bHtml").onclick = function () {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([ultimo.html], { type: "text/html" }));
+    a.download = "bcp-incremento-de-linea-tc.html"; a.click();
+    bitacora("Correo .html descargado");
+  };
+  $("bPng").onclick = function () { bitacora("PNG: en la versi\u00F3n real baja escritorio y m\u00F3vil"); };
+  $("bPdf").onclick = function () { bitacora("PDF: en la versi\u00F3n real arma dos p\u00E1ginas"); };
+  $("bEnlace").onclick = function () {
+    try { navigator.clipboard.writeText(location.href).then(function () { bitacora("Enlace copiado"); }, function () { bitacora("No se pudo copiar el enlace"); }); }
+    catch (e) { bitacora("No se pudo copiar el enlace"); }
+  };
+  $("bWf").onclick = function () { bitacora("El env\u00EDo a Workfront est\u00E1 pausado"); };
+  $("bHoja").onclick = function () { if (vista.hoja) plegar(); else desplegar(); };
+  $("bDef").onclick = function () { porDefecto(); foco = -1; pintar(); bitacora("Escenario por defecto"); };
+  $("bMuestra").onclick = function () { vista.muestra = !vista.muestra; pintar(); };
+  $("bDesk").onclick = function () { vista.w = 700; pintar(); };
+  $("bMov").onclick = function () { vista.w = 375; pintar(); };
+  $("zMas").onclick = function () { vista.z = Math.min(100, vista.z + 10); pintar(); };
+  $("zMenos").onclick = function () { vista.z = Math.max(50, vista.z - 10); pintar(); };
+  $("bFechasReset").onclick = function () {
+    editados = {}; $("fechas").removeAttribute("data-k"); pintar(); bitacora("Fechas originales");
+  };
+  document.onkeydown = function (ev) {
+    var t = ev.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+    if (ev.key === "Escape" && vista.hoja) { plegar(); $("bHoja").focus(); return; }
+    if (!atajos || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+      ev.preventDefault();
+      var base = foco;
+      if (base < 0) for (var i = 0; i < fotos.length; i++) if (perfil[fotos[i].v] === fotos[i].val) { base = i; break; }
+      aplicar((base + (ev.key === "ArrowRight" ? 1 : -1) + fotos.length) % fotos.length, true);
+    }
+    else if (ev.key === "h" || ev.key === "H") { if (vista.hoja) plegar(); else desplegar(); }
+    else if (ev.key === "/") { ev.preventDefault(); $("buscar").focus(); $("buscar").select(); }
+    else if (ev.key === "d" || ev.key === "D") { vista.w = 700; pintar(); }
+    else if (ev.key === "m" || ev.key === "M") { vista.w = 375; pintar(); }
+  };
+  window.onresize = medir;
+
+  porDefecto();
+  armarTira();
+  pintar();
+  bitacora("Template cargado");
+})();
+</script>
+</body>
+</html>
