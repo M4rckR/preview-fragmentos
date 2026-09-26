@@ -377,9 +377,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .ayuda--off dl { opacity:.5; }
 
 /* ---------- fechas de muestra (dentro de la ficha) ---------- */
-.fechas { margin-top:10px; padding-top:6px; border-top:1px dashed var(--linea); font-size:var(--fs-sm); }
-.fechas:not([hidden]) { animation:entra-fechas var(--dur-md) var(--ease-out); }
-.fechas[hidden] { display:none; }
+.margen__pega--der { margin-left:0; margin-right:auto; }
+.datos { background:var(--panel-bg); border-radius:4px; padding:12px 16px 14px; font-size:var(--fs-sm);
+         max-height:calc(100vh - var(--barra-h) - 60px); overflow:auto;
+         box-shadow:0 1px 1px rgba(31,36,48,.08), 0 6px 18px rgba(31,36,48,.10); }
+.datos__cab { display:flex; align-items:center; gap:8px; }
+.datos__cab h2 { margin:0; flex:1; font-size:var(--fs-xxs); font-weight:700; letter-spacing:.12em; color:var(--vars-label); }
+.datos__x { display:none; }
+/* Con los dos margenes a la vista, el vinculo de la ficha sobra: el panel siempre esta. */
+@media (min-width:1401px) { #editarFechas { display:none; } }
 .fechas__intro { margin:4px 0 6px; font-size:var(--fs-xs); color:var(--text-muted); }
 .fechas__f { padding:8px 6px; border-radius:4px; }
 .fechas__f--foco { background:var(--foco-fecha-bg); }
@@ -472,7 +478,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 .revisar__i:active:not(:disabled), .ficha__res:active { transform:scale(0.985); }
 /* Cambio de texto en un boton (Copiar enlace, Workfront, PNG, PDF): el texto nuevo se enfoca desde un leve blur. */
 .cambia { animation:resuelve var(--dur-md) var(--ease-out); }
-@keyframes entra-fechas { from { opacity:0; transform:translateY(-4px); } }
+@keyframes entra-datos { from { opacity:0; transform:translateX(12px); } }
 @keyframes entra-lista { from { opacity:0; transform:scale(0.97) translateY(-2px); } }
 @keyframes entra-modal { from { opacity:0; transform:scale(0.96); } }
 @keyframes funde { from { opacity:0; } }
@@ -480,10 +486,19 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* Resultado de una accion: solo en avisoWf, no en cada repintado. */
 .accion--nuevo { animation:funde var(--dur-lg) var(--ease-out); }
 
+/* Bajo 1400 px no entran los dos margenes: los datos de muestra se abren desde el borde derecho
+   con el vinculo "Datos de muestra" de la ficha. */
+@media (max-width:1400px) {
+  .margen--der { position:fixed; top:var(--datos-top,44px); right:0; bottom:0; z-index:40; width:min(360px,100vw); display:none; }
+  .margen--der.datos--abierto { display:block; animation:entra-datos var(--dur-lg) var(--ease-out); }
+  .margen--der .margen__pega { position:static; width:100%; height:100%; }
+  .datos { height:100%; max-height:none; border-radius:0; box-shadow:-8px 0 24px rgba(31,36,48,.18); }
+  .datos__x { display:inline-flex; }
+}
 /* Bajo ~1080 px el margen no alcanza: la ficha va sobre el correo. */
 @media (max-width:1080px) {
   .mesa { grid-template-columns:minmax(0,1fr); row-gap:16px; justify-items:center; }
-  .margen { width:100%; max-width:760px; }
+  .margen--izq { width:100%; max-width:760px; }
   .margen__pega { position:static; width:100%; margin:0; }
   .ficha { max-height:none; }
   /* Plegada en una linea: el correo se ve de entrada; la grilla se abre a pedido. */
@@ -498,7 +513,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
 /* Movimiento reducido: solo fundidos. Va al final para ganarle a los media queries de ancho.
    La respuesta al clic (scale en su lugar) se mantiene: no desplaza nada. */
 @media (prefers-reduced-motion:reduce) {
-  .fechas:not([hidden]), .revisar__l:not([hidden]), .modal--abierto .modal__caja { animation:funde var(--dur-sm) var(--ease-out); }
+  .margen--der.datos--abierto, .revisar__l:not([hidden]), .modal--abierto .modal__caja { animation:funde var(--dur-sm) var(--ease-out); }
 }
 </style>
 </head>
@@ -547,7 +562,7 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   <div class="mesa" id="lienzo">
     <% if (fragmentHtml != "") { %>
     <!-- Ficha del destinatario: el escenario, en el margen izquierdo, junto al correo. -->
-    <aside class="margen" aria-label="Escenario">
+    <aside class="margen margen--izq" aria-label="Escenario">
       <div class="margen__pega">
         <div class="ficha" id="ficha">
           <h2 class="sr">Escenario</h2>
@@ -560,14 +575,6 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
             <button type="button" class="lnk" id="modoMuestra">Ver campos</button>
             <button type="button" class="lnk" id="editarFechas" aria-controls="fechas" aria-expanded="false">Datos de muestra</button>
           </div>
-          <section class="fechas" id="fechas" aria-labelledby="fechasT" hidden>
-            <h2 class="sr" id="fechasT">Datos de muestra</h2>
-            <p class="fechas__intro">Todo lo que el correo imprime, salvo el producto y el segmento (se eligen arriba). Cada dato lleva un
-              n&uacute;mero; en el correo, el mismo n&uacute;mero marca d&oacute;nde aparece. Los cambios se usan en .html, PNG, PDF y Workfront
-              y siguen siendo ficticios.</p>
-            <div id="fechasL"></div>
-            <div class="fechas__pie"><button type="button" class="lnk" id="fechasReset">Datos originales</button></div>
-          </section>
           </div>
         </div>
       </div>
@@ -598,6 +605,22 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
                 data-id="<%= selAttr %>" data-html="<%= datosHtml %>" data-frg="<%= datosFrg %>"></iframe>
       </div>
     </main>
+    <!-- Datos de muestra: margen derecho, en el orden en que aparecen en el template. -->
+    <aside class="margen margen--der" id="datosAside" aria-labelledby="fechasT">
+      <div class="margen__pega margen__pega--der">
+        <section class="datos fechas" id="fechas">
+          <div class="datos__cab">
+            <h2 id="fechasT">DATOS DE MUESTRA</h2>
+            <button type="button" class="modal__x datos__x" id="datosX" aria-label="Cerrar datos de muestra">&#x2715;</button>
+          </div>
+          <p class="fechas__intro">Todo lo que el correo imprime, salvo el producto y el segmento (se eligen en la ficha), en el orden en que
+            aparece. Pasa el mouse o escribe en un dato para ver d&oacute;nde est&aacute; en el correo. Los cambios se usan en .html, PNG,
+            PDF y Workfront y siguen siendo ficticios.</p>
+          <div id="fechasL"></div>
+          <div class="fechas__pie"><button type="button" class="lnk" id="fechasReset">Datos originales</button></div>
+        </section>
+      </div>
+    </aside>
     <% } else { %>
     <main class="centro centro--vacio"><div class="espera" id="espera">Elige un template.</div></main>
     <% } %>
@@ -1553,23 +1576,18 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
   }
 
   // ---------------- Editor de fechas de muestra ----------------
-  var fechasAbierto = false, fechaFoco = "", fechasLista = [], filasFecha = {}, tFechas = null;
+  // El panel de datos de muestra siempre esta (a la derecha o como cajon): la vista siempre lleva las marcas.
+  var fechasAbierto = !!$("fechas"), fechaFoco = "", fechasLista = [], filasFecha = {}, tFechas = null;
   function texto(s) { return document.createTextNode(s); }
   function quitaMarcas(s) { return String(s).replace(/\u27E6\w+\u27E7/g, "").split(MK_FIN).join(""); }
   function docVista() { try { return elVista.contentDocument; } catch (e) { return null; } }
   function pintarFechas(lista) {
     if (elEditarFechas) {
-      elEditarFechas.disabled = !lista.length && !fechasAbierto;
+      elEditarFechas.disabled = !lista.length;
       elEditarFechas.title = lista.length ? "Cambiar los datos de muestra de este correo" : "Este correo no imprime datos en esta vista";
     }
     if (!fechasAbierto) return;
     // Orden fijo: primero las conocidas (inicio, fin...), luego el resto como aparezcan.
-    var orden = [];
-    for (var ko in ETIQ_FECHA) orden.push(ko);
-    lista = lista.slice().sort(function (a, b) {
-      var ia = orden.indexOf(a), ib = orden.indexOf(b);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
     if (lista.join("|") === fechasLista.join("|") && elFechasL.firstChild) { estadoFechas(); return; }
     fechasLista = lista.slice(); filasFecha = {};
     elFechasL.textContent = "";
@@ -1611,8 +1629,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
           clearTimeout(tFechas);
           tFechas = setTimeout(pintar, 250);
         };
+        inp.setAttribute("data-k", k);
         inp.onfocus = function () { enfocarFecha(k, true); };
+        inp.onblur = function () { enfocarFecha("", false); };
         f.onmouseenter = function () { enfocarFecha(k, false); };
+        // Al salir con el mouse vuelve a resaltar el dato que se esta editando (o ninguno).
+        f.onmouseleave = function () {
+          var a = document.activeElement;
+          enfocarFecha(a && a.getAttribute && a.getAttribute("data-k") || "", false);
+        };
         var donde = document.createElement("div");
         donde.className = "fechas__donde";
         donde.textContent = "Buscando en el correo\u2026";
@@ -1772,10 +1797,12 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
       n.parentNode.replaceChild(frag, n);
     }
     var st = d.createElement("style");
-    st.textContent = "mark[data-fecha]{background:#fde68a;color:inherit;outline:2px dashed #d97706;outline-offset:1px;border-radius:2px;padding:0 1px}" +
-      "mark[data-fecha]::after{content:attr(data-n);display:inline-block;margin-left:3px;padding:0 4px;border-radius:7px;" +
-      "background:#d97706;color:#fff;font:700 9px/14px Arial,sans-serif;vertical-align:super}" +
-      "mark[data-fecha][data-activo]{outline:3px solid #4f46e5;background:#fcd34d}";
+    // Sin marca visible: el panel siempre esta y el correo se ve limpio. Solo el dato que se
+    // senala o edita en el panel se resalta, con su numero.
+    st.textContent = "mark[data-fecha]{background:transparent;color:inherit;padding:0}" +
+      "mark[data-fecha][data-activo]{background:#fcd34d;outline:3px solid #1f3a93;outline-offset:1px;border-radius:2px}" +
+      "mark[data-fecha][data-activo]::after{content:attr(data-n);display:inline-block;margin-left:3px;padding:0 4px;border-radius:7px;" +
+      "background:#1f3a93;color:#fff;font:700 9px/14px Arial,sans-serif;vertical-align:super}";
     (d.head || raiz).appendChild(st);
     for (var k in filasFecha) {
       if (!filasFecha.hasOwnProperty(k)) continue;
@@ -1787,23 +1814,29 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     }
     if (fechaFoco) enfocarFecha(fechaFoco, false);
   }
-  function abrirFechas() {
-    fechasAbierto = true;
-    fechasLista = [];
-    elFechasL.textContent = "";
-    elFechas.hidden = false;
+  // Cajon de datos de muestra (bajo 1400 px). En pantallas anchas el panel queda fijo a la derecha.
+  var mqDatos = window.matchMedia ? window.matchMedia("(max-width:1400px)") : null;
+  function datosCajon() { return !!(mqDatos && mqDatos.matches); }
+  function abrirDatos() {
+    var a = $("datosAside");
+    a.style.setProperty("--datos-top", Math.round(document.querySelector(".barra").getBoundingClientRect().bottom) + "px");
+    a.classList.add("datos--abierto");
     elEditarFechas.setAttribute("aria-expanded", "true");
-    pintar();
     if (fechasLista.length && filasFecha[fechasLista[0]]) filasFecha[fechasLista[0]].input.focus();
   }
-  function cerrarFechas() {
-    clearTimeout(tFechas);
-    fechasAbierto = false;
-    fechaFoco = "";
-    elFechas.hidden = true;
+  function cerrarDatos(foco) {
+    var a = $("datosAside");
+    if (!a || !a.classList.contains("datos--abierto")) return;
+    a.classList.remove("datos--abierto");
     elEditarFechas.setAttribute("aria-expanded", "false");
-    pintar();
-    elEditarFechas.focus();
+    if (foco) elEditarFechas.focus();
+  }
+  // Orden de aparicion en el template: posicion de la primera marca de cada dato en la vista.
+  function ordenAparicion(lista, html) {
+    return lista.slice().sort(function (a, b) {
+      var ia = html.indexOf(MK_A + a + MK_B), ib = html.indexOf(MK_A + b + MK_B);
+      return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+    });
   }
   // Datos de muestra editables: todo lo que el correo imprime, salvo PLASTICO (sale del producto
   // elegido) y las variables que ya se eligen en la ficha (producto, segmento...).
@@ -1922,10 +1955,11 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     if (!elVista.style.height) elVista.style.height = ALTO_VISTA + "px";
     // La vista lleva marcas: campos sin valor, grupos sin rama y, con el editor abierto, fechas.
     // ultimo.html (descargas y Workfront) va siempre sin marcas.
-    elVista.srcdoc = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
+    var hv = podar(original, perfil, { muestra: vista.muestra, marcar: fechasAbierto, senalar: true }).html;
+    elVista.srcdoc = hv;
     pintarFicha();
     pintarRevisar();
-    pintarFechas(editables(r.campos));
+    pintarFechas(ordenAparicion(editables(r.campos), hv));
     aplicarVista();
     escribirURL();
   }
@@ -1960,14 +1994,15 @@ body { margin:0; font:var(--fs-md)/1.45 var(--font); background:var(--canvas-bg)
     $("movil").onclick = function () { vista.w = 375; pintar(); };
     $("zmas").onclick = function () { vista.z = Math.min(100, vista.z + 10); pintar(); };
     $("zmenos").onclick = function () { vista.z = Math.max(50, vista.z - 10); pintar(); };
-    elEditarFechas.onclick = function () { if (fechasAbierto) cerrarFechas(); else abrirFechas(); };
+    elEditarFechas.onclick = function () { if ($("datosAside").classList.contains("datos--abierto")) cerrarDatos(false); else abrirDatos(); };
+    $("datosX").onclick = function () { cerrarDatos(true); };
     $("fechasReset").onclick = function () {
       editados = {};
       for (var k in filasFecha) if (filasFecha.hasOwnProperty(k)) filasFecha[k].input.value = diccionario[k] || "";
       clearTimeout(tFechas);
       pintar();
     };
-    elFechas.onkeydown = function (ev) { if (ev.key === "Escape") { ev.preventDefault(); cerrarFechas(); } };
+    elFechas.onkeydown = function (ev) { if (ev.key === "Escape" && datosCajon()) { ev.preventDefault(); cerrarDatos(true); } };
     $("modoMuestra").onclick = function () {
       vista.muestra = !vista.muestra;
       guarda("muestra", vista.muestra ? "1" : "0");
